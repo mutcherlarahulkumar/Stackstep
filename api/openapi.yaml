@@ -1,7 +1,7 @@
 openapi: 3.1.0
 info:
   title: Stackstep API
-  version: 0.3.0
+  version: 0.4.0
   description: |
     Workspace core (feature 01). All timestamps are RFC 3339 UTC. All errors use the
     `Error` envelope; clients switch on `error.code`, never on `message`.
@@ -266,6 +266,146 @@ paths:
         "404": { $ref: "#/components/responses/Error" }
         "409": { $ref: "#/components/responses/Error" }
         "422": { $ref: "#/components/responses/Error" }
+  /v1/me/wallet:
+    get:
+      tags: [student]
+      operationId: myWallet
+      summary: Points, credits and AI helper limits
+      responses:
+        "200": { description: Wallet, content: { application/json: { schema: { $ref: "#/components/schemas/Wallet" } } } }
+        "409": { $ref: "#/components/responses/Error" }
+  /v1/me/ai/conversations:
+    get:
+      tags: [student]
+      operationId: listAIConversations
+      summary: The student's AI helper conversations, newest first
+      responses:
+        "200":
+          description: Conversations
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [items]
+                properties:
+                  items: { type: array, items: { $ref: "#/components/schemas/AIConversation" } }
+    post:
+      tags: [student]
+      operationId: askAI
+      summary: Ask the AI helper a fully explained question (costs one credit)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [client_id, goal, tried]
+              properties:
+                client_id: { type: string, format: uuid, description: Retrying with the same id never charges twice }
+                task_id: { type: [string, "null"], format: uuid, description: One of the student's tasks (not a quiz) }
+                goal: { type: string, minLength: 20, maxLength: 1000, description: What they're trying to do }
+                tried: { type: string, minLength: 30, maxLength: 2000, description: What they've tried so far }
+                error: { type: string, maxLength: 2000, description: What happens instead }
+                code: { type: string, maxLength: 4000 }
+      responses:
+        "201": { description: Answered, content: { application/json: { schema: { $ref: "#/components/schemas/AIConversationDetail" } } } }
+        "402": { $ref: "#/components/responses/Error" }
+        "422": { $ref: "#/components/responses/Error" }
+        "429": { $ref: "#/components/responses/Error" }
+        "503": { $ref: "#/components/responses/Error" }
+  /v1/me/ai/conversations/{id}:
+    get:
+      tags: [student]
+      operationId: getAIConversation
+      summary: One AI helper conversation
+      parameters: [{ $ref: "#/components/parameters/Id" }]
+      responses:
+        "200": { description: Conversation, content: { application/json: { schema: { $ref: "#/components/schemas/AIConversationDetail" } } } }
+        "404": { $ref: "#/components/responses/Error" }
+  /v1/me/ai/conversations/{id}/messages:
+    post:
+      tags: [student]
+      operationId: followUpAI
+      summary: Follow up, after trying the last answer (costs one credit)
+      parameters: [{ $ref: "#/components/parameters/Id" }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [client_id, tried_since, body]
+              properties:
+                client_id: { type: string, format: uuid }
+                tried_since: { type: string, minLength: 20, maxLength: 2000 }
+                body: { type: string, minLength: 10, maxLength: 1500 }
+      responses:
+        "201": { description: Answered, content: { application/json: { schema: { $ref: "#/components/schemas/AIConversationDetail" } } } }
+        "402": { $ref: "#/components/responses/Error" }
+        "404": { $ref: "#/components/responses/Error" }
+        "422": { $ref: "#/components/responses/Error" }
+        "429": { $ref: "#/components/responses/Error" }
+        "503": { $ref: "#/components/responses/Error" }
+  /v1/admin/enrollments/{id}/wallet:
+    get:
+      tags: [admin]
+      operationId: staffWallet
+      summary: A student's points and credits
+      parameters: [{ $ref: "#/components/parameters/Id" }]
+      responses:
+        "200": { description: Wallet, content: { application/json: { schema: { $ref: "#/components/schemas/Wallet" } } } }
+        "404": { $ref: "#/components/responses/Error" }
+  /v1/admin/enrollments/{id}/credits:
+    post:
+      tags: [admin]
+      operationId: grantCredits
+      summary: Give or take credits, with a reason the student sees
+      parameters: [{ $ref: "#/components/parameters/Id" }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [delta, note]
+              properties:
+                delta: { type: integer, minimum: -100, maximum: 100, not: { const: 0 } }
+                note: { type: string, minLength: 1, maxLength: 300 }
+      responses:
+        "200": { description: Updated wallet, content: { application/json: { schema: { $ref: "#/components/schemas/Wallet" } } } }
+        "404": { $ref: "#/components/responses/Error" }
+        "422": { $ref: "#/components/responses/Error" }
+  /v1/admin/enrollments/{id}/ai/conversations:
+    get:
+      tags: [admin]
+      operationId: staffAIConversations
+      summary: A student's AI helper conversations (read only)
+      parameters: [{ $ref: "#/components/parameters/Id" }]
+      responses:
+        "200":
+          description: Conversations
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [items]
+                properties:
+                  items: { type: array, items: { $ref: "#/components/schemas/AIConversation" } }
+        "404": { $ref: "#/components/responses/Error" }
+  /v1/admin/enrollments/{id}/ai/conversations/{conversation}:
+    get:
+      tags: [admin]
+      operationId: staffAIConversation
+      summary: One AI helper conversation (read only)
+      parameters:
+        - { $ref: "#/components/parameters/Id" }
+        - { name: conversation, in: path, required: true, schema: { type: string, format: uuid } }
+      responses:
+        "200": { description: Conversation, content: { application/json: { schema: { $ref: "#/components/schemas/AIConversationDetail" } } } }
+        "404": { $ref: "#/components/responses/Error" }
   /v1/admin/students:
     get:
       tags: [admin]
@@ -758,7 +898,8 @@ components:
     ErrorCode:
       type: string
       enum: [bad_request, payload_too_large, unauthenticated, forbidden, not_found, validation_failed, invalid_transition,
-        version_conflict, enrollment_not_active, no_active_enrollment, rate_limited, invalid_state, invalid_code, not_configured, internal]
+        version_conflict, enrollment_not_active, no_active_enrollment, rate_limited, invalid_state, invalid_code, not_configured,
+        insufficient_credits, ai_unavailable, internal]
     Error:
       type: object
       required: [error]
@@ -897,6 +1038,87 @@ components:
         passed: { type: boolean }
         correct: { type: array, items: { type: boolean } }
         attempts_left: { type: integer, minimum: 0, maximum: 2 }
+    CreditReason: { type: string, enum: [welcome, task_done, admin_grant, admin_revoke, ai_question, ai_refund] }
+    AIRole: { type: string, enum: [student, assistant] }
+    AIMessageStatus: { type: string, enum: [pending, answered, failed, ok] }
+    AIMessageKind: { type: string, enum: [question, follow_up, answer] }
+    CreditEntry:
+      type: object
+      required: [id, delta, reason, note, task_id, created_at]
+      properties:
+        id: { type: integer }
+        delta: { type: integer }
+        reason: { $ref: "#/components/schemas/CreditReason" }
+        note: { type: string }
+        task_id: { type: [string, "null"], format: uuid }
+        created_at: { type: string, format: date-time }
+    Wallet:
+      type: object
+      required: [points, credits, ai]
+      properties:
+        points:
+          type: object
+          required: [total, finished, on_time]
+          properties:
+            total: { type: integer, minimum: 0 }
+            finished: { type: integer, minimum: 0 }
+            on_time: { type: integer, minimum: 0 }
+        credits:
+          type: object
+          required: [balance, history]
+          properties:
+            balance: { type: integer }
+            history: { type: array, items: { $ref: "#/components/schemas/CreditEntry" }, description: Newest 50 }
+        ai:
+          type: object
+          required: [enabled, daily_limit, used_today, cost_per_question, next_question_at]
+          properties:
+            enabled: { type: boolean }
+            daily_limit: { type: integer, minimum: 1 }
+            used_today: { type: integer, minimum: 0 }
+            cost_per_question: { type: integer, minimum: 1 }
+            next_question_at: { type: [string, "null"], format: date-time, description: Set while the new-question cooldown runs }
+    AIConversation:
+      type: object
+      required: [id, task_id, title, follow_ups, created_at, updated_at]
+      properties:
+        id: { type: string, format: uuid }
+        task_id: { type: [string, "null"], format: uuid }
+        title: { type: string }
+        follow_ups: { type: integer, minimum: 0 }
+        created_at: { type: string, format: date-time }
+        updated_at: { type: string, format: date-time }
+    AIMessage:
+      type: object
+      required: [id, role, status, kind, body, parts, created_at]
+      properties:
+        id: { type: string, format: uuid }
+        role: { $ref: "#/components/schemas/AIRole" }
+        status: { $ref: "#/components/schemas/AIMessageStatus" }
+        kind: { $ref: "#/components/schemas/AIMessageKind" }
+        body: { type: string, description: Markdown }
+        parts:
+          oneOf:
+            - type: "null"
+            - type: object
+              required: [goal, tried, error, code, tried_since, question]
+              properties:
+                goal: { type: string }
+                tried: { type: string }
+                error: { type: string }
+                code: { type: string }
+                tried_since: { type: string }
+                question: { type: string }
+        created_at: { type: string, format: date-time }
+    AIConversationDetail:
+      type: object
+      required: [conversation, messages, follow_ups_left, follow_up_at, wallet]
+      properties:
+        conversation: { $ref: "#/components/schemas/AIConversation" }
+        messages: { type: array, items: { $ref: "#/components/schemas/AIMessage" } }
+        follow_ups_left: { type: integer, minimum: 0 }
+        follow_up_at: { type: [string, "null"], format: date-time, description: When the next follow-up opens }
+        wallet: { $ref: "#/components/schemas/Wallet" }
     Message:
       type: object
       required: [id, enrollment_id, persona_id, author, body, task_id, client_id, sent_at]

@@ -6,6 +6,7 @@ import 'package:shadcn_ui/shadcn_ui.dart';
 import 'package:stackstep/api/models.dart';
 import 'package:stackstep/core/providers.dart';
 import 'package:stackstep/core/theme.dart';
+import 'package:stackstep/features/ai/ai_screen.dart';
 import 'package:stackstep/features/chat/chat_screen.dart';
 import 'package:stackstep/features/chat/inbox_controller.dart';
 import 'package:stackstep/shared/errors.dart';
@@ -206,7 +207,45 @@ String _preview(Message? m, {required bool staff}) {
   return '${mine ? 'You: ' : ''}${previewLine(m.body)}';
 }
 
-/// The student's chats: one conversation per persona (team lead, managers, content lead…).
+/// The pinned AI helper row at the top of the student's chats.
+class _AIRow extends StatelessWidget {
+  const _AIRow();
+
+  @override
+  Widget build(BuildContext context) {
+    final t = ShadTheme.of(context);
+    return Semantics(
+      button: true,
+      label: 'AI helper. Stuck after trying? Ask for a hint.',
+      excludeSemantics: true,
+      child: InkWell(
+        key: const Key('thread-ai'),
+        onTap: () => Navigator.of(context).push(MaterialPageRoute<void>(builder: (_) => const AIHelperScreen())),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: Space.lg, vertical: Space.md),
+          child: Row(
+            children: [
+              const AIAvatar(size: 46),
+              const SizedBox(width: Space.md),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text('AI helper', style: t.textTheme.large.copyWith(fontSize: 16)),
+                    Text('Stuck after trying? Ask for a hint', style: t.textTheme.muted),
+                  ],
+                ),
+              ),
+              const Icon(LucideIcons.chevronRight, size: 18),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// The student's chats: the AI helper, then one conversation per persona.
 class StudentInboxScreen extends ConsumerWidget {
   const StudentInboxScreen({super.key, this.onOpenTask});
 
@@ -225,6 +264,8 @@ class StudentInboxScreen extends ConsumerWidget {
               onRefresh: () => ref.read(studentInboxProvider.notifier).refresh(),
               child: ListView(
                 children: const [
+                  _AIRow(),
+                  Divider(height: 1),
                   SizedBox(
                     height: 420,
                     child: EmptyState(
@@ -240,10 +281,11 @@ class StudentInboxScreen extends ConsumerWidget {
               onRefresh: () => ref.read(studentInboxProvider.notifier).refresh(),
               child: ListView.separated(
                 key: const Key('student-inbox'),
-                itemCount: value.length,
+                itemCount: value.length + 1,
                 separatorBuilder: (_, _) => const Divider(height: 1, indent: 76),
-                itemBuilder: (context, i) {
-                  final th = value[i];
+                itemBuilder: (context, index) {
+                  if (index == 0) return const _AIRow();
+                  final th = value[index - 1];
                   return _ThreadTile(
                     tileKey: Key('thread-${th.persona.id}'),
                     avatar: PersonaAvatar(th.persona),

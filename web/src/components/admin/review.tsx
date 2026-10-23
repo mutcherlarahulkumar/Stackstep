@@ -5,6 +5,7 @@ import { Ban, Check, ClipboardList, MessageSquareWarning, Plus, Route } from "lu
 import { useState } from "react";
 import { toast } from "sonner";
 
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Field, FieldDescription, FieldError, FieldLabel } from "@/components/ui/field";
@@ -23,6 +24,7 @@ import { EmptyState, ErrorState, ListSkeleton } from "../app/state";
 import { PersonaAvatar } from "../app/persona-avatar";
 import { StatusBadge, TypeBadge } from "../app/task-badges";
 import { AssignTaskForm } from "./assign-task-form";
+import { WalletPanel } from "./wallet-panel";
 import { personaMap, useAllPersonas, useFlows } from "./catalog-queries";
 
 const ORDER: Record<TaskStatus, number> = { in_review: 0, changes_requested: 1, in_progress: 2, todo: 3, done: 4, cancelled: 5 };
@@ -85,6 +87,12 @@ export function StudentDetail({ student }: { student: Student }) {
             <Plus data-icon="inline-start" aria-hidden /> Assign task
           </Button>
         </div>
+      </div>
+      <div className="flex flex-wrap items-center justify-between gap-3 border-b px-6 py-3">
+        <WalletPanel student={student} />
+        <span className="text-muted-foreground inline-flex items-center gap-1.5 text-xs" title="Reviews are done by hand for now">
+          AI review suggestions <Badge variant="outline">Coming soon</Badge>
+        </span>
       </div>
       <div className="min-h-0 flex-1 overflow-y-auto p-6">
         {tasks.isPending ? (

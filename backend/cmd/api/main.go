@@ -14,6 +14,7 @@ import (
 
 	"github.com/jackc/pgx/v5/pgxpool"
 
+	"github.com/mutcherlarahulkumar/stackstep/backend/internal/ai"
 	"github.com/mutcherlarahulkumar/stackstep/backend/internal/app"
 	"github.com/mutcherlarahulkumar/stackstep/backend/internal/auth"
 	"github.com/mutcherlarahulkumar/stackstep/backend/internal/clock"
@@ -103,11 +104,14 @@ func build(cfg config.Config, pool *pgxpool.Pool, log *slog.Logger) (*httpapi.Se
 		OAuthBaseURL: cfg.GitHubOAuthBaseURL, APIBaseURL: cfg.GitHubAPIBaseURL,
 		HTTP: &http.Client{Timeout: 10 * time.Second},
 	}
+	ws := &app.Workspace{Store: st, Clock: clk, Lead: lead.Scripted{Delay: cfg.LeadReplyDelay}, Log: log}
+	groq := &ai.Groq{BaseURL: cfg.AI.GroqBaseURL, APIKey: cfg.AI.GroqAPIKey, Model: cfg.AI.GroqModel, MaxTokens: 700,
+		HTTP: &http.Client{Timeout: cfg.AI.Timeout + 5*time.Second}}
 	srv := httpapi.New(httpapi.Deps{
 		Config: cfg, Store: st, Clock: clk, Signer: signer, States: states, GitHub: gh,
 		Sessions:  &app.Sessions{Store: st, Clock: clk, Signer: signer, BootstrapAdmins: cfg.BootstrapAdminLogins},
-		Workspace: &app.Workspace{Store: st, Clock: clk, Lead: lead.Scripted{Delay: cfg.LeadReplyDelay}, Log: log},
-		Hub:       hub, Log: log,
+		Workspace: ws, Helper: app.NewHelper(ws, groq, cfg.AI),
+		Hub: hub, Log: log,
 	})
 	return srv, hub, st, clk, nil
 }

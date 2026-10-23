@@ -64,7 +64,11 @@ export function messageFor(error: unknown): string {
     case "invalid_code":
       return "That sign-in link expired. Please try again.";
     case "not_configured":
-      return "GitHub sign-in isn't set up on this server yet.";
+      return "This isn't set up on this server yet.";
+    case "insufficient_credits":
+      return "You're out of credits. Finish tasks to earn more, or ask your admin.";
+    case "ai_unavailable":
+      return "The AI helper couldn't answer right now. Your credit was refunded.";
     case "internal":
     case null:
       return "Something went wrong on our side. Please try again.";

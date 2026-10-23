@@ -19,7 +19,9 @@ import { RequireSession } from "../app/guard";
 import { PersonaAvatar } from "../app/persona-avatar";
 import { EmptyState } from "../app/state";
 import { ConversationView } from "../chat/conversation";
-import { StudentThreadList } from "../chat/thread-list";
+import { AI_THREAD, StudentThreadList } from "../chat/thread-list";
+import { AIHelper } from "../ai/ai-helper";
+import { WalletChips } from "../ai/wallet-chips";
 import { BoardPanel } from "./board-panel";
 import { useWorkspace } from "./use-workspace";
 
@@ -58,7 +60,9 @@ function Workspace({ me, enrollment }: { me: Me; enrollment: Enrollment }) {
   const [phoneThread, setPhoneThread] = useState<string | null>(null);
   const personas = (threads.data ?? []).map((t) => t.persona);
   const byId = new Map(personas.map((p) => [p.id, p]));
-  const desktopPersona = (picked ? byId.get(picked) : undefined) ?? personas[0] ?? null;
+  const aiOpen = picked === AI_THREAD;
+  const desktopPersona = aiOpen ? null : ((picked ? byId.get(picked) : undefined) ?? personas[0] ?? null);
+  const tasks = ws.state.tasks.status === "ready" ? ws.state.tasks.data : [];
   const phonePersona = phoneThread ? (byId.get(phoneThread) ?? null) : null;
   const unread = totalUnread(threads.data ?? []);
 
@@ -73,11 +77,14 @@ function Workspace({ me, enrollment }: { me: Me; enrollment: Enrollment }) {
       <AppHeader user={me.user}>
         <div className="flex min-w-0 items-center gap-3">
           <span className="bg-border hidden h-5 w-px sm:block" aria-hidden />
-          <span className="text-muted-foreground truncate text-sm whitespace-nowrap">
+          <span className="text-muted-foreground hidden truncate text-sm whitespace-nowrap min-[420px]:inline">
             {dayCaption(enrollment)}
             {enrollment.flow ? <span className="hidden md:inline"> · {enrollment.flow.name}</span> : null}
           </span>
           <Progress value={progress} className="hidden w-28 sm:block" aria-label={`Internship progress, ${progress}%`} />
+        </div>
+        <div className="ml-auto">
+          <WalletChips />
         </div>
       </AppHeader>
       <ConnectionBanner status={socket} />
@@ -88,11 +95,17 @@ function Workspace({ me, enrollment }: { me: Me; enrollment: Enrollment }) {
             <nav aria-label="Chats" className="flex min-h-0 flex-col border-r">
               <PanelTitle icon={MessageCircle} title="Chats" />
               <div className="min-h-0 flex-1 overflow-y-auto p-2">
-                <StudentThreadList selected={desktopPersona?.id ?? null} onSelect={(t) => setPicked(t.persona.id)} />
+                <StudentThreadList
+                  selected={aiOpen ? AI_THREAD : (desktopPersona?.id ?? null)}
+                  onSelect={(t) => setPicked(t.persona.id)}
+                  onAI={() => setPicked(AI_THREAD)}
+                />
               </div>
             </nav>
             <section aria-label="Conversation" className="flex min-h-0 flex-col border-r">
-              {desktopPersona ? (
+              {aiOpen ? (
+                <AIHelper tasks={tasks} />
+              ) : desktopPersona ? (
                 <>
                   <ConversationHeader persona={desktopPersona} />
                   <ConversationView
@@ -139,7 +152,9 @@ function Workspace({ me, enrollment }: { me: Me; enrollment: Enrollment }) {
               </TabsList>
             </div>
             <TabsContent value="chat" className="flex min-h-0 flex-1 flex-col">
-              {phonePersona ? (
+              {phoneThread === AI_THREAD ? (
+                <AIHelper tasks={tasks} onBack={() => setPhoneThread(null)} />
+              ) : phonePersona ? (
                 <>
                   <ConversationHeader persona={phonePersona} onBack={() => setPhoneThread(null)} />
                   <ConversationView
@@ -151,7 +166,7 @@ function Workspace({ me, enrollment }: { me: Me; enrollment: Enrollment }) {
                 </>
               ) : (
                 <div className="min-h-0 flex-1 overflow-y-auto p-2">
-                  <StudentThreadList selected={null} onSelect={(t) => setPhoneThread(t.persona.id)} />
+                  <StudentThreadList selected={null} onSelect={(t) => setPhoneThread(t.persona.id)} onAI={() => setPhoneThread(AI_THREAD)} />
                 </div>
               )}
             </TabsContent>

@@ -6,6 +6,7 @@ import 'package:stackstep/core/providers.dart';
 import 'package:stackstep/core/theme.dart';
 import 'package:stackstep/features/admin/assign_screen.dart';
 import 'package:stackstep/features/admin/broadcast_screen.dart';
+import 'package:stackstep/features/ai/ai_screen.dart';
 import 'package:stackstep/features/chat/inbox_controller.dart';
 import 'package:stackstep/features/chat/inbox_screen.dart';
 import 'package:stackstep/features/tasks/board_screen.dart';
@@ -92,7 +93,10 @@ class _StudentShellState extends ConsumerState<StudentShell> {
             ),
           ],
         ),
-        actions: [_AccountMenu(user: widget.me.user)],
+        actions: [
+          const WalletChips(),
+          _AccountMenu(user: widget.me.user),
+        ],
         bottom: PreferredSize(
           preferredSize: const Size.fromHeight(3),
           child: ShadProgress(value: e.program.days == 0 ? 0 : (e.dayNumber / e.program.days).clamp(0, 1).toDouble(), minHeight: 3),

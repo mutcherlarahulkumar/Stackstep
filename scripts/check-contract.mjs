@@ -17,6 +17,7 @@ const go = {
   PersonaColor: read("backend/internal/domain/catalog.go"),
   FlowVersionStatus: read("backend/internal/domain/catalog.go"),
   Author: read("backend/internal/domain/chat.go"),
+  CreditReason: read("backend/internal/domain/wallet.go"),
 };
 const goType = {
   Role: "Role",
@@ -28,6 +29,7 @@ const goType = {
   PersonaColor: "PersonaColor",
   FlowVersionStatus: "FlowVersionStatus",
   Author: "Author",
+  CreditReason: "CreditReason",
 };
 const ts = read("web/src/lib/api/schemas.ts");
 const tsConst = {
@@ -40,6 +42,7 @@ const tsConst = {
   PersonaColor: "PERSONA_COLORS",
   FlowVersionStatus: "FLOW_VERSION_STATUSES",
   Author: "AUTHORS",
+  CreditReason: "CREDIT_REASONS",
 };
 const dart = read("mobile/lib/api/models.dart");
 const dartEnum = { ...goType, ErrorCode: "ErrorCode" };

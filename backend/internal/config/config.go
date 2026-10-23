@@ -52,7 +52,24 @@ type Config struct {
 	LeadReplyDelay       time.Duration
 	AuthRatePerMinute    int
 	DeliveryInterval     time.Duration
+	AI                   AIConfig
 }
+
+// AIConfig is the student AI helper (Groq). Empty GroqAPIKey turns the helper off.
+type AIConfig struct {
+	GroqAPIKey       string
+	GroqModel        string
+	GroqBaseURL      string
+	Timeout          time.Duration
+	DailyQuestions   int           // per student per local day
+	QuestionCooldown time.Duration // between new questions
+	FollowUpCooldown time.Duration // time to try it yourself before a follow-up
+	MaxFollowUps     int           // per conversation
+	GlobalPerMinute  int           // all students together, to stay inside the provider's limits
+}
+
+// Enabled reports whether the AI helper can answer.
+func (a AIConfig) Enabled() bool { return a.GroqAPIKey != "" }
 
 // DevLoginEnabled is true only outside production.
 func (c Config) DevLoginEnabled() bool { return c.Env != EnvProduction }
@@ -155,6 +172,28 @@ func Load() (Config, error) {
 	}
 
 	cfg.LeadReplyDelay = parseDuration("LEAD_REPLY_DELAY", "45s", 0, 2*time.Hour)
+
+	intIn := func(key, def string, lo, hi int) int {
+		n, err := strconv.Atoi(get(key, def))
+		if err != nil || n < lo || n > hi {
+			errs = append(errs, fmt.Errorf("%s must be %d-%d", key, lo, hi))
+		}
+		return n
+	}
+	cfg.AI = AIConfig{
+		GroqAPIKey:       get("GROQ_API_KEY", ""),
+		GroqModel:        get("GROQ_MODEL", "llama-3.3-70b-versatile"),
+		GroqBaseURL:      get("GROQ_BASE_URL", "https://api.groq.com/openai/v1"),
+		Timeout:          parseDuration("AI_TIMEOUT", "25s", time.Second, time.Minute),
+		DailyQuestions:   intIn("AI_DAILY_QUESTIONS", "8", 1, 200),
+		QuestionCooldown: parseDuration("AI_QUESTION_COOLDOWN", "2m", 0, time.Hour),
+		FollowUpCooldown: parseDuration("AI_FOLLOWUP_COOLDOWN", "5m", 0, 2*time.Hour),
+		MaxFollowUps:     intIn("AI_MAX_FOLLOWUPS", "3", 0, 20),
+		GlobalPerMinute:  intIn("AI_GLOBAL_PER_MINUTE", "30", 1, 10000),
+	}
+	if u := parseURL("GROQ_BASE_URL", cfg.AI.GroqBaseURL); cfg.Env == EnvProduction && u.Scheme != "https" {
+		errs = append(errs, errors.New("GROQ_BASE_URL must use https in production"))
+	}
 	cfg.DeliveryInterval = parseDuration("DELIVERY_INTERVAL", "1s", 100*time.Millisecond, time.Minute)
 
 	if cfg.Env == EnvProduction && !cfg.GitHubEnabled() {

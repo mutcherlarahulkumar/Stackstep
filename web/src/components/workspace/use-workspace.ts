@@ -1,5 +1,6 @@
 "use client";
 
+import { useQueryClient } from "@tanstack/react-query";
 import { useCallback, useEffect, useReducer, useRef } from "react";
 
 import { type SubmissionInput } from "@/lib/api/client";
@@ -8,6 +9,7 @@ import { type Frame, type Task, type TaskStatus } from "@/lib/api/schemas";
 import { upsertTask } from "@/lib/board";
 import { useFrames } from "@/lib/realtime-context";
 import { useSession } from "@/lib/session";
+import { walletKey } from "@/lib/wallet-queries";
 
 type State = { tasks: { status: "loading" } | { status: "error"; message: string } | { status: "ready"; data: Task[] } };
 
@@ -28,7 +30,10 @@ function reducer(s: State, a: Action): State {
 /** The signed-in student's board, kept live over the page's socket. */
 export function useWorkspace() {
   const { api } = useSession();
+  const qc = useQueryClient();
   const [state, dispatch] = useReducer(reducer, { tasks: { status: "loading" } });
+  // Finishing a task earns points and a credit; refresh the header chips.
+  const refreshWallet = useCallback(() => void qc.invalidateQueries({ queryKey: walletKey }), [qc]);
   const tasksRef = useRef<Task[]>([]);
   useEffect(() => {
     if (state.tasks.status === "ready") tasksRef.current = state.tasks.data;
@@ -50,9 +55,12 @@ export function useWorkspace() {
     useCallback(
       (f: Frame) => {
         if (f.type === "ready") void loadTasks(); // after every (re)connect: catch up
-        else if (f.type === "task") dispatch({ type: "upserted", task: f.task });
+        else if (f.type === "task") {
+          dispatch({ type: "upserted", task: f.task });
+          if (f.task.status === "done") refreshWallet();
+        }
       },
-      [loadTasks],
+      [loadTasks, refreshWallet],
     ),
   );
 
@@ -62,7 +70,9 @@ export function useWorkspace() {
       const before = tasksRef.current;
       dispatch({ type: "replaced", items: before.map((t) => (t.id === task.id ? { ...t, status: to } : t)) });
       try {
-        dispatch({ type: "upserted", task: await api.transition(task.id, to, task.version, "", submission) });
+        const updated = await api.transition(task.id, to, task.version, "", submission);
+        dispatch({ type: "upserted", task: updated });
+        if (updated.status === "done") refreshWallet();
         return null;
       } catch (e) {
         dispatch({ type: "replaced", items: before });
@@ -75,11 +85,17 @@ export function useWorkspace() {
         return messageFor(e);
       }
     },
-    [api, loadTasks],
+    [api, loadTasks, refreshWallet],
   );
 
   /** Applies a task the server returned outside a move (e.g. a graded quiz). */
-  const apply = useCallback((t: Task) => dispatch({ type: "upserted", task: t }), []);
+  const apply = useCallback(
+    (t: Task) => {
+      dispatch({ type: "upserted", task: t });
+      if (t.status === "done") refreshWallet();
+    },
+    [refreshWallet],
+  );
 
   return { state, move, apply, reload: () => void loadTasks() };
 }

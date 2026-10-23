@@ -45,6 +45,7 @@ type Server struct {
 	github       *auth.GitHub
 	sessions     *app.Sessions
 	workspace    *app.Workspace
+	helper       *app.Helper
 	hub          *realtime.Hub
 	log          *slog.Logger
 	signInLimit  *ipLimiter
@@ -61,6 +62,7 @@ type Deps struct {
 	GitHub    *auth.GitHub
 	Sessions  *app.Sessions
 	Workspace *app.Workspace
+	Helper    *app.Helper
 	Hub       *realtime.Hub
 	Log       *slog.Logger
 }
@@ -69,7 +71,7 @@ type Deps struct {
 func New(d Deps) *Server {
 	return &Server{
 		cfg: d.Config, store: d.Store, clock: d.Clock, signer: d.Signer, states: d.States, github: d.GitHub,
-		sessions: d.Sessions, workspace: d.Workspace, hub: d.Hub, log: d.Log,
+		sessions: d.Sessions, workspace: d.Workspace, helper: d.Helper, hub: d.Hub, log: d.Log,
 		// Sign-in is the brute-force target; refresh runs on every page load, so it gets more room.
 		signInLimit:  newIPLimiter(perMinute(d.Config.AuthRatePerMinute), d.Config.AuthRatePerMinute),
 		refreshLimit: newIPLimiter(perMinute(4*d.Config.AuthRatePerMinute), 4*d.Config.AuthRatePerMinute),
@@ -115,12 +117,21 @@ func (s *Server) Handler() http.Handler {
 	authed.POST("/me/threads/:persona/read", s.markRead)
 	authed.POST("/tasks/:id/transitions", s.transition)
 	authed.POST("/tasks/:id/quiz", s.submitQuiz)
+	authed.GET("/me/wallet", s.myWallet)
+	authed.GET("/me/ai/conversations", s.myAIConversations)
+	authed.POST("/me/ai/conversations", s.askAI)
+	authed.GET("/me/ai/conversations/:id", s.myAIConversation)
+	authed.POST("/me/ai/conversations/:id/messages", s.followUpAI)
 
 	admin := authed.Group("/admin", s.requireStaff)
 	admin.GET("/students", s.students)
 	admin.GET("/enrollments/:id/tasks", s.enrollmentTasks)
 	admin.POST("/enrollments/:id/tasks", s.createTask)
 	admin.PUT("/enrollments/:id/flow", s.assignEnrollmentFlow)
+	admin.GET("/enrollments/:id/wallet", s.staffWallet)
+	admin.POST("/enrollments/:id/credits", s.grantCredits)
+	admin.GET("/enrollments/:id/ai/conversations", s.staffAIConversations)
+	admin.GET("/enrollments/:id/ai/conversations/:conversation", s.staffAIConversation)
 
 	admin.GET("/personas", s.listPersonas)
 	admin.POST("/personas", s.createPersona)

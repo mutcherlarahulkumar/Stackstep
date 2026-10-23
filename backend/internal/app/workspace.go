@@ -253,6 +253,9 @@ func (w *Workspace) Transition(ctx context.Context, u domain.User, taskID uuid.U
 				return fmt.Errorf("insert submission: %w", err)
 			}
 		}
+		if err := awardFinished(ctx, q, out, now); err != nil {
+			return err
+		}
 		if out, err = store.EnrichTask(ctx, q, out); err != nil {
 			return err
 		}
@@ -544,6 +547,9 @@ func (w *Workspace) SubmitQuiz(ctx context.Context, u domain.User, taskID uuid.U
 		}
 		if res.Passed || res.Attempt == domain.MaxQuizAttempts {
 			if t, err = store.SetTaskStatus(ctx, q, t, domain.StatusDone, u.ID, fmt.Sprintf("Quiz score %d%%", res.Score), now); err != nil {
+				return err
+			}
+			if err := awardFinished(ctx, q, t, now); err != nil {
 				return err
 			}
 		}

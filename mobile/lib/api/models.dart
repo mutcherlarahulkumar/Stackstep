@@ -114,6 +114,8 @@ enum ErrorCode {
   invalidState('invalid_state'),
   invalidCode('invalid_code'),
   notConfigured('not_configured'),
+  insufficientCredits('insufficient_credits'),
+  aiUnavailable('ai_unavailable'),
   internal('internal');
 
   ErrorCode(this.wire);
@@ -600,4 +602,198 @@ final class BroadcastOutcome {
   const BroadcastOutcome({required this.sent, required this.failed});
   final int sent;
   final int failed;
+}
+
+enum CreditReason {
+  welcome('welcome', 'Starting credits'),
+  taskDone('task_done', 'Finished a task'),
+  adminGrant('admin_grant', 'Given by an admin'),
+  adminRevoke('admin_revoke', 'Removed by an admin'),
+  aiQuestion('ai_question', 'AI question'),
+  aiRefund('ai_refund', 'AI refund');
+
+  CreditReason(this.wire, this.label);
+  final String wire;
+  final String label;
+}
+
+final class CreditEntry {
+  const CreditEntry({required this.id, required this.delta, required this.reason, required this.note, required this.createdAt});
+  factory CreditEntry.fromJson(JsonReader j) => CreditEntry(
+    id: j.integer('id'),
+    delta: j.integer('delta'),
+    reason: j.enumValue('reason', CreditReason.values, (r) => r.wire),
+    note: j.string('note'),
+    createdAt: j.dateTime('created_at'),
+  );
+  final int id;
+  final int delta;
+  final CreditReason reason;
+  final String note;
+  final DateTime createdAt;
+}
+
+/// Points, credits and the AI helper's limits for the signed-in student.
+final class Wallet {
+  const Wallet({
+    required this.points,
+    required this.finished,
+    required this.onTime,
+    required this.credits,
+    required this.history,
+    required this.aiEnabled,
+    required this.dailyLimit,
+    required this.usedToday,
+    required this.costPerQuestion,
+    required this.nextQuestionAt,
+  });
+
+  factory Wallet.fromJson(JsonReader j) {
+    final p = j.object('points');
+    final c = j.object('credits');
+    final a = j.object('ai');
+    return Wallet(
+      points: p.integer('total'),
+      finished: p.integer('finished'),
+      onTime: p.integer('on_time'),
+      credits: c.integer('balance'),
+      history: c.list('history', CreditEntry.fromJson),
+      aiEnabled: a.boolean('enabled'),
+      dailyLimit: a.integer('daily_limit'),
+      usedToday: a.integer('used_today'),
+      costPerQuestion: a.integer('cost_per_question'),
+      nextQuestionAt: a.stringOrNull('next_question_at') == null ? null : a.dateTime('next_question_at'),
+    );
+  }
+
+  final int points;
+  final int finished;
+  final int onTime;
+  final int credits;
+  final List<CreditEntry> history;
+  final bool aiEnabled;
+  final int dailyLimit;
+  final int usedToday;
+  final int costPerQuestion;
+  final DateTime? nextQuestionAt;
+
+  int get questionsLeft => (dailyLimit - usedToday).clamp(0, dailyLimit);
+}
+
+final class AIConversation {
+  const AIConversation({required this.id, required this.taskId, required this.title, required this.followUps, required this.updatedAt});
+  factory AIConversation.fromJson(JsonReader j) => AIConversation(
+    id: j.string('id'),
+    taskId: j.stringOrNull('task_id'),
+    title: j.string('title'),
+    followUps: j.integer('follow_ups'),
+    updatedAt: j.dateTime('updated_at'),
+  );
+  final String id;
+  final String? taskId;
+  final String title;
+  final int followUps;
+  final DateTime updatedAt;
+}
+
+enum AIRole {
+  student('student'),
+  assistant('assistant');
+
+  AIRole(this.wire);
+  final String wire;
+}
+
+enum AIMessageStatus {
+  pending('pending'),
+  answered('answered'),
+  failed('failed'),
+  ok('ok');
+
+  AIMessageStatus(this.wire);
+  final String wire;
+}
+
+enum AIMessageKind {
+  question('question'),
+  followUp('follow_up'),
+  answer('answer');
+
+  AIMessageKind(this.wire);
+  final String wire;
+}
+
+final class AIParts {
+  const AIParts({
+    required this.goal,
+    required this.tried,
+    required this.error,
+    required this.code,
+    required this.triedSince,
+    required this.question,
+  });
+  factory AIParts.fromJson(JsonReader j) => AIParts(
+    goal: j.string('goal'),
+    tried: j.string('tried'),
+    error: j.string('error'),
+    code: j.string('code'),
+    triedSince: j.string('tried_since'),
+    question: j.string('question'),
+  );
+  final String goal;
+  final String tried;
+  final String error;
+  final String code;
+  final String triedSince;
+  final String question;
+}
+
+final class AIMessage {
+  const AIMessage({
+    required this.id,
+    required this.role,
+    required this.status,
+    required this.kind,
+    required this.body,
+    required this.parts,
+  });
+  factory AIMessage.fromJson(JsonReader j) => AIMessage(
+    id: j.string('id'),
+    role: j.enumValue('role', AIRole.values, (r) => r.wire),
+    status: j.enumValue('status', AIMessageStatus.values, (s) => s.wire),
+    kind: j.enumValue('kind', AIMessageKind.values, (k) => k.wire),
+    body: j.string('body'),
+    parts: switch (j.objectOrNull('parts')) {
+      final p? => AIParts.fromJson(p),
+      null => null,
+    },
+  );
+  final String id;
+  final AIRole role;
+  final AIMessageStatus status;
+  final AIMessageKind kind;
+  final String body;
+  final AIParts? parts;
+}
+
+final class AIConversationDetail {
+  const AIConversationDetail({
+    required this.conversation,
+    required this.messages,
+    required this.followUpsLeft,
+    required this.followUpAt,
+    required this.wallet,
+  });
+  factory AIConversationDetail.fromJson(JsonReader j) => AIConversationDetail(
+    conversation: AIConversation.fromJson(j.object('conversation')),
+    messages: j.list('messages', AIMessage.fromJson),
+    followUpsLeft: j.integer('follow_ups_left'),
+    followUpAt: j.stringOrNull('follow_up_at') == null ? null : j.dateTime('follow_up_at'),
+    wallet: Wallet.fromJson(j.object('wallet')),
+  );
+  final AIConversation conversation;
+  final List<AIMessage> messages;
+  final int followUpsLeft;
+  final DateTime? followUpAt;
+  final Wallet wallet;
 }

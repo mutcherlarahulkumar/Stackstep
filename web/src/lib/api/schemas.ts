@@ -32,8 +32,13 @@ export const ERROR_CODES = [
   "invalid_state",
   "invalid_code",
   "not_configured",
+  "insufficient_credits",
+  "ai_unavailable",
   "internal",
 ] as const;
+export const CREDIT_REASONS = ["welcome", "task_done", "admin_grant", "admin_revoke", "ai_question", "ai_refund"] as const;
+export const CreditReason = z.enum(CREDIT_REASONS);
+export type CreditReason = z.infer<typeof CreditReason>;
 
 export const Role = z.enum(ROLES);
 export const TaskType = z.enum(TASK_TYPES);
@@ -299,3 +304,59 @@ export type Frame = z.output<typeof Frame>;
 
 export const RuntimeConfig = z.object({ wsUrl: z.string().min(1), devLogin: z.boolean() });
 export type RuntimeConfig = z.output<typeof RuntimeConfig>;
+
+export const CreditEntry = z.object({
+  id: z.int(),
+  delta: z.int(),
+  reason: CreditReason,
+  note: z.string(),
+  task_id: z.uuid().nullable(),
+  created_at: timestamp,
+});
+export type CreditEntry = z.output<typeof CreditEntry>;
+
+export const Wallet = z.object({
+  points: z.object({ total: z.int().min(0), finished: z.int().min(0), on_time: z.int().min(0) }),
+  credits: z.object({ balance: z.int(), history: z.array(CreditEntry) }),
+  ai: z.object({
+    enabled: z.boolean(),
+    daily_limit: z.int().min(1),
+    used_today: z.int().min(0),
+    cost_per_question: z.int().min(1),
+    next_question_at: timestamp.nullable(),
+  }),
+});
+export type Wallet = z.output<typeof Wallet>;
+
+export const AIConversation = z.object({
+  id: z.uuid(),
+  task_id: z.uuid().nullable(),
+  title: z.string(),
+  follow_ups: z.int().min(0),
+  created_at: timestamp,
+  updated_at: timestamp,
+});
+export type AIConversation = z.output<typeof AIConversation>;
+
+export const AIMessage = z.object({
+  id: z.uuid(),
+  role: z.enum(["student", "assistant"]),
+  status: z.enum(["pending", "answered", "failed", "ok"]),
+  kind: z.enum(["question", "follow_up", "answer"]),
+  body: z.string(),
+  parts: z
+    .object({ goal: z.string(), tried: z.string(), error: z.string(), code: z.string(), tried_since: z.string(), question: z.string() })
+    .nullable(),
+  created_at: timestamp,
+});
+export type AIMessage = z.output<typeof AIMessage>;
+
+export const AIConversationDetail = z.object({
+  conversation: AIConversation,
+  messages: z.array(AIMessage),
+  follow_ups_left: z.int().min(0),
+  follow_up_at: timestamp.nullable(),
+  wallet: Wallet,
+});
+export type AIConversationDetail = z.output<typeof AIConversationDetail>;
+export const AIConversationList = z.object({ items: z.array(AIConversation) });

@@ -26,6 +26,7 @@ function callbackError(raw: string | null): string | null {
   if (!raw) return null;
   const code = toErrorCode(raw);
   if (code === "unauthenticated") return null; // cancelled on GitHub
+  if (code === "not_configured") return "GitHub sign-in isn't set up on this server yet.";
   return messageFor(new ApiError(400, code, ""));
 }
 

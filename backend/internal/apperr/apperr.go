@@ -24,6 +24,8 @@ const (
 	CodeInvalidState        Code = "invalid_state"
 	CodeInvalidCode         Code = "invalid_code"
 	CodeNotConfigured       Code = "not_configured"
+	CodeInsufficientCredits Code = "insufficient_credits"
+	CodeAIUnavailable       Code = "ai_unavailable"
 	CodeInternal            Code = "internal"
 )
 
@@ -46,7 +48,9 @@ func (c Code) Status() int {
 		return http.StatusConflict
 	case CodeRateLimited:
 		return http.StatusTooManyRequests
-	case CodeNotConfigured:
+	case CodeInsufficientCredits:
+		return http.StatusPaymentRequired
+	case CodeNotConfigured, CodeAIUnavailable:
 		return http.StatusServiceUnavailable
 	case CodeInternal:
 		return http.StatusInternalServerError

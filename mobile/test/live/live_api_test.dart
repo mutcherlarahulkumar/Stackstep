@@ -127,5 +127,33 @@ void main() {
       await admin.staffSend(asha.enrollment.id, _lead, clientId: _uuid.v4(), body: body);
       expect(await next, isA<MessageFrame>());
     });
+
+    test('wallet and AI helper: one credit per answered question, follow-ups wait (needs GROQ_* set, e.g. the fake)', () async {
+      final student = await _signIn('meera-dev');
+      final before = await student.wallet();
+      if (!before.aiEnabled) return; // helper off on this server
+      final d = await student.askAI(
+        clientId: _uuid.v4(),
+        question: (
+          taskId: null,
+          goal: 'Center the hero section vertically on mobile with flexbox.',
+          tried: 'I set display:flex and align-items:center, but it stays at the top on small screens.',
+          error: '',
+          code: '.hero { display: flex; align-items: center; }',
+        ),
+      );
+      expect(d.messages.last.role, AIRole.assistant);
+      expect(d.wallet.credits, before.credits - 1);
+      expect(d.followUpAt, isNotNull);
+      await expectLater(
+        student.followUpAI(
+          d.conversation.id,
+          clientId: _uuid.v4(),
+          triedSince: 'I added min-height: 100vh to the section.',
+          body: 'Is that the right fix?',
+        ),
+        throwsA(isA<ApiException>().having((e) => e.code, 'code', ErrorCode.rateLimited)),
+      );
+    });
   });
 }

@@ -70,6 +70,7 @@ type env struct {
 	clock *clock.Fake
 	store *store.Store
 	cfg   config.Config
+	ai    *fakeAI
 }
 
 // Monday 10:00 IST on day 3 of the seeded internship.
@@ -109,14 +110,20 @@ func newEnv(t *testing.T, opts ...envOpt) *env {
 	signer, _ := auth.NewSigner(cfg.JWTSecret)
 	states, _ := auth.NewStateSigner(cfg.StateSecret)
 	log := slog.New(slog.NewTextHandler(io.Discard, nil))
+	ws := &app.Workspace{Store: st, Clock: clk, Lead: lead.Scripted{Delay: cfg.LeadReplyDelay}, Log: log}
+	fake := &fakeAI{}
+	if cfg.AI.GroqAPIKey == "" && cfg.AI.DailyQuestions == 0 { // defaults for tests that don't care
+		cfg.AI = config.AIConfig{GroqAPIKey: "test-key", Timeout: 5 * time.Second, DailyQuestions: 8, QuestionCooldown: 2 * time.Minute,
+			FollowUpCooldown: 5 * time.Minute, MaxFollowUps: 3, GlobalPerMinute: 1000}
+	}
 	srv := New(Deps{
 		Config: cfg, Store: st, Clock: clk, Signer: signer, States: states,
 		GitHub:    &auth.GitHub{ClientID: cfg.GitHubClientID, ClientSecret: cfg.GitHubClientSecret, RedirectURL: cfg.GitHubRedirectURL, OAuthBaseURL: cfg.GitHubOAuthBaseURL, APIBaseURL: cfg.GitHubAPIBaseURL},
 		Sessions:  &app.Sessions{Store: st, Clock: clk, Signer: signer, BootstrapAdmins: cfg.BootstrapAdminLogins},
-		Workspace: &app.Workspace{Store: st, Clock: clk, Lead: lead.Scripted{Delay: cfg.LeadReplyDelay}, Log: log},
-		Hub:       realtime.NewHub(), Log: log,
+		Workspace: ws, Helper: app.NewHelper(ws, fake, cfg.AI),
+		Hub: realtime.NewHub(), Log: log,
 	})
-	return &env{t: t, srv: srv, h: srv.Handler(), clock: clk, store: st, cfg: cfg}
+	return &env{t: t, srv: srv, h: srv.Handler(), clock: clk, store: st, cfg: cfg, ai: fake}
 }
 
 type resp struct {
@@ -135,6 +142,7 @@ func (r resp) json(t *testing.T, v any) {
 type apiError struct {
 	Error struct {
 		Code              string            `json:"code"`
+		Message           string            `json:"message"`
 		Fields            map[string]string `json:"fields"`
 		RetryAfterSeconds *int              `json:"retry_after_seconds"`
 	} `json:"error"`

@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:stackstep/api/api_client.dart';
 import 'package:stackstep/api/models.dart';
 import 'package:stackstep/core/providers.dart';
+import 'package:stackstep/features/ai/ai_controller.dart';
 import 'package:stackstep/shared/errors.dart';
 
 enum BoardColumn {
@@ -82,9 +83,10 @@ final class BoardController extends AsyncNotifier<List<Task>> {
       next.add(t);
     }
     state = AsyncData(next);
+    // Finishing a task earns points and a credit.
+    if (t.status == TaskStatus.done && (i < 0 || current[i].status != TaskStatus.done)) ref.invalidate(walletProvider);
   }
 
-  /// Moves a task optimistically. Returns a message for the user on failure, or null.
   /// Applies a task the server returned outside a move (a graded quiz).
   void apply(Task t) => _upsert(t);
 

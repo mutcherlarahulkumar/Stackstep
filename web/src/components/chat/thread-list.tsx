@@ -12,6 +12,7 @@ import { useStaffThreads, useStudentThreads } from "@/lib/inbox-queries";
 import { cn } from "@/lib/utils";
 
 import { PERSONA_DOT, PersonaAvatar, PersonAvatar } from "../app/persona-avatar";
+import { AIAvatar } from "../ai/ai-helper";
 import { EmptyState, ErrorState, ListSkeleton } from "../app/state";
 
 function preview(m: Message | null, staff: boolean): string {
@@ -80,20 +81,54 @@ function Row({
   );
 }
 
-/** The student's chats: one per persona. */
-export function StudentThreadList({ selected, onSelect }: { selected: string | null; onSelect: (t: Thread) => void }) {
+/** Selection key for the pinned AI helper row. */
+export const AI_THREAD = "ai";
+
+/** The pinned AI helper entry at the top of the student's chats. */
+function AIRow({ selected, onSelect }: { selected: boolean; onSelect: () => void }) {
+  return (
+    <button
+      type="button"
+      onClick={onSelect}
+      aria-current={selected ? "true" : undefined}
+      data-testid="thread-ai"
+      className={cn(
+        "hover:bg-muted/70 focus-visible:ring-ring flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-left outline-none focus-visible:ring-2",
+        selected && "bg-muted",
+      )}
+    >
+      <AIAvatar size="lg" />
+      <span className="flex min-w-0 flex-1 flex-col">
+        <span className="truncate text-sm font-medium">AI helper</span>
+        <span className="text-muted-foreground truncate text-xs">Stuck after trying? Ask for a hint</span>
+      </span>
+    </button>
+  );
+}
+
+/** The student's chats: the AI helper, then one per persona. */
+export function StudentThreadList({ selected, onSelect, onAI }: { selected: string | null; onSelect: (t: Thread) => void; onAI: () => void }) {
   const q = useStudentThreads();
+  const ai = (
+    <li>
+      <AIRow selected={selected === AI_THREAD} onSelect={onAI} />
+    </li>
+  );
   if (q.isPending) return <ListSkeleton rows={4} className="h-16" />;
   if (q.isError) return <ErrorState message={messageFor(q.error)} onRetry={() => void q.refetch()} />;
   if (q.data.length === 0) {
     return (
-      <EmptyState icon={MessagesSquare} title="No chats yet">
-        Your team posts tickets and updates here once your internship starts. Each person gets their own chat.
-      </EmptyState>
+      <>
+        <ul aria-label="Chats">{ai}</ul>
+        <EmptyState icon={MessagesSquare} title="No chats yet">
+          Your team posts tickets and updates here once your internship starts. Each person gets their own chat.
+        </EmptyState>
+      </>
     );
   }
   return (
     <ul className="flex flex-col gap-0.5" aria-label="Chats">
+      {ai}
       {q.data.map((t) => (
         <li key={t.persona.id}>
           <Row

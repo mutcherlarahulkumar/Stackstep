@@ -37,4 +37,17 @@ await shoot("18-inbox", "admin-demo", "/admin/inbox", { before: async (p) => { a
 await shoot("19-broadcast", "admin-demo", "/admin/inbox", { before: async (p) => { await p.getByTestId("open-broadcast").click(); await p.waitForTimeout(500); } });
 await shoot("20-inbox-phone", "admin-demo", "/admin/inbox", { width: 390, height: 844, dark: true });
 await shoot("21-student-chats-phone", "meera-dev", "/workspace", { width: 390, height: 844 });
+await shoot("22-ai-form", "meera-dev", "/workspace", { before: async (p) => { await p.getByTestId("thread-ai").first().click(); await p.getByTestId("ai-new").click(); await p.waitForTimeout(300); } });
+await shoot("23-ai-answer", "meera-dev", "/workspace", {
+  before: async (p) => {
+    await p.getByTestId("thread-ai").first().click();
+    await p.getByTestId("ai-new").click();
+    await p.getByLabel("What are you trying to do?").fill("Center the hero section vertically on mobile with flexbox.");
+    await p.getByLabel("What have you tried so far?").fill("I set display:flex and align-items:center on the section, but it stays at the top on small screens.");
+    await p.getByLabel("Relevant code (optional)").fill(".hero { display: flex; align-items: center; }");
+    await p.getByTestId("ai-ask").click();
+    await p.getByTestId("ai-answer").first().waitFor();
+  },
+});
+await shoot("24-ai-phone", "meera-dev", "/workspace", { width: 390, height: 844, dark: true, before: async (p) => { await p.getByTestId("thread-ai").click(); await p.waitForTimeout(300); } });
 await browser.close();

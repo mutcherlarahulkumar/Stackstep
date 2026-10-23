@@ -18,6 +18,8 @@ String messageFor(Object error) {
     ErrorCode.rateLimited => _rateLimited(error.retryAfterSeconds),
     ErrorCode.invalidState || ErrorCode.invalidCode => 'That link expired. Please try again.',
     ErrorCode.notConfigured => "This isn't set up on the server yet.",
+    ErrorCode.insufficientCredits => "You're out of credits. Finish tasks to earn more, or ask your admin.",
+    ErrorCode.aiUnavailable => "The AI helper couldn't answer right now. Your credit was refunded.",
     ErrorCode.internal || null => 'Something went wrong on our side. Please try again.',
   };
 }

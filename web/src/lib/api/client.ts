@@ -22,6 +22,8 @@ export type CreateTaskInput = {
 /** Content as sent: quiz answers are always set by the author. */
 export type ContentInput = { resources: S.Resource[]; quiz: { questions: { prompt: string; options: string[]; answer: number }[]; pass_percent: number } | null };
 export type SubmissionInput = { url: string; note: string };
+export type AIQuestionInput = { task_id: string | null; goal: string; tried: string; error: string; code: string };
+export type AIFollowUpInput = { tried_since: string; body: string };
 
 export type PersonaInput = { name: string; title: string; color: S.PersonaColor; auto_reply: boolean };
 export type TemplateInput = Omit<S.TaskSpec, "content"> & { content: ContentInput };
@@ -124,6 +126,45 @@ export class ApiClient {
 
   submitQuiz(taskId: string, expectedVersion: number, answers: number[]) {
     return this.send("POST", `/v1/tasks/${seg(taskId)}/quiz`, S.QuizAnswerResponse, { body: { expected_version: expectedVersion, answers } });
+  }
+
+  // ---- Points, credits and the AI helper ----
+
+  wallet() {
+    return this.send("GET", "/v1/me/wallet", S.Wallet);
+  }
+
+  async aiConversations() {
+    return (await this.send("GET", "/v1/me/ai/conversations", S.AIConversationList)).items;
+  }
+
+  aiConversation(id: string) {
+    return this.send("GET", `/v1/me/ai/conversations/${seg(id)}`, S.AIConversationDetail);
+  }
+
+  /** Same client id on retry: the server never charges twice. */
+  askAI(clientId: string, q: AIQuestionInput) {
+    return this.send("POST", "/v1/me/ai/conversations", S.AIConversationDetail, { body: { client_id: clientId, ...q } });
+  }
+
+  followUpAI(conversationId: string, clientId: string, f: AIFollowUpInput) {
+    return this.send("POST", `/v1/me/ai/conversations/${seg(conversationId)}/messages`, S.AIConversationDetail, { body: { client_id: clientId, ...f } });
+  }
+
+  staffWallet(enrollmentId: string) {
+    return this.send("GET", `/v1/admin/enrollments/${seg(enrollmentId)}/wallet`, S.Wallet);
+  }
+
+  grantCredits(enrollmentId: string, delta: number, note: string) {
+    return this.send("POST", `/v1/admin/enrollments/${seg(enrollmentId)}/credits`, S.Wallet, { body: { delta, note } });
+  }
+
+  async staffAIConversations(enrollmentId: string) {
+    return (await this.send("GET", `/v1/admin/enrollments/${seg(enrollmentId)}/ai/conversations`, S.AIConversationList)).items;
+  }
+
+  staffAIConversation(enrollmentId: string, conversationId: string) {
+    return this.send("GET", `/v1/admin/enrollments/${seg(enrollmentId)}/ai/conversations/${seg(conversationId)}`, S.AIConversationDetail);
   }
 
   // ---- Admin ----

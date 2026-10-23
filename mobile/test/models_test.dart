@@ -65,6 +65,8 @@ void main() {
         'invalid_state',
         'invalid_code',
         'not_configured',
+        'insufficient_credits',
+        'ai_unavailable',
         'internal',
       ];
       for (final w in wire) {

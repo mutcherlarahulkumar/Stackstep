@@ -80,6 +80,9 @@ typedef CreateTaskInput = ({
   List<Resource> resources,
 });
 
+/// A fully explained question for the AI helper.
+typedef AIQuestionInput = ({String? taskId, String goal, String tried, String error, String code});
+
 /// A hand-in sent with "Submit for review" (or when finishing a self-check task).
 typedef SubmissionInput = ({String url, String note});
 
@@ -205,6 +208,49 @@ final class ApiClient {
     );
     return (task: Task.fromJson(j.object('task')), result: QuizAttemptResult.fromJson(j.object('result')));
   }
+
+  // ---- Points, credits and the AI helper ----
+
+  Future<Wallet> wallet() async => Wallet.fromJson(asObject(await _send('GET', '/v1/me/wallet')));
+
+  Future<List<AIConversation>> aiConversations() async =>
+      asObject(await _send('GET', '/v1/me/ai/conversations')).list('items', AIConversation.fromJson);
+
+  Future<AIConversationDetail> aiConversation(String id) async =>
+      AIConversationDetail.fromJson(asObject(await _send('GET', '/v1/me/ai/conversations/${_seg(id)}')));
+
+  /// Retrying with the same [clientId] is never charged twice.
+  Future<AIConversationDetail> askAI({required String clientId, required AIQuestionInput question}) async => AIConversationDetail.fromJson(
+    asObject(
+      await _send(
+        'POST',
+        '/v1/me/ai/conversations',
+        body: {
+          'client_id': clientId,
+          'task_id': question.taskId,
+          'goal': question.goal,
+          'tried': question.tried,
+          'error': question.error,
+          'code': question.code,
+        },
+      ),
+    ),
+  );
+
+  Future<AIConversationDetail> followUpAI(
+    String conversationId, {
+    required String clientId,
+    required String triedSince,
+    required String body,
+  }) async => AIConversationDetail.fromJson(
+    asObject(
+      await _send(
+        'POST',
+        '/v1/me/ai/conversations/${_seg(conversationId)}/messages',
+        body: {'client_id': clientId, 'tried_since': triedSince, 'body': body},
+      ),
+    ),
+  );
 
   // ---- Admin ----
 
