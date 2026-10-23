@@ -25,6 +25,7 @@ import { PersonaAvatar } from "../app/persona-avatar";
 import { StatusBadge, TypeBadge } from "../app/task-badges";
 import { AssignTaskForm } from "./assign-task-form";
 import { CertificatePanel } from "./certificate-panel";
+import { InternshipStatus } from "./internship-status";
 import { WalletPanel } from "./wallet-panel";
 import { personaMap, useAllPersonas, useFlows } from "./catalog-queries";
 
@@ -81,6 +82,7 @@ export function StudentDetail({ student }: { student: Student }) {
           </p>
         </div>
         <div className="flex shrink-0 gap-2">
+          <InternshipStatus key={enrollment.status} student={student} enrollment={enrollment} />
           <Button variant="outline" onClick={() => setFlowOpen(true)} disabled={student.enrollment.status !== "active"} data-testid="open-assign-flow">
             <Route data-icon="inline-start" aria-hidden /> {enrollment.flow ? "Change flow" : "Assign flow"}
           </Button>

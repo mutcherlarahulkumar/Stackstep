@@ -2,6 +2,7 @@ import { type z } from "zod";
 
 import { ApiError, NetworkError, toErrorCode } from "./errors";
 import * as S from "./schemas";
+import { type CohortKind, type EnrollmentStatus } from "./schemas";
 
 /**
  * Talks to the Go API through the same-origin /api proxy. The access token lives in memory
@@ -32,6 +33,18 @@ export type DraftItemInput = TemplateInput & { day: number; template_id: string 
 export type TemplateFilter = { q?: string; type?: S.TaskType | null; personaId?: string | null; includeArchived?: boolean };
 
 type Method = "GET" | "POST" | "PUT" | "PATCH";
+export type PersonInput = { github_login: string; name?: string; email?: string };
+export type EnrollSettings = { cohort_id: string | null; program_slug?: string; start_date: string | null; timezone: string; flow_id: string | null };
+export type CohortInput = {
+  kind: CohortKind;
+  name: string;
+  college_id: string | null;
+  program_slug: string;
+  start_date: string;
+  timezone: string;
+  seats_total: number;
+};
+
 type SendOpts = { body?: unknown; query?: Record<string, string | null>; auth?: boolean; retried?: boolean };
 
 type Options = { baseUrl?: string; fetch?: typeof fetch; now?: () => number; timeoutMs?: number };
@@ -192,6 +205,52 @@ export class ApiClient {
   /** Public: works signed out. */
   verifyCertificate(code: string) {
     return this.send("GET", `/v1/certificates/${seg(code)}`, S.Certificate, { auth: false });
+  }
+
+  // ---- People ----
+
+  async colleges() {
+    return (await this.send("GET", "/v1/admin/colleges", S.CollegeList)).items;
+  }
+
+  createCollege(name: string) {
+    return this.send("POST", "/v1/admin/colleges", S.College, { body: { name } });
+  }
+
+  async programs() {
+    return (await this.send("GET", "/v1/admin/programs", S.ProgramList)).items;
+  }
+
+  async cohorts() {
+    return (await this.send("GET", "/v1/admin/cohorts", S.CohortList)).items;
+  }
+
+  createCohort(input: CohortInput) {
+    return this.send("POST", "/v1/admin/cohorts", S.Cohort, { body: input });
+  }
+
+  enroll(person: PersonInput, settings: EnrollSettings) {
+    return this.send("POST", "/v1/admin/enrollments", S.EnrollResult, { body: { ...person, ...settings } });
+  }
+
+  importEnrollments(rows: PersonInput[], settings: EnrollSettings) {
+    return this.send("POST", "/v1/admin/enrollments/import", S.ImportResult, { body: { ...settings, rows } });
+  }
+
+  setEnrollmentStatus(enrollmentId: string, status: EnrollmentStatus) {
+    return this.send("POST", `/v1/admin/enrollments/${seg(enrollmentId)}/status`, S.Enrollment, { body: { status } });
+  }
+
+  async staff() {
+    return (await this.send("GET", "/v1/admin/staff", S.StaffList)).items;
+  }
+
+  grantStaff(person: PersonInput, role: "admin" | "college_admin", collegeId: string | null) {
+    return this.send("POST", "/v1/admin/staff", S.StaffMember, { body: { ...person, role, college_id: collegeId } });
+  }
+
+  revokeStaff(userId: string) {
+    return this.send("POST", `/v1/admin/staff/${seg(userId)}/revoke`, S.StaffMember);
   }
 
   // ---- Placement overview ----

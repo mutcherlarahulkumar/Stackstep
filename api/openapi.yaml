@@ -1,7 +1,7 @@
 openapi: 3.1.0
 info:
   title: Stackstep API
-  version: 0.6.0
+  version: 0.7.0
   description: |
     Workspace core (feature 01). All timestamps are RFC 3339 UTC. All errors use the
     `Error` envelope; clients switch on `error.code`, never on `message`.
@@ -28,6 +28,8 @@ tags:
     description: Endpoints that need no sign-in
   - name: inbox
     description: Admin conversations with students, as manager personas
+  - name: people
+    description: Colleges, cohorts, enrollment (one or by CSV), internship status and staff roles
 paths:
   /v1/auth/dev-login:
     post:
@@ -849,6 +851,187 @@ paths:
       summary: Clear the inbox unread count
       responses:
         "204": { description: Marked read }
+  /v1/admin/colleges:
+    get:
+      tags: [people]
+      operationId: listColleges
+      summary: Colleges with headcounts (college admins see their own)
+      responses:
+        "200": { description: Colleges by name, content: { application/json: { schema: { type: object, required: [items], properties: { items: { type: array, items: { $ref: "#/components/schemas/College" } } } } } } }
+        "403": { $ref: "#/components/responses/Error" }
+    post:
+      tags: [people]
+      operationId: createCollege
+      summary: Add a college (platform admins)
+      requestBody:
+        required: true
+        content: { application/json: { schema: { type: object, additionalProperties: false, required: [name], properties: { name: { type: string, minLength: 2, maxLength: 200 } } } } }
+      responses:
+        "201": { description: Created, content: { application/json: { schema: { $ref: "#/components/schemas/College" } } } }
+        "403": { $ref: "#/components/responses/Error" }
+        "422": { $ref: "#/components/responses/Error" }
+  /v1/admin/programs:
+    get:
+      tags: [people]
+      operationId: listPrograms
+      summary: Programs students can be enrolled in
+      responses:
+        "200":
+          description: Shortest first
+          content:
+            application/json:
+              schema: { type: object, required: [items], properties: { items: { type: array, items: { $ref: "#/components/schemas/Program" } } } }
+        "403": { $ref: "#/components/responses/Error" }
+  /v1/admin/cohorts:
+    get:
+      tags: [people]
+      operationId: listCohorts
+      summary: Cohorts with seat use (college admins see their college's)
+      responses:
+        "200": { description: Newest start first, content: { application/json: { schema: { type: object, required: [items], properties: { items: { type: array, items: { $ref: "#/components/schemas/Cohort" } } } } } } }
+        "403": { $ref: "#/components/responses/Error" }
+    post:
+      tags: [people]
+      operationId: createCohort
+      summary: Add a cohort (platform admins)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [kind, name, program_slug, start_date, seats_total]
+              properties:
+                kind: { $ref: "#/components/schemas/CohortKind" }
+                name: { type: string, minLength: 2, maxLength: 200 }
+                college_id: { type: [string, "null"], format: uuid, description: "Required for college cohorts, absent for groups" }
+                program_slug: { type: string }
+                start_date: { type: string, format: date, description: "Within 30 days ago and a year ahead, in timezone" }
+                timezone: { type: string, description: IANA zone; defaults to Asia/Kolkata }
+                seats_total: { type: integer, minimum: 1, maximum: 100000 }
+      responses:
+        "201": { description: Created, content: { application/json: { schema: { $ref: "#/components/schemas/Cohort" } } } }
+        "403": { $ref: "#/components/responses/Error" }
+        "422": { $ref: "#/components/responses/Error" }
+  /v1/admin/enrollments:
+    post:
+      tags: [people]
+      operationId: enroll
+      summary: Enroll a GitHub login (created if they haven't signed in yet; linked on first GitHub sign-in)
+      description: College admins must pick one of their college's cohorts. The team lead welcomes the student when the internship opens.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              allOf:
+                - $ref: "#/components/schemas/PersonInput"
+                - $ref: "#/components/schemas/EnrollSettings"
+      responses:
+        "201":
+          description: Enrolled
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [student, user_created]
+                properties:
+                  student: { $ref: "#/components/schemas/Student" }
+                  user_created: { type: boolean, description: True when the login had never signed in }
+        "403": { $ref: "#/components/responses/Error" }
+        "422": { $ref: "#/components/responses/Error" }
+  /v1/admin/enrollments/import:
+    post:
+      tags: [people]
+      operationId: importEnrollments
+      summary: Enroll up to 500 logins with shared settings; each row succeeds or fails on its own
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              allOf:
+                - $ref: "#/components/schemas/EnrollSettings"
+                - type: object
+                  required: [rows]
+                  properties:
+                    rows: { type: array, minItems: 1, maxItems: 500, items: { $ref: "#/components/schemas/PersonInput" } }
+      responses:
+        "200":
+          description: Per-row results
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [created, items]
+                properties:
+                  created: { type: integer, minimum: 0 }
+                  items:
+                    type: array
+                    items:
+                      type: object
+                      required: [github_login, student, user_created, error]
+                      properties:
+                        github_login: { type: string }
+                        student: { oneOf: [{ $ref: "#/components/schemas/Student" }, { type: "null" }] }
+                        user_created: { type: boolean }
+                        error: { oneOf: [{ $ref: "#/components/schemas/ItemError" }, { type: "null" }] }
+        "403": { $ref: "#/components/responses/Error" }
+        "422": { $ref: "#/components/responses/Error" }
+  /v1/admin/enrollments/{id}/status:
+    post:
+      tags: [people]
+      operationId: setEnrollmentStatus
+      summary: Pause, resume, complete or cancel an internship (completed and cancelled are final)
+      parameters: [{ $ref: "#/components/parameters/Id" }]
+      requestBody:
+        required: true
+        content: { application/json: { schema: { type: object, additionalProperties: false, required: [status], properties: { status: { $ref: "#/components/schemas/EnrollmentStatus" } } } } }
+      responses:
+        "200": { description: Updated, content: { application/json: { schema: { $ref: "#/components/schemas/Enrollment" } } } }
+        "403": { $ref: "#/components/responses/Error" }
+        "404": { $ref: "#/components/responses/Error" }
+        "422": { $ref: "#/components/responses/Error" }
+  /v1/admin/staff:
+    get:
+      tags: [people]
+      operationId: listStaff
+      summary: Admins and college admins (platform admins)
+      responses:
+        "200": { description: Admins first, content: { application/json: { schema: { type: object, required: [items], properties: { items: { type: array, items: { $ref: "#/components/schemas/StaffMember" } } } } } } }
+        "403": { $ref: "#/components/responses/Error" }
+    post:
+      tags: [people]
+      operationId: grantStaff
+      summary: Make a GitHub login an admin or a college admin (created if needed)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              allOf:
+                - $ref: "#/components/schemas/PersonInput"
+                - type: object
+                  required: [role]
+                  properties:
+                    role: { type: string, enum: [admin, college_admin] }
+                    college_id: { type: [string, "null"], format: uuid, description: Required for college admins }
+      responses:
+        "200": { description: Granted, content: { application/json: { schema: { $ref: "#/components/schemas/StaffMember" } } } }
+        "403": { $ref: "#/components/responses/Error" }
+        "422": { $ref: "#/components/responses/Error" }
+  /v1/admin/staff/{id}/revoke:
+    post:
+      tags: [people]
+      operationId: revokeStaff
+      summary: Turn a staff member back into a regular user (not yourself)
+      parameters: [{ $ref: "#/components/parameters/Id" }]
+      responses:
+        "200": { description: Revoked, content: { application/json: { schema: { $ref: "#/components/schemas/StaffMember" } } } }
+        "403": { $ref: "#/components/responses/Error" }
+        "404": { $ref: "#/components/responses/Error" }
+        "422": { $ref: "#/components/responses/Error" }
   /v1/admin/broadcasts:
     post:
       tags: [inbox]
@@ -1415,6 +1598,59 @@ components:
         flow: { $ref: "#/components/schemas/Flow" }
         draft: { oneOf: [{ $ref: "#/components/schemas/FlowVersion" }, { type: "null" }] }
         published: { oneOf: [{ $ref: "#/components/schemas/FlowVersion" }, { type: "null" }] }
+    CohortKind: { type: string, enum: [group, college] }
+    Program:
+      type: object
+      required: [slug, days, track]
+      properties:
+        slug: { type: string }
+        days: { type: integer, enum: [30, 60] }
+        track: { type: string, enum: [frontend, fullstack] }
+    College:
+      type: object
+      required: [id, name, students, cohorts, college_admins, created_at]
+      properties:
+        id: { type: string, format: uuid }
+        name: { type: string }
+        students: { type: integer, minimum: 0, description: Active or paused internships }
+        cohorts: { type: integer, minimum: 0 }
+        college_admins: { type: integer, minimum: 0 }
+        created_at: { type: string, format: date-time }
+    Cohort:
+      type: object
+      required: [id, kind, name, college_id, college_name, program, start_date, seats_total, seats_used]
+      properties:
+        id: { type: string, format: uuid }
+        kind: { $ref: "#/components/schemas/CohortKind" }
+        name: { type: string }
+        college_id: { type: [string, "null"], format: uuid }
+        college_name: { type: [string, "null"] }
+        program: { $ref: "#/components/schemas/Program" }
+        start_date: { type: string, format: date }
+        seats_total: { type: integer, minimum: 1 }
+        seats_used: { type: integer, minimum: 0, description: Active or paused internships }
+    PersonInput:
+      type: object
+      required: [github_login]
+      properties:
+        github_login: { type: string, maxLength: 40, description: "GitHub username; a leading @ is ignored" }
+        name: { type: string, maxLength: 200, description: Defaults to the login until they sign in }
+        email: { type: string, maxLength: 320 }
+    EnrollSettings:
+      type: object
+      properties:
+        cohort_id: { type: [string, "null"], format: uuid, description: Required for college admins }
+        program_slug: { type: string, description: Required without a cohort; must match the cohort's program otherwise }
+        start_date: { type: [string, "null"], format: date, description: Defaults to the cohort's start date }
+        timezone: { type: string, description: IANA zone; defaults to Asia/Kolkata }
+        flow_id: { type: [string, "null"], format: uuid, description: Optional published flow to schedule }
+    StaffMember:
+      type: object
+      required: [user, college_name, signed_in]
+      properties:
+        user: { $ref: "#/components/schemas/User" }
+        college_name: { type: [string, "null"] }
+        signed_in: { type: boolean, description: Has linked a GitHub account }
     ItemError:
       type: object
       required: [code, message]

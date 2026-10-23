@@ -907,3 +907,12 @@ final class Progress {
   final bool meetsBar;
   final Certificate? certificate;
 }
+
+/// Whether a cohort belongs to a college or is an independent group (admin web only).
+enum CohortKind {
+  group('group'),
+  college('college');
+
+  CohortKind(this.wire);
+  final String wire;
+}

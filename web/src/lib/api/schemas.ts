@@ -41,6 +41,9 @@ export const CreditReason = z.enum(CREDIT_REASONS);
 export type CreditReason = z.infer<typeof CreditReason>;
 export const CERTIFICATE_STATUSES = ["valid", "revoked"] as const;
 export const CertificateStatus = z.enum(CERTIFICATE_STATUSES);
+export const COHORT_KINDS = ["group", "college"] as const;
+export const CohortKind = z.enum(COHORT_KINDS);
+export type CohortKind = z.infer<typeof CohortKind>;
 export type CertificateStatus = z.infer<typeof CertificateStatus>;
 
 export const Role = z.enum(ROLES);
@@ -430,3 +433,45 @@ export const Overview = z.object({
   generated_at: timestamp,
 });
 export type Overview = z.output<typeof Overview>;
+
+export const Program = z.object({ slug: z.string(), days: z.union([z.literal(30), z.literal(60)]), track: z.enum(["frontend", "fullstack"]) });
+export type Program = z.output<typeof Program>;
+export const ProgramList = z.object({ items: z.array(Program) });
+
+export const College = z.object({
+  id: z.uuid(),
+  name: z.string(),
+  students: z.int().min(0),
+  cohorts: z.int().min(0),
+  college_admins: z.int().min(0),
+  created_at: timestamp,
+});
+export type College = z.output<typeof College>;
+export const CollegeList = z.object({ items: z.array(College) });
+
+export const Cohort = z.object({
+  id: z.uuid(),
+  kind: CohortKind,
+  name: z.string(),
+  college_id: z.uuid().nullable(),
+  college_name: z.string().nullable(),
+  program: Program,
+  start_date: date,
+  seats_total: z.int().min(1),
+  seats_used: z.int().min(0),
+});
+export type Cohort = z.output<typeof Cohort>;
+export const CohortList = z.object({ items: z.array(Cohort) });
+
+export const EnrollResult = z.object({ student: Student, user_created: z.boolean() });
+export type EnrollResult = z.output<typeof EnrollResult>;
+
+export const ImportResult = z.object({
+  created: z.int().min(0),
+  items: z.array(z.object({ github_login: z.string(), student: Student.nullable(), user_created: z.boolean(), error: ItemError.nullable() })),
+});
+export type ImportResult = z.output<typeof ImportResult>;
+
+export const StaffMember = z.object({ user: User, college_name: z.string().nullable(), signed_in: z.boolean() });
+export type StaffMember = z.output<typeof StaffMember>;
+export const StaffList = z.object({ items: z.array(StaffMember) });
