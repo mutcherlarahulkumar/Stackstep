@@ -112,7 +112,8 @@ func TestSurpriseOffset(t *testing.T) {
 	if len(seen) < 10 {
 		t.Fatalf("offsets barely vary: %v", seen)
 	}
-	if SurpriseOffset(a, item, 240) != SurpriseOffset(a, item, 240) {
+	first, again := SurpriseOffset(a, item, 240), SurpriseOffset(a, item, 240)
+	if first != again {
 		t.Fatal("offset must be stable")
 	}
 }

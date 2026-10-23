@@ -89,9 +89,14 @@ func TestCertificateCode(t *testing.T) {
 }
 
 func TestNormalizeCertificateCode(t *testing.T) {
-	for in, want := range map[string]string{"abcd-efgh-jk23": "ABCDEFGHJK23", " 2345 6789 abcd ": "23456789ABCD", "ABCDEFGHJK23": "ABCDEFGHJK23"} {
-		if got := NormalizeCertificateCode(in); got != want {
-			t.Errorf("NormalizeCertificateCode(%q) = %q, want %q", in, got, want)
+	cases := []struct{ in, want string }{
+		{"abcd-efgh-jk23", "ABCDEFGHJK23"},
+		{" 2345 6789 abcd ", "23456789ABCD"}, // spaces around and inside
+		{"ABCDEFGHJK23", "ABCDEFGHJK23"},
+	}
+	for _, c := range cases {
+		if got := NormalizeCertificateCode(c.in); got != c.want {
+			t.Errorf("NormalizeCertificateCode(%q) = %q, want %q", c.in, got, c.want)
 		}
 	}
 }

@@ -48,7 +48,9 @@ class ProgressDetails extends StatelessWidget {
       children: [
         Row(
           children: [
-            Expanded(child: Text('Tasks finished', style: t.textTheme.small.copyWith(fontWeight: FontWeight.w600))),
+            Expanded(
+              child: Text('Tasks finished', style: t.textTheme.small.copyWith(fontWeight: FontWeight.w600)),
+            ),
             Text('${p.completionPercent}%', key: const Key('completion'), style: t.textTheme.h3),
           ],
         ),
@@ -59,7 +61,10 @@ class ProgressDetails extends StatelessWidget {
           child: ShadProgress(value: (p.completionPercent / 100).clamp(0, 1).toDouble()),
         ),
         const SizedBox(height: Space.sm),
-        Text('${p.done} of ${p.released} released tasks done. The certificate bar is ${p.barPercent}%.', style: t.textTheme.muted.copyWith(fontSize: 12)),
+        Text(
+          '${p.done} of ${p.released} released tasks done. The certificate bar is ${p.barPercent}%.',
+          style: t.textTheme.muted.copyWith(fontSize: 12),
+        ),
         const SizedBox(height: Space.lg),
         GridView.count(
           crossAxisCount: 2,
@@ -101,7 +106,10 @@ class _Stat extends StatelessWidget {
           Text(label, style: t.textTheme.muted.copyWith(fontSize: 12)),
           Text(
             '$value',
-            style: t.textTheme.large.copyWith(color: warn ? t.colorScheme.destructive : null, fontFeatures: const [FontFeature.tabularFigures()]),
+            style: t.textTheme.large.copyWith(
+              color: warn ? t.colorScheme.destructive : null,
+              fontFeatures: const [FontFeature.tabularFigures()],
+            ),
           ),
         ],
       ),
@@ -146,9 +154,16 @@ class _CertificateCard extends StatelessWidget {
                     ],
                   ),
                   const SizedBox(height: Space.xs),
-                  SelectableText(c.displayCode, key: const Key('certificate-code'), style: t.textTheme.large.copyWith(fontFamily: 'monospace')),
+                  SelectableText(
+                    c.displayCode,
+                    key: const Key('certificate-code'),
+                    style: t.textTheme.large.copyWith(fontFamily: 'monospace'),
+                  ),
                   const SizedBox(height: Space.xs),
-                  Text('Share the verification link on your CV or LinkedIn. Anyone can check it without signing in.', style: t.textTheme.muted.copyWith(fontSize: 12)),
+                  Text(
+                    'Share the verification link on your CV or LinkedIn. Anyone can check it without signing in.',
+                    style: t.textTheme.muted.copyWith(fontSize: 12),
+                  ),
                   const SizedBox(height: Space.md),
                   Wrap(
                     spacing: Space.sm,

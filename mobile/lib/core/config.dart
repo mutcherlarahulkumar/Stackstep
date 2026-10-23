@@ -5,6 +5,7 @@ import 'package:flutter/foundation.dart';
 /// Build-time configuration via `--dart-define`.
 abstract final class AppConfig {
   static const _apiOverride = String.fromEnvironment('API_BASE_URL');
+
   /// The public web app; certificate verification links point here.
   static const webBaseUrl = String.fromEnvironment('WEB_BASE_URL', defaultValue: 'https://stackstep.app');
   static const webConsoleUrl = String.fromEnvironment('WEB_CONSOLE_URL', defaultValue: 'https://stackstep.app/admin');

@@ -855,7 +855,8 @@ final class Certificate {
   final String? revokeReason;
 
   /// "ABCD-EFGH-JK23": easier to read aloud and type from paper.
-  String get displayCode => [for (var i = 0; i < code.length; i += 4) code.substring(i, i + 4 > code.length ? code.length : i + 4)].join('-');
+  String get displayCode =>
+      [for (var i = 0; i < code.length; i += 4) code.substring(i, i + 4 > code.length ? code.length : i + 4)].join('-');
 }
 
 /// The student's progress toward a certificate.

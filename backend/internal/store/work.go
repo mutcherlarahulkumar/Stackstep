@@ -59,7 +59,7 @@ func QuizAttempts(ctx context.Context, q Q, taskID uuid.UUID) (int, error) {
 func InsertQuizAttempt(ctx context.Context, q Q, taskID uuid.UUID, answers []int, r domain.QuizResult, now time.Time) error {
 	a := make([]int32, len(answers))
 	for i, v := range answers {
-		a[i] = int32(v) //nolint:gosec // answers are validated option indexes (< 6)
+		a[i] = int32(v)
 	}
 	_, err := q.Exec(ctx, `INSERT INTO quiz_attempts (task_id, attempt, answers, score, passed, created_at) VALUES ($1, $2, $3, $4, $5, $6)`,
 		taskID, r.Attempt, a, r.Score, r.Passed, now)

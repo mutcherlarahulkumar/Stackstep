@@ -93,12 +93,12 @@ func (g *Groq) Complete(ctx context.Context, msgs []Message) (Completion, error)
 	req.Header.Set("Content-Type", "application/json")
 	res, err := g.HTTP.Do(req)
 	if err != nil {
-		return Completion{}, fmt.Errorf("%w: %v", ErrUnavailable, err)
+		return Completion{}, fmt.Errorf("%w: %w", ErrUnavailable, err)
 	}
 	defer res.Body.Close()
 	raw, err := io.ReadAll(io.LimitReader(res.Body, 1<<20))
 	if err != nil {
-		return Completion{}, fmt.Errorf("%w: read: %v", ErrUnavailable, err)
+		return Completion{}, fmt.Errorf("%w: read: %w", ErrUnavailable, err)
 	}
 	switch {
 	case res.StatusCode == http.StatusTooManyRequests:

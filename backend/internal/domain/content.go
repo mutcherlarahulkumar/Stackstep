@@ -205,7 +205,7 @@ func SurpriseOffset(enrollmentID, itemID uuid.UUID, window int) int {
 	h := fnv.New32a()
 	_, _ = h.Write(enrollmentID[:])
 	_, _ = h.Write(itemID[:])
-	return int(h.Sum32() % uint32(window+1)) //nolint:gosec // window is bounded by MaxReleaseWindowMin
+	return int(h.Sum32() % uint32(window+1))
 }
 
 // Submission is what a student hands in with a task: a link and/or a note.
