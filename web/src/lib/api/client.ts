@@ -167,6 +167,33 @@ export class ApiClient {
     return this.send("GET", `/v1/admin/enrollments/${seg(enrollmentId)}/ai/conversations/${seg(conversationId)}`, S.AIConversationDetail);
   }
 
+  // ---- Progress and certificates ----
+
+  progress() {
+    return this.send("GET", "/v1/me/progress", S.Progress);
+  }
+
+  async certificates() {
+    return (await this.send("GET", "/v1/me/certificates", S.CertificateList)).items;
+  }
+
+  staffProgress(enrollmentId: string) {
+    return this.send("GET", `/v1/admin/enrollments/${seg(enrollmentId)}/progress`, S.Progress);
+  }
+
+  issueCertificate(enrollmentId: string) {
+    return this.send("POST", `/v1/admin/enrollments/${seg(enrollmentId)}/certificate`, S.Certificate);
+  }
+
+  revokeCertificate(code: string, reason: string) {
+    return this.send("POST", `/v1/admin/certificates/${seg(code)}/revoke`, S.Certificate, { body: { reason } });
+  }
+
+  /** Public: works signed out. */
+  verifyCertificate(code: string) {
+    return this.send("GET", `/v1/certificates/${seg(code)}`, S.Certificate, { auth: false });
+  }
+
   // ---- Admin ----
 
   students(q = "", cursor: string | null = null, limit = 30) {

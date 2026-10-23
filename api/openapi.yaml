@@ -1,7 +1,7 @@
 openapi: 3.1.0
 info:
   title: Stackstep API
-  version: 0.4.0
+  version: 0.5.0
   description: |
     Workspace core (feature 01). All timestamps are RFC 3339 UTC. All errors use the
     `Error` envelope; clients switch on `error.code`, never on `message`.
@@ -24,6 +24,8 @@ tags:
     description: Task allocation and review for admins and college admins
   - name: catalog
     description: Personas, task library and flows (platform admins edit; college admins read and assign)
+  - name: public
+    description: Endpoints that need no sign-in
   - name: inbox
     description: Admin conversations with students, as manager personas
 paths:
@@ -265,6 +267,82 @@ paths:
                   result: { $ref: "#/components/schemas/QuizAttemptResult" }
         "404": { $ref: "#/components/responses/Error" }
         "409": { $ref: "#/components/responses/Error" }
+        "422": { $ref: "#/components/responses/Error" }
+  /v1/certificates/{code}:
+    get:
+      tags: [public]
+      operationId: verifyCertificate
+      summary: Verify a certificate (no sign-in)
+      security: []
+      parameters:
+        - { name: code, in: path, required: true, schema: { type: string, pattern: "^[2-9A-HJ-NP-Z]{12}$" } }
+      responses:
+        "200": { description: Found, content: { application/json: { schema: { $ref: "#/components/schemas/Certificate" } } } }
+        "404": { $ref: "#/components/responses/Error" }
+        "429": { $ref: "#/components/responses/Error" }
+  /v1/me/progress:
+    get:
+      tags: [student]
+      operationId: myProgress
+      summary: Progress through the internship, and the certificate once issued
+      responses:
+        "200": { description: Progress, content: { application/json: { schema: { $ref: "#/components/schemas/Progress" } } } }
+        "409": { $ref: "#/components/responses/Error" }
+  /v1/me/certificates:
+    get:
+      tags: [student]
+      operationId: myCertificates
+      summary: Every certificate the user has earned (valid first)
+      responses:
+        "200":
+          description: Certificates
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [items]
+                properties:
+                  items: { type: array, items: { $ref: "#/components/schemas/Certificate" } }
+  /v1/admin/enrollments/{id}/progress:
+    get:
+      tags: [admin]
+      operationId: staffProgress
+      summary: A student's progress and certificate
+      parameters: [{ $ref: "#/components/parameters/Id" }]
+      responses:
+        "200": { description: Progress, content: { application/json: { schema: { $ref: "#/components/schemas/Progress" } } } }
+        "404": { $ref: "#/components/responses/Error" }
+  /v1/admin/enrollments/{id}/certificate:
+    post:
+      tags: [admin]
+      operationId: issueCertificate
+      summary: Issue the completion certificate (by hand)
+      parameters: [{ $ref: "#/components/parameters/Id" }]
+      responses:
+        "201": { description: Issued, content: { application/json: { schema: { $ref: "#/components/schemas/Certificate" } } } }
+        "404": { $ref: "#/components/responses/Error" }
+        "422": { $ref: "#/components/responses/Error" }
+  /v1/admin/certificates/{code}/revoke:
+    post:
+      tags: [admin]
+      operationId: revokeCertificate
+      summary: Revoke a certificate (platform admins)
+      parameters:
+        - { name: code, in: path, required: true, schema: { type: string } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [reason]
+              properties:
+                reason: { type: string, minLength: 1, maxLength: 300 }
+      responses:
+        "200": { description: Revoked, content: { application/json: { schema: { $ref: "#/components/schemas/Certificate" } } } }
+        "403": { $ref: "#/components/responses/Error" }
+        "404": { $ref: "#/components/responses/Error" }
         "422": { $ref: "#/components/responses/Error" }
   /v1/me/wallet:
     get:
@@ -1038,6 +1116,42 @@ components:
         passed: { type: boolean }
         correct: { type: array, items: { type: boolean } }
         attempts_left: { type: integer, minimum: 0, maximum: 2 }
+    CertificateStatus: { type: string, enum: [valid, revoked] }
+    Certificate:
+      type: object
+      required: [code, student_name, github_login, program_slug, program_days, flow_name, start_date, end_date, points, tasks_done, tasks_total, issued_at, status, revoked_at, revoke_reason]
+      properties:
+        code: { type: string }
+        student_name: { type: string }
+        github_login: { type: string }
+        program_slug: { type: string }
+        program_days: { type: integer, enum: [30, 60] }
+        flow_name: { type: [string, "null"] }
+        start_date: { type: string, format: date }
+        end_date: { type: string, format: date }
+        points: { type: integer, minimum: 0 }
+        tasks_done: { type: integer, minimum: 0 }
+        tasks_total: { type: integer, minimum: 0 }
+        issued_at: { type: string, format: date-time }
+        status: { $ref: "#/components/schemas/CertificateStatus" }
+        revoked_at: { type: [string, "null"], format: date-time }
+        revoke_reason: { type: [string, "null"] }
+    Progress:
+      type: object
+      required: [released, done, in_review, overdue, on_time, points, day_number, days, completion_percent, bar_percent, meets_bar, certificate]
+      properties:
+        released: { type: integer, minimum: 0 }
+        done: { type: integer, minimum: 0 }
+        in_review: { type: integer, minimum: 0 }
+        overdue: { type: integer, minimum: 0 }
+        on_time: { type: integer, minimum: 0 }
+        points: { type: integer, minimum: 0 }
+        day_number: { type: integer, minimum: 0 }
+        days: { type: integer }
+        completion_percent: { type: integer, minimum: 0, maximum: 100 }
+        bar_percent: { type: integer, description: Suggested completion before issuing a certificate }
+        meets_bar: { type: boolean }
+        certificate: { oneOf: [{ $ref: "#/components/schemas/Certificate" }, { type: "null" }] }
     CreditReason: { type: string, enum: [welcome, task_done, admin_grant, admin_revoke, ai_question, ai_refund] }
     AIRole: { type: string, enum: [student, assistant] }
     AIMessageStatus: { type: string, enum: [pending, answered, failed, ok] }

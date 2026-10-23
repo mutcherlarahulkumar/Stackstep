@@ -27,7 +27,7 @@ test("AI helper: explain it in one go, get hints in Markdown, wait before follow
 
   const answer = helper.getByTestId("ai-answer").first();
   await expect(answer.getByText("What's going on", { exact: true })).toBeVisible();
-  await expect(answer.locator("strong", { hasText: "Asking tip" })).toBeVisible();
+  await expect(answer.getByText("Asking tip", { exact: true })).toBeVisible();
   await expect(answer.locator("code", { hasText: "shown" })).toBeVisible();
   await expect(chips.getByLabel("19 credits")).toBeVisible();
   // Follow-ups wait until the student has tried the hint.

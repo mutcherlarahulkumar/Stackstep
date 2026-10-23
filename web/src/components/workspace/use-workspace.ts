@@ -9,7 +9,7 @@ import { type Frame, type Task, type TaskStatus } from "@/lib/api/schemas";
 import { upsertTask } from "@/lib/board";
 import { useFrames } from "@/lib/realtime-context";
 import { useSession } from "@/lib/session";
-import { walletKey } from "@/lib/wallet-queries";
+import { progressKey, walletKey } from "@/lib/wallet-queries";
 
 type State = { tasks: { status: "loading" } | { status: "error"; message: string } | { status: "ready"; data: Task[] } };
 
@@ -33,7 +33,10 @@ export function useWorkspace() {
   const qc = useQueryClient();
   const [state, dispatch] = useReducer(reducer, { tasks: { status: "loading" } });
   // Finishing a task earns points and a credit; refresh the header chips.
-  const refreshWallet = useCallback(() => void qc.invalidateQueries({ queryKey: walletKey }), [qc]);
+  const refreshWallet = useCallback(() => {
+    void qc.invalidateQueries({ queryKey: walletKey });
+    void qc.invalidateQueries({ queryKey: progressKey });
+  }, [qc]);
   const tasksRef = useRef<Task[]>([]);
   useEffect(() => {
     if (state.tasks.status === "ready") tasksRef.current = state.tasks.data;
@@ -58,9 +61,10 @@ export function useWorkspace() {
         else if (f.type === "task") {
           dispatch({ type: "upserted", task: f.task });
           if (f.task.status === "done") refreshWallet();
+          else void qc.invalidateQueries({ queryKey: progressKey });
         }
       },
-      [loadTasks, refreshWallet],
+      [loadTasks, refreshWallet, qc],
     ),
   );
 

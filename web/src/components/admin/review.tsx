@@ -24,6 +24,7 @@ import { EmptyState, ErrorState, ListSkeleton } from "../app/state";
 import { PersonaAvatar } from "../app/persona-avatar";
 import { StatusBadge, TypeBadge } from "../app/task-badges";
 import { AssignTaskForm } from "./assign-task-form";
+import { CertificatePanel } from "./certificate-panel";
 import { WalletPanel } from "./wallet-panel";
 import { personaMap, useAllPersonas, useFlows } from "./catalog-queries";
 
@@ -89,7 +90,10 @@ export function StudentDetail({ student }: { student: Student }) {
         </div>
       </div>
       <div className="flex flex-wrap items-center justify-between gap-3 border-b px-6 py-3">
-        <WalletPanel student={student} />
+        <div className="flex flex-col gap-2">
+          <WalletPanel student={student} />
+          <CertificatePanel student={student} />
+        </div>
         <span className="text-muted-foreground inline-flex items-center gap-1.5 text-xs" title="Reviews are done by hand for now">
           AI review suggestions <Badge variant="outline">Coming soon</Badge>
         </span>

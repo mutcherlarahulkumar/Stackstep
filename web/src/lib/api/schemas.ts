@@ -39,6 +39,9 @@ export const ERROR_CODES = [
 export const CREDIT_REASONS = ["welcome", "task_done", "admin_grant", "admin_revoke", "ai_question", "ai_refund"] as const;
 export const CreditReason = z.enum(CREDIT_REASONS);
 export type CreditReason = z.infer<typeof CreditReason>;
+export const CERTIFICATE_STATUSES = ["valid", "revoked"] as const;
+export const CertificateStatus = z.enum(CERTIFICATE_STATUSES);
+export type CertificateStatus = z.infer<typeof CertificateStatus>;
 
 export const Role = z.enum(ROLES);
 export const TaskType = z.enum(TASK_TYPES);
@@ -360,3 +363,39 @@ export const AIConversationDetail = z.object({
 });
 export type AIConversationDetail = z.output<typeof AIConversationDetail>;
 export const AIConversationList = z.object({ items: z.array(AIConversation) });
+
+export const Certificate = z.object({
+  code: z.string().regex(/^[2-9A-HJKMNP-Z]{12}$/),
+  student_name: z.string(),
+  github_login: z.string(),
+  program_slug: z.string(),
+  program_days: z.union([z.literal(30), z.literal(60)]),
+  flow_name: z.string().nullable(),
+  start_date: date,
+  end_date: date,
+  points: z.int().min(0),
+  tasks_done: z.int().min(0),
+  tasks_total: z.int().min(0),
+  issued_at: timestamp,
+  status: CertificateStatus,
+  revoked_at: timestamp.nullable(),
+  revoke_reason: z.string().nullable(),
+});
+export type Certificate = z.output<typeof Certificate>;
+export const CertificateList = z.object({ items: z.array(Certificate) });
+
+export const Progress = z.object({
+  released: z.int().min(0),
+  done: z.int().min(0),
+  in_review: z.int().min(0),
+  overdue: z.int().min(0),
+  on_time: z.int().min(0),
+  points: z.int().min(0),
+  day_number: z.int().min(0),
+  days: z.int(),
+  completion_percent: z.int().min(0).max(100),
+  bar_percent: z.int(),
+  meets_bar: z.boolean(),
+  certificate: Certificate.nullable(),
+});
+export type Progress = z.output<typeof Progress>;

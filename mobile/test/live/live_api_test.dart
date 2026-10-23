@@ -128,6 +128,13 @@ void main() {
       expect(await next, isA<MessageFrame>());
     });
 
+    test('progress decodes against the real server', () async {
+      final student = await _signIn('meera-dev');
+      final p = await student.progress();
+      expect(p.completionPercent, inInclusiveRange(0, 100));
+      expect(p.barPercent, 70);
+    });
+
     test('wallet and AI helper: one credit per answered question, follow-ups wait (needs GROQ_* set, e.g. the fake)', () async {
       final student = await _signIn('meera-dev');
       final before = await student.wallet();

@@ -26,6 +26,7 @@ Repository **variables** (Settings → Secrets and variables → Actions → Var
 |---|---|---|
 | `MOBILE_API_BASE_URL` | API URL compiled into mobile builds | `https://api.stackstep.app` |
 | `WEB_CONSOLE_URL` | Desktop console link shown to admins in the app | `https://stackstep.app/admin` |
+| `WEB_BASE_URL` | Public web app; certificate links in the app open here | `https://stackstep.app` |
 
 Repository **secrets** (each group is optional; without it the build still succeeds):
 

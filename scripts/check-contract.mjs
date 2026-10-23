@@ -18,6 +18,7 @@ const go = {
   FlowVersionStatus: read("backend/internal/domain/catalog.go"),
   Author: read("backend/internal/domain/chat.go"),
   CreditReason: read("backend/internal/domain/wallet.go"),
+  CertificateStatus: read("backend/internal/domain/certificate.go"),
 };
 const goType = {
   Role: "Role",
@@ -30,6 +31,7 @@ const goType = {
   FlowVersionStatus: "FlowVersionStatus",
   Author: "Author",
   CreditReason: "CreditReason",
+  CertificateStatus: "CertificateStatus",
 };
 const ts = read("web/src/lib/api/schemas.ts");
 const tsConst = {
@@ -43,6 +45,7 @@ const tsConst = {
   FlowVersionStatus: "FLOW_VERSION_STATUSES",
   Author: "AUTHORS",
   CreditReason: "CREDIT_REASONS",
+  CertificateStatus: "CERTIFICATE_STATUSES",
 };
 const dart = read("mobile/lib/api/models.dart");
 const dartEnum = { ...goType, ErrorCode: "ErrorCode" };

@@ -5,6 +5,7 @@ import 'package:stackstep/api/api_client.dart';
 import 'package:stackstep/api/models.dart';
 import 'package:stackstep/core/providers.dart';
 import 'package:stackstep/features/ai/ai_controller.dart';
+import 'package:stackstep/features/progress/progress_screen.dart';
 import 'package:stackstep/shared/errors.dart';
 
 enum BoardColumn {
@@ -83,6 +84,7 @@ final class BoardController extends AsyncNotifier<List<Task>> {
       next.add(t);
     }
     state = AsyncData(next);
+    ref.invalidate(progressProvider);
     // Finishing a task earns points and a credit.
     if (t.status == TaskStatus.done && (i < 0 || current[i].status != TaskStatus.done)) ref.invalidate(walletProvider);
   }

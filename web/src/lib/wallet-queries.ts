@@ -12,3 +12,11 @@ export function useWallet() {
   const { api } = useSession();
   return useQuery({ queryKey: walletKey, queryFn: () => api.wallet(), staleTime: 15_000 });
 }
+
+export const progressKey = ["progress"] as const;
+
+/** The student's progress and certificate, fetched when the panel opens. */
+export function useProgress() {
+  const { api } = useSession();
+  return useQuery({ queryKey: progressKey, queryFn: () => api.progress() });
+}

@@ -4,7 +4,6 @@ import { ArrowLeft, CalendarX2, MessageCircle, RefreshCw, SquareKanban } from "l
 import { useState } from "react";
 
 import { Button } from "@/components/ui/button";
-import { Progress } from "@/components/ui/progress";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { type Enrollment, type Me, type Persona } from "@/lib/api/schemas";
 import { totalUnread } from "@/lib/inbox";
@@ -23,6 +22,7 @@ import { AI_THREAD, StudentThreadList } from "../chat/thread-list";
 import { AIHelper } from "../ai/ai-helper";
 import { WalletChips } from "../ai/wallet-chips";
 import { BoardPanel } from "./board-panel";
+import { ProgressButton } from "./progress-sheet";
 import { useWorkspace } from "./use-workspace";
 
 export function WorkspaceScreen() {
@@ -70,7 +70,6 @@ function Workspace({ me, enrollment }: { me: Me; enrollment: Enrollment }) {
     setOpenTask(id);
     setTab("tasks");
   };
-  const progress = Math.round((enrollment.day_number / enrollment.program.days) * 100);
 
   return (
     <div className="flex h-dvh flex-col">
@@ -81,9 +80,9 @@ function Workspace({ me, enrollment }: { me: Me; enrollment: Enrollment }) {
             {dayCaption(enrollment)}
             {enrollment.flow ? <span className="hidden md:inline"> · {enrollment.flow.name}</span> : null}
           </span>
-          <Progress value={progress} className="hidden w-28 sm:block" aria-label={`Internship progress, ${progress}%`} />
         </div>
-        <div className="ml-auto">
+        <div className="ml-auto flex items-center gap-1">
+          <ProgressButton enrollment={enrollment} />
           <WalletChips />
         </div>
       </AppHeader>

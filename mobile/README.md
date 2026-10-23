@@ -14,6 +14,7 @@ flutter analyze && flutter test
 |---|---|---|
 | `API_BASE_URL` | `http://localhost:8080` (`10.0.2.2` on Android) | Go API |
 | `WEB_CONSOLE_URL` | `https://stackstep.app/admin` | Link admins copy to open the desktop console |
+| `WEB_BASE_URL` | `https://stackstep.app` | Public web app; certificate verification links open here |
 | `DEV_LOGIN` | `false` (always on in debug) | Show seeded-user sign-in for QA builds |
 
 Layout: `lib/api` (typed models, client, realtime), `lib/core` (config, theme, session),

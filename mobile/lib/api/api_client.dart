@@ -211,6 +211,8 @@ final class ApiClient {
 
   // ---- Points, credits and the AI helper ----
 
+  Future<Progress> progress() async => Progress.fromJson(asObject(await _send('GET', '/v1/me/progress')));
+
   Future<Wallet> wallet() async => Wallet.fromJson(asObject(await _send('GET', '/v1/me/wallet')));
 
   Future<List<AIConversation>> aiConversations() async =>

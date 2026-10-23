@@ -227,8 +227,9 @@ jobs:
           VERSION: ${{ needs.meta.outputs.version }}
           API_BASE_URL: ${{ vars.MOBILE_API_BASE_URL }}
           WEB_CONSOLE_URL: ${{ vars.WEB_CONSOLE_URL }}
+          WEB_BASE_URL: ${{ vars.WEB_BASE_URL }}
         run: |
-          defines="--dart-define=API_BASE_URL=${API_BASE_URL:-https://api.stackstep.app} --dart-define=WEB_CONSOLE_URL=${WEB_CONSOLE_URL:-https://stackstep.app/admin}"
+          defines="--dart-define=API_BASE_URL=${API_BASE_URL:-https://api.stackstep.app} --dart-define=WEB_CONSOLE_URL=${WEB_CONSOLE_URL:-https://stackstep.app/admin} --dart-define=WEB_BASE_URL=${WEB_BASE_URL:-https://stackstep.app}"
           flutter build apk --release --build-name "$VERSION" --build-number "${{ github.run_number }}" $defines
           flutter build appbundle --release --build-name "$VERSION" --build-number "${{ github.run_number }}" $defines
           mkdir -p dist
@@ -300,8 +301,9 @@ jobs:
         env:
           API_BASE_URL: ${{ vars.MOBILE_API_BASE_URL }}
           WEB_CONSOLE_URL: ${{ vars.WEB_CONSOLE_URL }}
+          WEB_BASE_URL: ${{ vars.WEB_BASE_URL }}
         run: |
-          defines="--dart-define=API_BASE_URL=${API_BASE_URL:-https://api.stackstep.app} --dart-define=WEB_CONSOLE_URL=${WEB_CONSOLE_URL:-https://stackstep.app/admin}"
+          defines="--dart-define=API_BASE_URL=${API_BASE_URL:-https://api.stackstep.app} --dart-define=WEB_CONSOLE_URL=${WEB_CONSOLE_URL:-https://stackstep.app/admin} --dart-define=WEB_BASE_URL=${WEB_BASE_URL:-https://stackstep.app}"
           mkdir -p dist
           if [ "$HAS_SIGNING" = "true" ]; then
             flutter build ipa --release --build-name "$VERSION" --build-number "${{ github.run_number }}" \

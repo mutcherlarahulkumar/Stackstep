@@ -797,3 +797,112 @@ final class AIConversationDetail {
   final DateTime? followUpAt;
   final Wallet wallet;
 }
+
+enum CertificateStatus {
+  valid('valid'),
+  revoked('revoked');
+
+  CertificateStatus(this.wire);
+  final String wire;
+}
+
+/// An issued certificate (a snapshot taken at issue time).
+final class Certificate {
+  const Certificate({
+    required this.code,
+    required this.studentName,
+    required this.githubLogin,
+    required this.programDays,
+    required this.flowName,
+    required this.startDate,
+    required this.endDate,
+    required this.points,
+    required this.tasksDone,
+    required this.tasksTotal,
+    required this.issuedAt,
+    required this.status,
+    required this.revokeReason,
+  });
+
+  factory Certificate.fromJson(JsonReader j) => Certificate(
+    code: j.string('code'),
+    studentName: j.string('student_name'),
+    githubLogin: j.string('github_login'),
+    programDays: j.integer('program_days'),
+    flowName: j.stringOrNull('flow_name'),
+    startDate: j.string('start_date'),
+    endDate: j.string('end_date'),
+    points: j.integer('points'),
+    tasksDone: j.integer('tasks_done'),
+    tasksTotal: j.integer('tasks_total'),
+    issuedAt: j.dateTime('issued_at'),
+    status: j.enumValue('status', CertificateStatus.values, (s) => s.wire),
+    revokeReason: j.stringOrNull('revoke_reason'),
+  );
+
+  final String code;
+  final String studentName;
+  final String githubLogin;
+  final int programDays;
+  final String? flowName;
+  final String startDate;
+  final String endDate;
+  final int points;
+  final int tasksDone;
+  final int tasksTotal;
+  final DateTime issuedAt;
+  final CertificateStatus status;
+  final String? revokeReason;
+
+  /// "ABCD-EFGH-JK23": easier to read aloud and type from paper.
+  String get displayCode => [for (var i = 0; i < code.length; i += 4) code.substring(i, i + 4 > code.length ? code.length : i + 4)].join('-');
+}
+
+/// The student's progress toward a certificate.
+final class Progress {
+  const Progress({
+    required this.released,
+    required this.done,
+    required this.inReview,
+    required this.overdue,
+    required this.onTime,
+    required this.points,
+    required this.dayNumber,
+    required this.days,
+    required this.completionPercent,
+    required this.barPercent,
+    required this.meetsBar,
+    required this.certificate,
+  });
+
+  factory Progress.fromJson(JsonReader j) {
+    final c = j.objectOrNull('certificate');
+    return Progress(
+      released: j.integer('released'),
+      done: j.integer('done'),
+      inReview: j.integer('in_review'),
+      overdue: j.integer('overdue'),
+      onTime: j.integer('on_time'),
+      points: j.integer('points'),
+      dayNumber: j.integer('day_number'),
+      days: j.integer('days'),
+      completionPercent: j.integer('completion_percent'),
+      barPercent: j.integer('bar_percent'),
+      meetsBar: j.boolean('meets_bar'),
+      certificate: c == null ? null : Certificate.fromJson(c),
+    );
+  }
+
+  final int released;
+  final int done;
+  final int inReview;
+  final int overdue;
+  final int onTime;
+  final int points;
+  final int dayNumber;
+  final int days;
+  final int completionPercent;
+  final int barPercent;
+  final bool meetsBar;
+  final Certificate? certificate;
+}

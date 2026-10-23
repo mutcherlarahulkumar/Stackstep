@@ -50,4 +50,23 @@ await shoot("23-ai-answer", "meera-dev", "/workspace", {
   },
 });
 await shoot("24-ai-phone", "meera-dev", "/workspace", { width: 390, height: 844, dark: true, before: async (p) => { await p.getByTestId("thread-ai").click(); await p.waitForTimeout(300); } });
+await shoot("25-progress", "asha-dev", "/workspace", { before: async (p) => { await p.getByTestId("open-progress").click(); await p.waitForTimeout(500); } });
+await shoot("26-issue-certificate", "admin-demo", "/admin", { before: async (p) => { await p.getByTestId("student-asha-dev").click(); await p.getByTestId("open-issue").click(); await p.waitForTimeout(500); } });
+// Issue one so the public pages have something to show.
+let code = "";
+await shoot("27-certificate-issued", "admin-demo", "/admin", {
+  before: async (p) => {
+    await p.getByTestId("student-asha-dev").click();
+    await p.getByTestId("open-issue").click();
+    await p.getByTestId("confirm-issue").click();
+    code = (await p.getByTestId("view-certificate").innerText()).trim();
+    await p.waitForTimeout(500);
+  },
+});
+await shoot("28-verify-phone", null, `/verify/${code}`, { width: 390, height: 844 });
+await shoot("29-certificate", null, `/certificate/${code}`);
+await shoot("30-verify-dark", null, `/verify/${code}`, { dark: true });
+await shoot("31-verify-unknown", null, "/verify/ABCDEFGHJK23", { width: 390, height: 844, dark: true });
+await shoot("32-verify-lookup", null, "/verify", { width: 390, height: 844 });
+await shoot("33-progress-phone", "asha-dev", "/workspace", { width: 390, height: 844, dark: true, before: async (p) => { await p.getByTestId("open-progress").click(); await p.waitForTimeout(500); } });
 await browser.close();

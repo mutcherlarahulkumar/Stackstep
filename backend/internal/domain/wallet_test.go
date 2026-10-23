@@ -67,3 +67,31 @@ func TestAIQuestion(t *testing.T) {
 		t.Fatalf("lazy follow-up accepted: %v", e)
 	}
 }
+
+func TestCertificateCode(t *testing.T) {
+	seen := map[string]bool{}
+	for range 2000 {
+		c := NewCertificateCode()
+		if !ValidCertificateCode(c) || seen[c] {
+			t.Fatalf("bad or repeated code %q", c)
+		}
+		seen[c] = true
+	}
+	for _, bad := range []string{"", "ABC", "ABCDEFGHJKM0", "abcdefghjkmn", "ABCDEFGHJKMNP"} {
+		if ValidCertificateCode(bad) {
+			t.Fatalf("%q accepted", bad)
+		}
+	}
+	p := Progress{Released: 10, Done: 7}
+	if p.CompletionPercent() != 70 || !p.MeetsBar() || (Progress{}).MeetsBar() {
+		t.Fatalf("bar = %+v", p)
+	}
+}
+
+func TestNormalizeCertificateCode(t *testing.T) {
+	for in, want := range map[string]string{"abcd-efgh-jk23": "ABCDEFGHJK23", " 2345 6789 abcd ": "23456789ABCD", "ABCDEFGHJK23": "ABCDEFGHJK23"} {
+		if got := NormalizeCertificateCode(in); got != want {
+			t.Errorf("NormalizeCertificateCode(%q) = %q, want %q", in, got, want)
+		}
+	}
+}
