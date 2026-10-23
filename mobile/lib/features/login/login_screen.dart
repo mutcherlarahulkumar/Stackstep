@@ -55,7 +55,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                   Text('Your internship,\nstep by step.', style: t.textTheme.h1.copyWith(height: 1.1)),
                   const SizedBox(height: Space.md),
                   Text(
-                    'Daily tickets from your AI team lead, real pull requests on your own GitHub, and a certificate that links to the work.',
+                    'Daily tickets from your team lead, real pull requests on your own GitHub, and a certificate anyone can verify.',
                     style: t.textTheme.lead,
                   ),
                   const SizedBox(height: Space.xxl),

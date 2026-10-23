@@ -1,8 +1,8 @@
 # Stackstep
 
-A 30- or 60-day virtual internship that works like a real software job: an AI team lead
-assigns work in chat, students ship real pull requests on their own GitHub, and the
-certificate links to the work.
+A 30- or 60-day virtual internship that works like a real software job: a team of manager
+personas assigns work in chat, students ship real pull requests on their own GitHub, and a
+hand-issued certificate anyone can verify links to the work.
 
 | Part | Stack | Path |
 |---|---|---|
@@ -12,9 +12,27 @@ certificate links to the work.
 | Contract | OpenAPI 3.1 | [`api/openapi.yaml`](api/openapi.yaml) |
 | End-to-end tests | Playwright | [`e2e/`](e2e) |
 
-Plan and rules: [`docs/PLAN.md`](docs/PLAN.md) · Current feature spec with every edge case:
-[`docs/features/01-workspace.md`](docs/features/01-workspace.md) · Releases:
-[`docs/RELEASING.md`](docs/RELEASING.md)
+**Setup and every environment variable: [`docs/SETUP.md`](docs/SETUP.md)** · Plan and rules:
+[`docs/PLAN.md`](docs/PLAN.md) · Releases: [`docs/RELEASING.md`](docs/RELEASING.md)
+
+## Features
+
+Each has a spec with every edge case and the test that covers it, in [`docs/features/`](docs/features):
+
+1. **Workspace** — GitHub sign-in, task board, chat, task allocation (web and app).
+2. **Flows and personas** — day-by-day flows, a task library, manager personas, a team inbox
+   and broadcasts.
+3. **Task work** — hand-in links, auto-graded quizzes, reading links, surprise tasks in
+   working hours.
+4. **Points, credits and the AI study helper** — the only AI in the product: Groq-powered
+   hints for students, paid in credits, rate limited, and it makes students explain the
+   problem and try things themselves first.
+5. **Certificates** — progress against a 70% bar, issued by hand, public `/verify` page and a
+   printable certificate.
+6. **Placement overview** — cohort table, CSV export and nudges for inactive students.
+
+Coming soon (labelled in the UI, nothing faked): Razorpay payments, GitHub PR checks,
+AI review suggestions, Orshot certificate artwork.
 
 ## Who uses what
 
@@ -25,17 +43,17 @@ Plan and rules: [`docs/PLAN.md`](docs/PLAN.md) · Current feature spec with ever
 ## Run it locally
 
 ```bash
+cp .env.example .env          # optional: GROQ_API_KEY for the AI helper, GitHub OAuth
 make up                       # Postgres + API + web in Docker, seeded
 open http://localhost:3000    # use "Developer sign-in" on /login
 ```
 
 Or run pieces on the host: `make db seed`, then `make api`, `make web`, `make mobile`.
-Seeded logins: `asha-dev`, `ravi-dev` (students), `nora-dev` (no internship),
-`anits-tpo` (college admin), `admin-demo` (admin).
+Seeded logins: `asha-dev`, `ravi-dev`, `meera-dev` (students), `kiran-dev` (paused),
+`nora-dev` (no internship), `anits-tpo` (college admin), `admin-demo` (admin).
 
-Real GitHub sign-in: create an OAuth app with callback
-`http://localhost:3000/api/v1/auth/github/callback`, then set `GITHUB_CLIENT_ID` and
-`GITHUB_CLIENT_SECRET` (and `BOOTSTRAP_ADMIN_GITHUB_LOGINS=<your-login>` to be an admin).
+Real GitHub sign-in, the Groq key, production settings and every variable are in
+[`docs/SETUP.md`](docs/SETUP.md).
 
 ## Checks
 

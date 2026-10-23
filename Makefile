@@ -14,11 +14,14 @@ db:            ## Just Postgres (for running api/web on the host)
 	docker compose up -d db
 	-docker compose exec -T db psql -U stackstep -c "CREATE DATABASE stackstep_test" 2>/dev/null
 
+# backend/.env (optional, see backend/.env.example) is loaded first; its DATABASE_URL wins.
+LOAD_ENV = set -a; [ -f .env ] && . ./.env; set +a;
+
 seed:
-	cd backend && DATABASE_URL="$(DB_URL)" go run ./cmd/seed -reset
+	cd backend && export DATABASE_URL="$(DB_URL)"; $(LOAD_ENV) go run ./cmd/seed -reset
 
 api:
-	cd backend && DATABASE_URL="$(DB_URL)" LEAD_REPLY_DELAY=5s go run ./cmd/api
+	cd backend && export DATABASE_URL="$(DB_URL)" LEAD_REPLY_DELAY=5s; $(LOAD_ENV) go run ./cmd/api
 
 web:
 	cd web && pnpm dev

@@ -1,7 +1,7 @@
 # Feature 01 — Workspace core
 
 Sign-in, task allocation by admins, the student's task board, and the chat with
-the AI team lead. This is the loop every later feature plugs into.
+the team lead. This is the loop every later feature plugs into.
 
 ## User stories
 

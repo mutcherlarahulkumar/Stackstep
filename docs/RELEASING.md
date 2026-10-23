@@ -37,10 +37,5 @@ Repository **secrets** (each group is optional; without it the build still succe
 
 ## Runtime configuration
 
-API (`backend/internal/config`): `DATABASE_URL`, `APP_ENV` (`production` disables dev
-login and requires GitHub OAuth + https), `JWT_SECRET` and `OAUTH_STATE_SECRET` (≥ 32 bytes,
-required in production), `WEB_BASE_URL`, `ALLOWED_ORIGINS`, `MOBILE_REDIRECT_URL`,
-`GITHUB_CLIENT_ID/SECRET`, `GITHUB_REDIRECT_URL`, `BOOTSTRAP_ADMIN_GITHUB_LOGINS`,
-`TRUSTED_PROXIES`, `AUTH_RATE_PER_MINUTE`, `LEAD_REPLY_DELAY`.
-
-Web: `API_INTERNAL_URL`, `PUBLIC_WS_URL`, `DEV_LOGIN` — all read at runtime.
+Every API, web and mobile setting (including the Groq AI helper) is documented in
+[`SETUP.md`](SETUP.md), with a production checklist.

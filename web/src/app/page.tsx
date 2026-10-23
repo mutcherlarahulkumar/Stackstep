@@ -1,4 +1,4 @@
-import { ArrowRight, Bot, GitPullRequest, ShieldCheck } from "lucide-react";
+import { ArrowRight, GitPullRequest, MessagesSquare, ShieldCheck } from "lucide-react";
 import Link from "next/link";
 
 import { GitHubMark, Wordmark } from "@/components/app/brand";
@@ -6,9 +6,9 @@ import { ThemeToggle } from "@/components/app/theme-toggle";
 import { Button } from "@/components/ui/button";
 
 const FEATURES = [
-  { icon: Bot, title: "An AI team lead", body: "Daily standups, tickets and code reviews in a chat — with realistic reply times." },
+  { icon: MessagesSquare, title: "A team in your chats", body: "Daily standups, tickets and code reviews from your managers — with realistic reply times." },
   { icon: GitPullRequest, title: "Real pull requests", body: "Every task is a branch and a PR in your own GitHub repo, built on your machine." },
-  { icon: ShieldCheck, title: "Proof recruiters can check", body: "Your certificate links to the repos, live sites and merged PRs behind it." },
+  { icon: ShieldCheck, title: "Proof recruiters can check", body: "Every certificate has a public verification page anyone can check." },
 ];
 
 export default function Home() {
