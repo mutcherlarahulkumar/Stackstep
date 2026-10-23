@@ -18,6 +18,24 @@ Conventional Commit PR titles (enforced by `pr-title.yml`; use squash merges).
 
 To rebuild artifacts for an existing tag: Actions → Release → Run workflow → `vX.Y.Z`.
 
+### Every push to `main`: the `latest-main` pre-release
+
+When a push doesn't cut a versioned release, the Release workflow still builds everything and
+publishes it to a rolling **`latest-main`** pre-release (replaced on each push): the APK and
+AAB (`stackstep_<version>-main.<run>.apk`), the iOS build, and the API binaries. Docker images
+are pushed as `:main` and `:sha-<commit>`. Artifact builds don't wait on the test suites —
+those run in the regular CI workflows on the same push.
+
+**Versioned releases need one repo setting:** Settings → Actions → General → Workflow
+permissions → tick **Allow GitHub Actions to create and approve pull requests**. Without it
+release-please can't open its release PR; the workflow warns and ships `latest-main` instead.
+
+### Non-blocking checks
+
+- CodeQL runs on `main` and weekly, not on PRs, and never fails the build (code scanning may
+  need enabling under Settings → Code security).
+- The Flutter format check is advisory; Android and iOS CI builds don't wait for it.
+
 ## Configuration
 
 Repository **variables** (Settings → Secrets and variables → Actions → Variables):

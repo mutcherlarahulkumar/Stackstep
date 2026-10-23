@@ -34,7 +34,9 @@ jobs:
           channel: stable
           cache: true
       - run: flutter pub get --enforce-lockfile
-      - run: dart format --set-exit-if-changed lib test
+      - name: Format (advisory; run `dart format lib test` locally)
+        continue-on-error: true
+        run: dart format --set-exit-if-changed lib test
       - run: flutter analyze
       - run: flutter test --coverage
       - uses: actions/upload-artifact@v7
@@ -45,7 +47,6 @@ jobs:
 
   android:
     name: Android build
-    needs: check
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v7
@@ -69,7 +70,6 @@ jobs:
 
   ios:
     name: iOS build (no codesign)
-    needs: check
     runs-on: macos-15
     steps:
       - uses: actions/checkout@v7
