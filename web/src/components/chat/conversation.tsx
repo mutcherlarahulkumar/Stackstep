@@ -1,30 +1,28 @@
 "use client";
 
-import { ArrowUp, Bot, SquareKanban } from "lucide-react";
-import { Fragment, useLayoutEffect, useRef, useState, type KeyboardEvent } from "react";
+import { ArrowUp, MessagesSquare, SquareKanban } from "lucide-react";
+import { Fragment, useLayoutEffect, useRef, useState, type KeyboardEvent, type ReactNode } from "react";
 
-import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { Spinner } from "@/components/ui/spinner";
 import { Textarea } from "@/components/ui/textarea";
 import { type Message } from "@/lib/api/schemas";
 import { dayLabel, timeLabel } from "@/lib/format";
+import { isMine, isStaffTarget, type ChatTarget } from "@/lib/inbox";
 import { cn } from "@/lib/utils";
 import { Bounds, runeLength } from "@/lib/validation";
 
 import { EmptyState, ErrorState, ListSkeleton } from "../app/state";
-import { type Outgoing, type useWorkspace } from "./use-workspace";
-
-type Workspace = ReturnType<typeof useWorkspace>;
+import { useConversation, type Conversation, type Outgoing } from "./use-conversation";
 
 type Row = { key: string; at: Date; mine: boolean; body: string; taskId: string | null; outgoing: Outgoing | null };
 
-function rows(messages: Message[], outgoing: Outgoing[]): Row[] {
+function rows(target: ChatTarget, messages: Message[], outgoing: Outgoing[]): Row[] {
   // Oldest first for rendering top-to-bottom.
   const delivered: Row[] = [...messages].reverse().map((m) => ({
     key: m.id,
     at: m.sent_at,
-    mine: m.author === "student",
+    mine: isMine(target, m),
     body: m.body,
     taskId: m.task_id,
     outgoing: null,
@@ -32,9 +30,17 @@ function rows(messages: Message[], outgoing: Outgoing[]): Row[] {
   return [...delivered, ...outgoing.map((o) => ({ key: `out-${o.clientId}`, at: o.at, mine: true, body: o.body, taskId: null, outgoing: o }))];
 }
 
-const QUICK_REPLIES = ["PR ready for review", "I'm stuck on this", "Good morning"];
+const STUDENT_REPLIES = ["PR ready for review", "I'm stuck on this", "Good morning"];
+const STAFF_REPLIES = ["Looks good, thanks!", "Can you share the PR link?", "Let's sync tomorrow"];
 
-export function ChatPanel({ ws, onOpenTask }: { ws: Workspace; onOpenTask: (taskId: string) => void }) {
+type Other = { name: string; avatar: ReactNode };
+
+/**
+ * One conversation. Students talk to a persona; staff (target.enrollmentId set) see a
+ * student and write as the persona. Mount with a `key` per target.
+ */
+export function ConversationView({ target, other, onOpenTask }: { target: ChatTarget; other: Other; onOpenTask?: (taskId: string) => void }) {
+  const ws = useConversation(target);
   const { state } = ws;
   if (state.messages.status === "loading") {
     return (
@@ -43,12 +49,13 @@ export function ChatPanel({ ws, onOpenTask }: { ws: Workspace; onOpenTask: (task
       </div>
     );
   }
-  if (state.messages.status === "error") return <ErrorState message={state.messages.message} onRetry={ws.reload} />;
-  return <Thread ws={ws} messages={state.messages.data} onOpenTask={onOpenTask} />;
+  if (state.messages.status === "error") return <ErrorState message={state.messages.message} onRetry={() => void ws.reload()} />;
+  return <Thread ws={ws} messages={state.messages.data} other={other} onOpenTask={onOpenTask} />;
 }
 
-function Thread({ ws, messages, onOpenTask }: { ws: Workspace; messages: Message[]; onOpenTask: (taskId: string) => void }) {
-  const list = rows(messages, ws.state.outgoing);
+function Thread({ ws, messages, other, onOpenTask }: { ws: Conversation; messages: Message[]; other: Other; onOpenTask?: (taskId: string) => void }) {
+  const staff = isStaffTarget(ws.target);
+  const list = rows(ws.target, messages, ws.state.outgoing);
   const scroller = useRef<HTMLDivElement>(null);
   const stickToBottom = useRef(true);
   const prevHeight = useRef(0);
@@ -79,19 +86,21 @@ function Thread({ ws, messages, onOpenTask }: { ws: Workspace; messages: Message
         role="log"
         aria-live="polite"
         aria-relevant="additions"
-        aria-label="Chat with your team lead"
+        aria-label={`Conversation with ${other.name}`}
         data-testid="chat-log"
       >
-        {ws.state.nextCursor === null ? (
-          <p className="text-muted-foreground py-6 text-center text-xs">This is the start of your internship chat.</p>
+        {ws.state.nextCursor === null && list.length > 0 ? (
+          <p className="text-muted-foreground py-6 text-center text-xs">This is the start of the conversation.</p>
         ) : ws.state.loadingOlder ? (
           <div className="flex justify-center py-4">
             <Spinner />
           </div>
         ) : null}
         {list.length === 0 ? (
-          <EmptyState icon={Bot} title="Say hi to your team lead">
-            Your lead posts standups and tickets here. Ask anything — replies take a minute, like on a real team.
+          <EmptyState icon={MessagesSquare} title={staff ? "No messages yet" : `Say hi to ${other.name}`}>
+            {staff
+              ? "Write as the persona. The student sees it in their chat right away."
+              : `Tickets and updates from ${other.name} land here. Ask questions any time.`}
           </EmptyState>
         ) : (
           <ol className="flex flex-col">
@@ -108,19 +117,33 @@ function Thread({ ws, messages, onOpenTask }: { ws: Workspace; messages: Message
                       <span className="bg-muted text-muted-foreground rounded-full px-3 py-0.5 text-xs font-medium">{dayLabel(r.at, now)}</span>
                     </li>
                   ) : null}
-                  <Bubble row={r} showAvatar={!groupedWithPrev} showMeta={!groupedWithNext} ws={ws} onOpenTask={onOpenTask} />
+                  <Bubble row={r} showAvatar={!groupedWithPrev} showMeta={!groupedWithNext} ws={ws} other={other} onOpenTask={onOpenTask} />
                 </Fragment>
               );
             })}
           </ol>
         )}
       </div>
-      <Composer onSend={ws.send} />
+      <Composer onSend={ws.send} placeholder={`Message ${other.name}`} quickReplies={staff ? STAFF_REPLIES : STUDENT_REPLIES} />
     </div>
   );
 }
 
-function Bubble({ row, showAvatar, showMeta, ws, onOpenTask }: { row: Row; showAvatar: boolean; showMeta: boolean; ws: Workspace; onOpenTask: (id: string) => void }) {
+function Bubble({
+  row,
+  showAvatar,
+  showMeta,
+  ws,
+  other,
+  onOpenTask,
+}: {
+  row: Row;
+  showAvatar: boolean;
+  showMeta: boolean;
+  ws: Conversation;
+  other: Other;
+  onOpenTask?: (id: string) => void;
+}) {
   const o = row.outgoing;
   const failed = !!o?.error;
   const sending = !!o && !failed;
@@ -128,11 +151,9 @@ function Bubble({ row, showAvatar, showMeta, ws, onOpenTask }: { row: Row; showA
     <li className={cn("flex gap-2", row.mine ? "justify-end" : "justify-start", showMeta ? "mb-3" : "mb-0.5")}>
       {!row.mine ? (
         showAvatar ? (
-          <Avatar size="sm" className="mt-0.5">
-            <AvatarFallback className="bg-primary text-primary-foreground">
-              <Bot className="size-3.5" aria-hidden />
-            </AvatarFallback>
-          </Avatar>
+          <span className="mt-0.5 shrink-0" aria-hidden>
+            {other.avatar}
+          </span>
         ) : (
           <span className="w-6 shrink-0" />
         )
@@ -146,9 +167,9 @@ function Bubble({ row, showAvatar, showMeta, ws, onOpenTask }: { row: Row; showA
             failed && "ring-destructive ring-2",
           )}
         >
-          <span className="sr-only">{row.mine ? "You: " : "Team lead: "}</span>
+          <span className="sr-only">{row.mine ? "You: " : `${other.name}: `}</span>
           {row.body}
-          {row.taskId ? (
+          {row.taskId && onOpenTask ? (
             <div className="mt-2">
               <Button size="sm" variant="outline" className="bg-background text-foreground" onClick={() => onOpenTask(row.taskId ?? "")}>
                 <SquareKanban data-icon="inline-start" aria-hidden />
@@ -175,7 +196,7 @@ function Bubble({ row, showAvatar, showMeta, ws, onOpenTask }: { row: Row; showA
   );
 }
 
-function Composer({ onSend }: { onSend: (raw: string) => string | null }) {
+function Composer({ onSend, placeholder, quickReplies }: { onSend: (raw: string) => string | null; placeholder: string; quickReplies: string[] }) {
   const [text, setText] = useState("");
   const [error, setError] = useState<string | null>(null);
   const ref = useRef<HTMLTextAreaElement>(null);
@@ -209,7 +230,7 @@ function Composer({ onSend }: { onSend: (raw: string) => string | null }) {
     >
       {text === "" ? (
         <div className="mb-2 flex gap-2 overflow-x-auto pb-1" aria-label="Quick replies">
-          {QUICK_REPLIES.map((q) => (
+          {quickReplies.map((q) => (
             <Button key={q} type="button" size="sm" variant="outline" className="shrink-0 rounded-full" onClick={() => submit(q)}>
               {q}
             </Button>
@@ -218,7 +239,7 @@ function Composer({ onSend }: { onSend: (raw: string) => string | null }) {
       ) : null}
       <div className="flex items-end gap-2">
         <label htmlFor="chat-input" className="sr-only">
-          Message your team lead
+          {placeholder}
         </label>
         <Textarea
           id="chat-input"
@@ -229,7 +250,7 @@ function Composer({ onSend }: { onSend: (raw: string) => string | null }) {
             setError(null);
           }}
           onKeyDown={onKeyDown}
-          placeholder="Message your team lead"
+          placeholder={placeholder}
           rows={1}
           aria-invalid={!!error || length > Bounds.messageMax}
           aria-describedby="chat-hint"

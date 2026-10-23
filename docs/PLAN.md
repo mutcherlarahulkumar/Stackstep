@@ -30,9 +30,11 @@ quick and often done on the move.
 | Capability | Student · Mobile app | Student · Web | Admin · Mobile app | Admin · Web (phone/tablet < 1024px) | Admin · Web (desktop ≥ 1024px) |
 |---|---|---|---|---|---|
 | Sign in with GitHub | ✅ | ✅ | ✅ | ✅ | ✅ |
-| Chat with AI team lead | ✅ (home screen) | ✅ | — | — | — |
+| Chats with manager personas (one per persona) | ✅ (home screen) | ✅ | — | — | — |
 | Task board (move own tasks) | ✅ | ✅ | — | — | — |
 | **Assign a task to a student** | — | — | ✅ | ✅ | ✅ |
+| **Inbox: reply as a persona, message many students** | — | — | ✅ | ✅ | ✅ |
+| Flows, task library, personas | — | — | Desktop prompt | Desktop prompt | ✅ |
 | Review a task (approve / request changes) | — | — | — | Desktop prompt | ✅ |
 | Students overview, cohorts, reports | — | — | Desktop prompt | Desktop prompt | ✅ |
 | Payments, refunds, content authoring | — | — | Desktop prompt | Desktop prompt | ✅ |
@@ -90,7 +92,8 @@ Each slice goes **backend → mobile app → web**, with E2E before it is called
 | # | Feature | Status |
 |---|---|---|
 | 1 | **Workspace core: sign-in, task allocation, task board, chat with the team lead** | ✅ built — see `docs/features/01-workspace.md` |
-| 2 | Daily scheduler (program day templates → tasks, surprise items in working hours) | next |
+| 2 | **Flows, task library, manager personas, team inbox** (flows schedule tasks day by day; manual admin review) | ✅ built — see `docs/features/02-flows-personas.md` |
+| 2b | Surprise items in working hours, per-student pacing | next |
 | 3 | GitHub App ingest + PR pipeline (webhooks, runner, hidden tests, AI review) | |
 | 4 | LLM-backed team lead (two model tiers behind the `lead.Agent` interface) | |
 | 5 | DSA tab on the judge, quizzes, doc-reading tasks | |

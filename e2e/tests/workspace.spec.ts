@@ -1,16 +1,17 @@
 import { expect, test } from "@playwright/test";
 
-import { expectToast, signIn, unique } from "./helpers";
+import { expectToast, openChat, signIn, unique } from "./helpers";
 
 test.describe("student workspace", () => {
   test("chat: send a message and get the lead's delayed reply live", async ({ page }) => {
     await signIn(page, "asha-dev");
     await expect(page).toHaveURL(/\/workspace$/);
+    await openChat(page, "Sam Rivera");
     const log = page.getByTestId("chat-log").first();
     await expect(log).toContainText("Welcome to Stackstep, Asha");
 
     const text = unique("PR ready for review");
-    await page.getByLabel("Message your team lead").first().fill(text);
+    await page.getByLabel("Message Sam Rivera").first().fill(text);
     await page.keyboard.press("Enter");
     await expect(log).toContainText(text);
     // The lead's reply arrives over the WebSocket after LEAD_REPLY_DELAY.
@@ -19,7 +20,8 @@ test.describe("student workspace", () => {
 
   test("composer blocks blank and over-long messages", async ({ page }) => {
     await signIn(page, "asha-dev");
-    const input = page.getByLabel("Message your team lead").first();
+    await openChat(page, "Sam Rivera");
+    const input = page.getByLabel("Message Sam Rivera").first();
     const send = page.getByRole("button", { name: "Send message" }).first();
     await input.fill("   ");
     await expect(send).toBeDisabled();
@@ -47,6 +49,7 @@ test("full loop: admin assigns → student works → admin reviews", async ({ br
   const student = await (await browser.newContext({ viewport: { width: 1440, height: 900 } })).newPage();
 
   await signIn(student, "asha-dev");
+  await openChat(student, "Sam Rivera");
   await signIn(admin, "admin-demo");
   await expect(admin).toHaveURL(/\/admin$/);
   await admin.getByTestId("student-asha-dev").click();

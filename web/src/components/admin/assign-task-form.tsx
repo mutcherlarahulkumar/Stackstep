@@ -12,18 +12,27 @@ import { Spinner } from "@/components/ui/spinner";
 import { Textarea } from "@/components/ui/textarea";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { ApiError, messageFor } from "@/lib/api/errors";
-import { TASK_TYPES, type Student, type Task, type TaskType } from "@/lib/api/schemas";
+import { TASK_TYPES, type ReviewMode, type Student, type Task, type TaskType } from "@/lib/api/schemas";
 import { TYPE_LABEL } from "@/lib/board";
 import { dateTimeLabel, firstName, fromLocalInput, toLocalInput } from "@/lib/format";
+import { DEFAULT_PERSONA_ID } from "@/lib/inbox";
+import { usePersonas } from "@/lib/inbox-queries";
 import { useSession } from "@/lib/session";
 import { cn } from "@/lib/utils";
 import { Bounds, normalizeLine, runeLength, validateBrief, validateSchedule, validateTitle } from "@/lib/validation";
 
 import { choiceItem } from "../app/choice";
+import { PersonaAvatar } from "../app/persona-avatar";
 import { TYPE_ICON } from "../app/task-badges";
 
 type DuePreset = "2h" | "today" | "tomorrow" | "custom";
-type Errors = Partial<Record<"type" | "title" | "brief" | "scheduled_for" | "due_at", string>>;
+type Errors = Partial<Record<"type" | "persona_id" | "review_mode" | "title" | "brief" | "scheduled_for" | "due_at", string>>;
+
+export const REVIEW_LABEL: Record<ReviewMode, string> = { manual: "Admin reviews", self: "Student marks done" };
+export const REVIEW_HINT: Record<ReviewMode, string> = {
+  manual: "The student submits it and an admin approves or requests changes.",
+  self: "The student marks it done themselves. Good for reading and practice.",
+};
 
 function presetDue(p: Exclude<DuePreset, "custom">, start: Date): Date {
   const at = (d: Date, days: number) => new Date(d.getFullYear(), d.getMonth(), d.getDate() + days, 18, 0, 0, 0);
@@ -44,6 +53,13 @@ function presetDue(p: Exclude<DuePreset, "custom">, start: Date): Date {
 export function AssignTaskForm({ student, onAssigned }: { student: Student; onAssigned: (t: Task) => void }) {
   const { api } = useSession();
   const [type, setType] = useState<TaskType>("feature");
+  const personas = usePersonas();
+  const [personaPick, setPersonaPick] = useState<string | null>(null);
+  const [reviewMode, setReviewMode] = useState<ReviewMode>("manual");
+  const personaList = personas.data ?? [];
+  // The admin's pick, else the default team lead, else the first persona; null lets the server decide.
+  const personaId = personaPick ?? (personaList.some((p) => p.id === DEFAULT_PERSONA_ID) ? DEFAULT_PERSONA_ID : (personaList[0]?.id ?? null));
+  const persona = personaList.find((p) => p.id === personaId);
   const [title, setTitle] = useState("");
   const [brief, setBrief] = useState("");
   const [later, setLater] = useState(false);
@@ -75,7 +91,15 @@ export function AssignTaskForm({ student, onAssigned }: { student: Student; onAs
     if (Object.values(next).some(Boolean) || !due) return;
     setSubmitting(true);
     try {
-      const task = await api.createTask(student.enrollment.id, { type, title: normalizeLine(title), brief: brief.trim(), scheduled_for: start, due_at: due });
+      const task = await api.createTask(student.enrollment.id, {
+        type,
+        persona_id: personaId,
+        review_mode: reviewMode,
+        title: normalizeLine(title),
+        brief: brief.trim(),
+        scheduled_for: start,
+        due_at: due,
+      });
       setTitle("");
       setBrief("");
       onAssigned(task);
@@ -130,6 +154,53 @@ export function AssignTaskForm({ student, onAssigned }: { student: Student; onAs
             </SelectContent>
           </Select>
           {errors.type ? <FieldError>{errors.type}</FieldError> : null}
+        </Field>
+        <Field data-invalid={!!errors.persona_id}>
+          <FieldLabel htmlFor="task-persona">Posted by</FieldLabel>
+          <Select
+            value={personaId ?? ""}
+            onValueChange={(v) => {
+              setPersonaPick(v);
+              clear("persona_id");
+            }}
+            disabled={personaList.length === 0}
+          >
+            <SelectTrigger id="task-persona" className="w-full" data-testid="task-persona">
+              <SelectValue placeholder={personas.isPending ? "Loading…" : "Team lead"} />
+            </SelectTrigger>
+            <SelectContent>
+              {personaList.map((p) => (
+                <SelectItem key={p.id} value={p.id}>
+                  <PersonaAvatar persona={p} size="sm" /> {p.name} <span className="text-muted-foreground">· {p.title}</span>
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          {errors.persona_id ? (
+            <FieldError>{errors.persona_id}</FieldError>
+          ) : (
+            <FieldDescription>{persona ? `Announced in ${firstName(student.user.name)}'s chat with ${persona.name}.` : "Announced in chat."}</FieldDescription>
+          )}
+        </Field>
+        <Field data-invalid={!!errors.review_mode}>
+          <FieldLabel>Review</FieldLabel>
+          <ToggleGroup
+            type="single"
+            variant="outline"
+            value={reviewMode}
+            onValueChange={(v) => {
+              if (v === "manual" || v === "self") setReviewMode(v);
+            }}
+            className="justify-start"
+          >
+            <ToggleGroupItem value="manual" className={choiceItem}>
+              {REVIEW_LABEL.manual}
+            </ToggleGroupItem>
+            <ToggleGroupItem value="self" className={choiceItem} data-testid="review-self">
+              {REVIEW_LABEL.self}
+            </ToggleGroupItem>
+          </ToggleGroup>
+          {errors.review_mode ? <FieldError>{errors.review_mode}</FieldError> : <FieldDescription>{REVIEW_HINT[reviewMode]}</FieldDescription>}
         </Field>
         <Field data-invalid={!!errors.title}>
           <div className="flex items-baseline justify-between">
@@ -202,7 +273,7 @@ export function AssignTaskForm({ student, onAssigned }: { student: Student; onAs
           {errors.scheduled_for ? (
             <FieldError>{errors.scheduled_for}</FieldError>
           ) : (
-            <FieldDescription>{later ? "Hidden from the student until then." : "Right away. The lead announces it in chat."}</FieldDescription>
+            <FieldDescription>{later ? "Hidden from the student until then." : "Right away, with an announcement in chat."}</FieldDescription>
           )}
         </Field>
         <Field data-invalid={!!errors.due_at}>

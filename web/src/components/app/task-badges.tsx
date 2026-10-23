@@ -1,4 +1,4 @@
-import { BookOpen, Binary, Bug, GitBranch, ListChecks, MessageSquareCode, Sparkles, Users, type LucideIcon } from "lucide-react";
+import { BookOpen, Binary, Bug, GitBranch, ListChecks, MessageSquareCode, PenLine, Sparkles, Users, type LucideIcon } from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
 import { type TaskStatus, type TaskType } from "@/lib/api/schemas";
@@ -14,6 +14,7 @@ export const TYPE_ICON: Record<TaskType, LucideIcon> = {
   git_chore: GitBranch,
   code_review: MessageSquareCode,
   standup: Users,
+  blog: PenLine,
 };
 
 const STATUS_STYLE: Record<TaskStatus, string> = {

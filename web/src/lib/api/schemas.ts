@@ -10,9 +10,13 @@ const timestamp = z.iso.datetime({ offset: true }).transform((s) => new Date(s))
 const date = z.iso.date();
 
 export const ROLES = ["student", "college_admin", "admin"] as const;
-export const TASK_TYPES = ["feature", "bug_fix", "dsa", "doc_reading", "quiz", "git_chore", "code_review", "standup"] as const;
+export const TASK_TYPES = ["feature", "bug_fix", "dsa", "doc_reading", "quiz", "git_chore", "code_review", "standup", "blog"] as const;
 export const TASK_STATUSES = ["todo", "in_progress", "in_review", "changes_requested", "done", "cancelled"] as const;
 export const ENROLLMENT_STATUSES = ["active", "paused", "completed", "cancelled"] as const;
+export const REVIEW_MODES = ["manual", "self"] as const;
+export const PERSONA_COLORS = ["violet", "blue", "emerald", "amber", "rose", "cyan", "slate"] as const;
+export const FLOW_VERSION_STATUSES = ["draft", "published", "retired"] as const;
+export const AUTHORS = ["student", "persona"] as const;
 export const ERROR_CODES = [
   "bad_request",
   "payload_too_large",
@@ -36,12 +40,20 @@ export const TaskType = z.enum(TASK_TYPES);
 export const TaskStatus = z.enum(TASK_STATUSES);
 export const EnrollmentStatus = z.enum(ENROLLMENT_STATUSES);
 export const ErrorCode = z.enum(ERROR_CODES);
+export const ReviewMode = z.enum(REVIEW_MODES);
+export const PersonaColor = z.enum(PERSONA_COLORS);
+export const FlowVersionStatus = z.enum(FLOW_VERSION_STATUSES);
+export const Author = z.enum(AUTHORS);
 
 export type Role = z.infer<typeof Role>;
 export type TaskType = z.infer<typeof TaskType>;
 export type TaskStatus = z.infer<typeof TaskStatus>;
 export type EnrollmentStatus = z.infer<typeof EnrollmentStatus>;
 export type ErrorCode = z.infer<typeof ErrorCode>;
+export type ReviewMode = z.infer<typeof ReviewMode>;
+export type PersonaColor = z.infer<typeof PersonaColor>;
+export type FlowVersionStatus = z.infer<typeof FlowVersionStatus>;
+export type Author = z.infer<typeof Author>;
 
 export const User = z.object({
   id: z.uuid(),
@@ -66,6 +78,7 @@ export const Enrollment = z.object({
   timezone: z.string(),
   status: EnrollmentStatus,
   day_number: z.int().min(0).max(60),
+  flow: z.object({ flow_id: z.uuid(), version_id: z.uuid(), name: z.string(), version: z.int().min(1) }).nullable(),
 });
 export type Enrollment = z.output<typeof Enrollment>;
 
@@ -84,12 +97,17 @@ export const Task = z.object({
   version: z.int().min(1),
   created_at: timestamp,
   updated_at: timestamp,
+  review_mode: ReviewMode,
+  persona_id: z.uuid(),
+  from_flow: z.boolean(),
 });
 export type Task = z.output<typeof Task>;
 
 export const Message = z.object({
   id: z.uuid(),
-  author: z.enum(["student", "lead"]),
+  enrollment_id: z.uuid(),
+  persona_id: z.uuid(),
+  author: Author,
   body: z.string(),
   task_id: z.uuid().nullable(),
   client_id: z.uuid().nullable(),
@@ -105,12 +123,111 @@ export const Student = z.object({
 });
 export type Student = z.output<typeof Student>;
 
+export const Persona = z.object({
+  id: z.uuid(),
+  name: z.string().min(1),
+  title: z.string(),
+  color: PersonaColor,
+  auto_reply: z.boolean(),
+  archived: z.boolean(),
+  version: z.int().min(1),
+});
+export type Persona = z.output<typeof Persona>;
+
+/** "HH:MM", 24-hour local time in the student's time zone. */
+const clockTime = z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/);
+
+const taskSpec = {
+  type: TaskType,
+  title: z.string(),
+  brief: z.string(),
+  persona_id: z.uuid(),
+  review_mode: ReviewMode,
+  release_time: clockTime,
+  due_minutes: z.int().min(15).max(10_080),
+};
+export const TaskSpec = z.object(taskSpec);
+export type TaskSpec = z.output<typeof TaskSpec>;
+
+export const TaskTemplate = z.object({ id: z.uuid(), ...taskSpec, archived: z.boolean(), version: z.int().min(1), updated_at: timestamp });
+export type TaskTemplate = z.output<typeof TaskTemplate>;
+
+export const Flow = z.object({
+  id: z.uuid(),
+  name: z.string(),
+  stream: z.string(),
+  description: z.string(),
+  days: z.union([z.literal(30), z.literal(60)]),
+  archived: z.boolean(),
+  version: z.int().min(1),
+  updated_at: timestamp,
+});
+export type Flow = z.output<typeof Flow>;
+
+export const FlowSummary = Flow.extend({
+  published_version: z.int().min(1).nullable(),
+  has_draft: z.boolean(),
+  task_count: z.int().min(0),
+  active_students: z.int().min(0),
+});
+export type FlowSummary = z.output<typeof FlowSummary>;
+
+export const FlowItem = z.object({ id: z.uuid(), day: z.int().min(1).max(60), position: z.int().min(0), template_id: z.uuid().nullable(), ...taskSpec });
+export type FlowItem = z.output<typeof FlowItem>;
+
+export const FlowVersion = z.object({
+  id: z.uuid(),
+  number: z.int().min(1),
+  status: FlowVersionStatus,
+  revision: z.int().min(1),
+  published_at: timestamp.nullable(),
+  items: z.array(FlowItem),
+});
+export type FlowVersion = z.output<typeof FlowVersion>;
+
+export const FlowDetail = z.object({ flow: Flow, draft: FlowVersion.nullable(), published: FlowVersion.nullable() });
+export type FlowDetail = z.output<typeof FlowDetail>;
+
+export const ItemError = z.object({ code: z.string(), message: z.string(), fields: z.record(z.string(), z.string()).optional() });
+export type ItemError = z.output<typeof ItemError>;
+
+export const AssignResult = z.object({
+  enrollment_id: z.uuid(),
+  generated: z.int().min(0),
+  skipped: z.int().min(0),
+  cancelled: z.int().min(0),
+  error: ItemError.nullable(),
+});
+export type AssignResult = z.output<typeof AssignResult>;
+
+export const BroadcastResult = z.object({
+  sent: z.int().min(0),
+  items: z.array(z.object({ enrollment_id: z.uuid(), sent: z.boolean(), error: ItemError.nullable() })),
+});
+export type BroadcastResult = z.output<typeof BroadcastResult>;
+
+export const Thread = z.object({ enrollment_id: z.uuid(), persona: Persona, last_message: Message.nullable(), unread: z.int().min(0) });
+export type Thread = z.output<typeof Thread>;
+
+export const StaffThread = Thread.extend({
+  student: z.object({ name: z.string(), github_login: z.string(), avatar_url: z.string().nullable() }),
+});
+export type StaffThread = z.output<typeof StaffThread>;
+
 const page = <T extends z.ZodType>(item: T) => z.object({ items: z.array(item), next_cursor: z.string().nullable() });
 
 export const TaskList = z.object({ items: z.array(Task) });
 export const MessagePage = page(Message);
 export const StudentPage = page(Student);
 export const EnrollmentTasks = z.object({ enrollment: Enrollment, items: z.array(Task) });
+export const ThreadList = z.object({ items: z.array(Thread) });
+export const StaffThreadPage = page(StaffThread);
+export const PersonaList = z.object({ items: z.array(Persona) });
+export const TemplatePage = page(TaskTemplate);
+export const FlowList = z.object({ items: z.array(FlowSummary) });
+export const AssignResultList = z.object({ items: z.array(AssignResult) });
+export type StaffThreadPage = z.output<typeof StaffThreadPage>;
+export type TemplatePage = z.output<typeof TemplatePage>;
 export type MessagePage = z.output<typeof MessagePage>;
 export type StudentPage = z.output<typeof StudentPage>;
 export type EnrollmentTasks = z.output<typeof EnrollmentTasks>;

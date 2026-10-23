@@ -8,8 +8,7 @@ import { Button } from "@/components/ui/button";
 import { type Student, type Task } from "@/lib/api/schemas";
 import { dueLabel, firstName } from "@/lib/format";
 
-import { AppHeader } from "../app/app-header";
-import { RequireSession } from "../app/guard";
+import { AdminShell } from "./admin-shell";
 import { AssignTaskForm } from "./assign-task-form";
 import { StudentList } from "./students";
 
@@ -18,20 +17,16 @@ export function AssignFlow() {
   const [student, setStudent] = useState<Student | null>(null);
   const [done, setDone] = useState<Task | null>(null);
   return (
-    <RequireSession audience="staff">
-      {(me) => (
-        <div className="flex h-dvh flex-col">
-          <AppHeader user={me.user}>
-            <span className="text-muted-foreground hidden text-sm sm:inline">Assign a task</span>
-          </AppHeader>
-          <main id="main" className="mx-auto flex min-h-0 w-full max-w-xl flex-1 flex-col">
+    <AdminShell section="assign" phone="allow">
+      {() => (
+          <div className="mx-auto flex min-h-0 w-full max-w-xl flex-1 flex-col">
             {student === null ? (
               <>
                 <div className="px-4 pt-4">
                   <Alert>
                     <Monitor aria-hidden />
                     <AlertTitle>Assigning on the go</AlertTitle>
-                    <AlertDescription>Reviews, cohorts and reports are in the desktop console.</AlertDescription>
+                    <AlertDescription>Flows, the task library and reviews are in the desktop console. Replies to students are in Inbox.</AlertDescription>
                   </Alert>
                   <h1 className="mt-6 text-lg font-semibold">Who is this task for?</h1>
                 </div>
@@ -51,16 +46,15 @@ export function AssignFlow() {
                     <CircleCheck aria-hidden />
                     <AlertTitle>Assigned “{done.title}”</AlertTitle>
                     <AlertDescription>
-                      {firstName(student.user.name)} sees it now, and the team lead announced it in chat. {dueLabel(done.due_at, new Date())}.
+                      {firstName(student.user.name)} sees it on their board, with an announcement in chat. {dueLabel(done.due_at, new Date())}.
                     </AlertDescription>
                   </Alert>
                 ) : null}
                 <AssignTaskForm student={student} onAssigned={setDone} />
               </div>
             )}
-          </main>
-        </div>
+          </div>
       )}
-    </RequireSession>
+    </AdminShell>
   );
 }

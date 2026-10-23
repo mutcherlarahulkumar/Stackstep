@@ -1,26 +1,29 @@
 "use client";
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Ban, Check, ClipboardList, MessageSquareWarning, Plus } from "lucide-react";
+import { Ban, Check, ClipboardList, MessageSquareWarning, Plus, Route } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { Field, FieldError, FieldLabel } from "@/components/ui/field";
+import { Field, FieldDescription, FieldError, FieldLabel } from "@/components/ui/field";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { Spinner } from "@/components/ui/spinner";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Textarea } from "@/components/ui/textarea";
 import { ApiError, messageFor } from "@/lib/api/errors";
-import { type Student, type Task, type TaskStatus } from "@/lib/api/schemas";
+import { type Persona, type Student, type Task, type TaskStatus } from "@/lib/api/schemas";
 import { dateTimeLabel, dueLabel, firstName } from "@/lib/format";
 import { useSession } from "@/lib/session";
 import { Bounds, runeLength, staffMoves, validateNote } from "@/lib/validation";
 
 import { EmptyState, ErrorState, ListSkeleton } from "../app/state";
+import { PersonaAvatar } from "../app/persona-avatar";
 import { StatusBadge, TypeBadge } from "../app/task-badges";
 import { AssignTaskForm } from "./assign-task-form";
+import { personaMap, useAllPersonas, useFlows } from "./catalog-queries";
 
 const ORDER: Record<TaskStatus, number> = { in_review: 0, changes_requested: 1, in_progress: 2, todo: 3, done: 4, cancelled: 5 };
 
@@ -28,6 +31,8 @@ export function StudentDetail({ student }: { student: Student }) {
   const { api } = useSession();
   const qc = useQueryClient();
   const [assignOpen, setAssignOpen] = useState(false);
+  const [flowOpen, setFlowOpen] = useState(false);
+  const personas = personaMap(useAllPersonas().data);
   const [reviewing, setReviewing] = useState<{ task: Task; to: TaskStatus } | null>(null);
   const key = ["enrollment-tasks", student.enrollment.id];
   const tasks = useQuery({ queryKey: key, queryFn: () => api.enrollmentTasks(student.enrollment.id) });
@@ -48,6 +53,8 @@ export function StudentDetail({ student }: { student: Student }) {
     },
   });
 
+  // The enrollment from this fetch is fresher than the list row (e.g. right after assigning a flow).
+  const enrollment = tasks.data?.enrollment ?? student.enrollment;
   const sorted = [...(tasks.data?.items ?? [])].sort((a, b) => ORDER[a.status] - ORDER[b.status] || a.due_at.getTime() - b.due_at.getTime());
   const now = new Date();
 
@@ -59,10 +66,25 @@ export function StudentDetail({ student }: { student: Student }) {
           <p className="text-muted-foreground text-sm">
             @{student.user.github_login} · {student.enrollment.program.slug} · Day {student.enrollment.day_number} of {student.enrollment.program.days}
           </p>
+          <p className="text-muted-foreground mt-1 flex items-center gap-1.5 text-sm">
+            <Route className="size-4" aria-hidden />
+            {enrollment.flow ? (
+              <span>
+                On <span className="text-foreground font-medium">{enrollment.flow.name}</span> · v{enrollment.flow.version}
+              </span>
+            ) : (
+              <span>No flow yet</span>
+            )}
+          </p>
         </div>
-        <Button onClick={() => setAssignOpen(true)} disabled={student.enrollment.status !== "active"} data-testid="open-assign">
-          <Plus data-icon="inline-start" aria-hidden /> Assign task
-        </Button>
+        <div className="flex shrink-0 gap-2">
+          <Button variant="outline" onClick={() => setFlowOpen(true)} disabled={student.enrollment.status !== "active"} data-testid="open-assign-flow">
+            <Route data-icon="inline-start" aria-hidden /> {enrollment.flow ? "Change flow" : "Assign flow"}
+          </Button>
+          <Button onClick={() => setAssignOpen(true)} disabled={student.enrollment.status !== "active"} data-testid="open-assign">
+            <Plus data-icon="inline-start" aria-hidden /> Assign task
+          </Button>
+        </div>
       </div>
       <div className="min-h-0 flex-1 overflow-y-auto p-6">
         {tasks.isPending ? (
@@ -89,7 +111,12 @@ export function StudentDetail({ student }: { student: Student }) {
                   <TableCell className="max-w-80">
                     <div className="flex flex-col gap-1">
                       <span className="truncate font-medium">{t.title}</span>
-                      <TypeBadge type={t.type} />
+                      <span className="text-muted-foreground flex flex-wrap items-center gap-2 text-xs">
+                        <TypeBadge type={t.type} />
+                        <PersonaTag persona={personas.get(t.persona_id)} />
+                        {t.review_mode === "self" ? <span>Self-check</span> : null}
+                        {t.from_flow ? <span>From flow</span> : null}
+                      </span>
                     </div>
                   </TableCell>
                   <TableCell>
@@ -120,7 +147,7 @@ export function StudentDetail({ student }: { student: Student }) {
         <SheetContent className="w-full overflow-y-auto sm:max-w-md">
           <SheetHeader>
             <SheetTitle>Assign a task</SheetTitle>
-            <SheetDescription>To {student.user.name}. It appears on their board and the team lead announces it in chat.</SheetDescription>
+            <SheetDescription>To {student.user.name}. It appears on their board and the persona you pick announces it in chat.</SheetDescription>
           </SheetHeader>
           <div className="px-4 pb-6">
             <AssignTaskForm
@@ -136,6 +163,19 @@ export function StudentDetail({ student }: { student: Student }) {
         </SheetContent>
       </Sheet>
 
+      <AssignFlowDialog
+        key={flowOpen ? "open" : "closed"}
+        open={flowOpen}
+        student={student}
+        currentFlowId={enrollment.flow?.flow_id ?? null}
+        onClose={() => setFlowOpen(false)}
+        onDone={() => {
+          setFlowOpen(false);
+          void qc.invalidateQueries({ queryKey: key });
+          void qc.invalidateQueries({ queryKey: ["students"] });
+        }}
+      />
+
       <NoteDialog
         target={reviewing}
         busy={move.isPending}
@@ -145,6 +185,98 @@ export function StudentDetail({ student }: { student: Student }) {
         }}
       />
     </div>
+  );
+}
+
+function PersonaTag({ persona }: { persona: Persona | undefined }) {
+  if (!persona) return null;
+  return (
+    <span className="inline-flex items-center gap-1">
+      <PersonaAvatar persona={persona} size="sm" className="size-4" />
+      {persona.name}
+    </span>
+  );
+}
+
+/** Puts one student on a published flow (or switches them to another). */
+function AssignFlowDialog({
+  open,
+  student,
+  currentFlowId,
+  onClose,
+  onDone,
+}: {
+  open: boolean;
+  student: Student;
+  currentFlowId: string | null;
+  onClose: () => void;
+  onDone: () => void;
+}) {
+  const { api } = useSession();
+  const flows = useFlows(false);
+  const usable = (flows.data ?? []).filter((f) => f.published_version !== null && f.days === student.enrollment.program.days);
+  const [flowId, setFlowId] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const assign = useMutation({
+    mutationFn: (id: string) => api.assignFlow(student.enrollment.id, id),
+    onSuccess: (r) => {
+      if (r.error) {
+        setError(r.error.message);
+        return;
+      }
+      toast.success(`Scheduled ${r.generated} ${r.generated === 1 ? "task" : "tasks"}`, {
+        description: [r.skipped ? `${r.skipped} on past days skipped` : "", r.cancelled ? `${r.cancelled} from the old flow cancelled` : ""].filter(Boolean).join(" · ") || undefined,
+      });
+      onDone();
+    },
+    onError: (e) => setError(messageFor(e)),
+  });
+  const switching = currentFlowId !== null && flowId !== null && flowId !== currentFlowId;
+  return (
+    <Dialog open={open} onOpenChange={(o) => !o && onClose()}>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>{currentFlowId ? "Change flow" : "Assign a flow"}</DialogTitle>
+          <DialogDescription>
+            Every task of the published version is scheduled for {firstName(student.user.name)} from today on. Days already over are skipped.
+          </DialogDescription>
+        </DialogHeader>
+        <Field data-invalid={!!error}>
+          <FieldLabel htmlFor="assign-flow">Flow</FieldLabel>
+          <Select
+            value={flowId ?? ""}
+            onValueChange={(v) => {
+              setFlowId(v);
+              setError(null);
+            }}
+          >
+            <SelectTrigger id="assign-flow" className="w-full">
+              <SelectValue placeholder={flows.isPending ? "Loading…" : usable.length ? "Pick a flow" : `No published ${student.enrollment.program.days}-day flows`} />
+            </SelectTrigger>
+            <SelectContent>
+              {usable.map((f) => (
+                <SelectItem key={f.id} value={f.id}>
+                  {f.name} <span className="text-muted-foreground">· v{f.published_version}</span>
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          {error ? (
+            <FieldError>{error}</FieldError>
+          ) : switching ? (
+            <FieldDescription>Tasks from the current flow that haven&apos;t shown up yet are cancelled. Released ones stay.</FieldDescription>
+          ) : null}
+        </Field>
+        <DialogFooter>
+          <Button variant="outline" onClick={onClose}>
+            Cancel
+          </Button>
+          <Button disabled={!flowId || assign.isPending} onClick={() => flowId && assign.mutate(flowId)} data-testid="assign-flow-confirm">
+            {assign.isPending ? <Spinner data-icon="inline-start" /> : null} {switching ? "Switch flow" : "Assign"}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   );
 }
 

@@ -28,6 +28,7 @@ export const TYPE_LABEL: Record<TaskType, string> = {
   git_chore: "Git chore",
   code_review: "Code review",
   standup: "Standup",
+  blog: "Blog post",
 };
 
 export function columnOf(s: TaskStatus): Column {

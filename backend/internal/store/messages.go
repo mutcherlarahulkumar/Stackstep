@@ -275,6 +275,7 @@ func StaffThreads(ctx context.Context, q Q, now time.Time, f StaffThreadFilter) 
 	}
 	rows, err := q.Query(ctx, threadSelect+`
 		WHERE e.status IN ('active', 'paused')
+		  AND lm.id IS NOT NULL -- threads holding only scheduled announcements stay hidden until one is delivered
 		  AND ($2::uuid IS NULL OR COALESCE(c.college_id, u.college_id) = $2)
 		  AND ($3::uuid IS NULL OR t.persona_id = $3)
 		  AND (NOT $4 OR `+unreadStaffExpr+` > 0)

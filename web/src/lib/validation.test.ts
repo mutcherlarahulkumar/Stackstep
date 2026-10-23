@@ -1,7 +1,19 @@
 import { describe, expect, it } from "vitest";
 
 import { TASK_STATUSES } from "./api/schemas";
-import { staffMoves, studentMoves, validateBrief, validateMessage, validateNote, validateSchedule, validateTitle } from "./validation";
+import {
+  durationLabel,
+  staffMoves,
+  studentMoves,
+  validateBrief,
+  validateDueMinutes,
+  validateLine,
+  validateMessage,
+  validateNote,
+  validateReleaseTime,
+  validateSchedule,
+  validateTitle,
+} from "./validation";
 
 describe("validation mirrors the server bounds", () => {
   it("title", () => {
@@ -59,5 +71,26 @@ describe("validation mirrors the server bounds", () => {
         expect(staffMoves(from).includes(to)).toBe(allowed.has(`${from}>${to}/staff`));
       }
     }
+  });
+
+  it("self-reviewed tasks are finished by the student (R1)", () => {
+    expect(studentMoves("in_progress", "self")).toEqual(["done"]);
+    expect(studentMoves("in_progress", "manual")).toEqual(["in_review"]);
+    expect(studentMoves("in_review", "self")).toEqual([]);
+  });
+
+  it("catalog bounds mirror the server (P1, L2, F1)", () => {
+    expect(validateLine(" a ", "Name", 2, 60)).toMatch(/at least 2/);
+    expect(validateLine("x".repeat(61), "Name", 2, 60)).toMatch(/at most 60/);
+    expect(validateLine("Priya   Sharma", "Name", 2, 60)).toBeNull();
+    for (const ok of ["00:00", "09:30", "23:59"]) expect(validateReleaseTime(ok)).toBeNull();
+    for (const bad of ["24:00", "9:30", "09:60", "0930", "٠٩:٣٠", ""]) expect(validateReleaseTime(bad)).not.toBeNull();
+    expect(validateDueMinutes(14)).not.toBeNull();
+    expect(validateDueMinutes(15)).toBeNull();
+    expect(validateDueMinutes(10_080)).toBeNull();
+    expect(validateDueMinutes(10_081)).not.toBeNull();
+    expect(validateDueMinutes(30.5)).not.toBeNull();
+    expect(durationLabel(1500)).toBe("1 day 1 h");
+    expect(durationLabel(45)).toBe("45 min");
   });
 });

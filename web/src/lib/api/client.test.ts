@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 
-import { json, tokens } from "@/test/fixtures";
+import { flowJson, json, LEAD_ID, MANAGER_ID, tokens } from "@/test/fixtures";
 
 import { ApiClient } from "./client";
 import { ApiError, NetworkError } from "./errors";
@@ -60,7 +60,15 @@ describe("ApiClient", () => {
           : json({ error: { code: "validation_failed", message: "no", fields: { title: "Too short" } } }, 422),
       ),
     });
-    const err = await api.createTask("e", { type: "feature", title: "ab", brief: "", scheduled_for: null, due_at: new Date() }).catch((e: unknown) => e);
+    const err = await api.createTask("e", {
+        type: "feature",
+        persona_id: null,
+        review_mode: "manual",
+        title: "ab",
+        brief: "",
+        scheduled_for: null,
+        due_at: new Date(),
+      }).catch((e: unknown) => e);
     expect(err).toBeInstanceOf(ApiError);
     expect((err as ApiError).code).toBe("validation_failed");
     expect((err as ApiError).fields.title).toBe("Too short");
@@ -78,7 +86,7 @@ describe("ApiClient", () => {
     });
     await expect(api.me()).rejects.toBeInstanceOf(NetworkError);
     await expect(api.myTasks()).rejects.toBeInstanceOf(NetworkError);
-    await expect(api.messages()).rejects.toBeInstanceOf(NetworkError);
+    await expect(api.messages(LEAD_ID)).rejects.toBeInstanceOf(NetworkError);
   });
 
   it("sends the web client header and never sends credentials cross-origin", async () => {
@@ -93,5 +101,22 @@ describe("ApiClient", () => {
     await api.myTasks();
     expect(new Headers(seen?.headers).get("X-Client")).toBe("web");
     expect(seen?.credentials).toBe("same-origin");
+  });
+
+  it("encodes thread paths and saves drafts with PUT", async () => {
+    const calls: { url: string; method: string | undefined; body: unknown }[] = [];
+    const api = new ApiClient({
+      fetch: vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+        const p = path(input);
+        if (p === "/api/v1/auth/refresh") return json(tokens());
+        calls.push({ url: p, method: init?.method, body: init?.body ? JSON.parse(String(init.body)) : undefined });
+        if (p.endsWith("/read")) return new Response(null, { status: 204 });
+        return json({ flow: flowJson(), draft: null, published: null });
+      }),
+    });
+    await api.staffMarkRead("e/1", MANAGER_ID);
+    await api.saveDraft("f-1", 0, []);
+    expect(calls[0]?.url).toBe(`/api/v1/admin/threads/e%2F1/${MANAGER_ID}/read`);
+    expect(calls[1]).toEqual({ url: "/api/v1/admin/flows/f-1/draft", method: "PUT", body: { expected_revision: 0, items: [] } });
   });
 });

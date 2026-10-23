@@ -1,24 +1,42 @@
 "use client";
 
-import { CalendarX2, MessageCircle, RefreshCw, SquareKanban } from "lucide-react";
+import { ArrowLeft, CalendarX2, MessageCircle, RefreshCw, SquareKanban } from "lucide-react";
 import { useState } from "react";
 
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { type Enrollment, type Me } from "@/lib/api/schemas";
+import { type Enrollment, type Me, type Persona } from "@/lib/api/schemas";
+import { totalUnread } from "@/lib/inbox";
+import { useStudentThreads } from "@/lib/inbox-queries";
+import { RealtimeProvider, useSocketStatus } from "@/lib/realtime-context";
 import { useSession } from "@/lib/session";
+import { useIsDesktop } from "@/lib/use-desktop";
 
 import { AppHeader } from "../app/app-header";
 import { ConnectionBanner } from "../app/connection-banner";
 import { RequireSession } from "../app/guard";
+import { PersonaAvatar } from "../app/persona-avatar";
 import { EmptyState } from "../app/state";
+import { ConversationView } from "../chat/conversation";
+import { StudentThreadList } from "../chat/thread-list";
 import { BoardPanel } from "./board-panel";
-import { ChatPanel } from "./chat-panel";
 import { useWorkspace } from "./use-workspace";
 
 export function WorkspaceScreen() {
-  return <RequireSession audience="student">{(me) => (me.enrollment ? <Workspace me={me} enrollment={me.enrollment} /> : <NoEnrollment me={me} />)}</RequireSession>;
+  return (
+    <RequireSession audience="student">
+      {(me) =>
+        me.enrollment ? (
+          <RealtimeProvider>
+            <Workspace me={me} enrollment={me.enrollment} />
+          </RealtimeProvider>
+        ) : (
+          <NoEnrollment me={me} />
+        )
+      }
+    </RequireSession>
+  );
 }
 
 function dayCaption(e: Enrollment): string {
@@ -29,8 +47,21 @@ function dayCaption(e: Enrollment): string {
 
 function Workspace({ me, enrollment }: { me: Me; enrollment: Enrollment }) {
   const ws = useWorkspace();
+  const threads = useStudentThreads();
+  const socket = useSocketStatus();
+  // One layout at a time, so each conversation is mounted (and marked read) once.
+  const desktop = useIsDesktop();
   const [tab, setTab] = useState<"chat" | "tasks">("chat");
   const [openTask, setOpenTask] = useState<string | null>(null);
+  // Desktop always shows a conversation (the newest by default); phones start on the list.
+  const [picked, setPicked] = useState<string | null>(null);
+  const [phoneThread, setPhoneThread] = useState<string | null>(null);
+  const personas = (threads.data ?? []).map((t) => t.persona);
+  const byId = new Map(personas.map((p) => [p.id, p]));
+  const desktopPersona = (picked ? byId.get(picked) : undefined) ?? personas[0] ?? null;
+  const phonePersona = phoneThread ? (byId.get(phoneThread) ?? null) : null;
+  const unread = totalUnread(threads.data ?? []);
+
   const openFromChat = (id: string) => {
     setOpenTask(id);
     setTab("tasks");
@@ -42,50 +73,118 @@ function Workspace({ me, enrollment }: { me: Me; enrollment: Enrollment }) {
       <AppHeader user={me.user}>
         <div className="flex min-w-0 items-center gap-3">
           <span className="bg-border hidden h-5 w-px sm:block" aria-hidden />
-          <span className="text-muted-foreground truncate text-sm whitespace-nowrap">{dayCaption(enrollment)}</span>
+          <span className="text-muted-foreground truncate text-sm whitespace-nowrap">
+            {dayCaption(enrollment)}
+            {enrollment.flow ? <span className="hidden md:inline"> · {enrollment.flow.name}</span> : null}
+          </span>
           <Progress value={progress} className="hidden w-28 sm:block" aria-label={`Internship progress, ${progress}%`} />
         </div>
       </AppHeader>
-      <ConnectionBanner status={ws.socket} />
+      <ConnectionBanner status={socket} />
       <main id="main" className="min-h-0 flex-1">
-        {/* Desktop: chat and board side by side. */}
-        <div className="hidden h-full lg:grid lg:grid-cols-[minmax(0,3fr)_minmax(22rem,2fr)]">
-          <section aria-label="Chat" className="flex min-h-0 flex-col border-r">
-            <PanelTitle icon={MessageCircle} title="Team lead" />
-            <ChatPanel ws={ws} onOpenTask={setOpenTask} />
-          </section>
-          <section aria-label="Task board" className="flex min-h-0 flex-col">
-            <PanelTitle icon={SquareKanban} title="Your board" />
-            <BoardPanel ws={ws} openTaskId={openTask} onOpenTask={setOpenTask} />
-          </section>
-        </div>
-        {/* Phones and tablets: one panel at a time. */}
-        <Tabs value={tab} onValueChange={(v) => setTab(v === "tasks" ? "tasks" : "chat")} className="flex h-full flex-col gap-0 lg:hidden">
-          <div className="border-b px-4 py-2">
-            <TabsList className="w-full">
-              <TabsTrigger value="chat">
-                <MessageCircle aria-hidden /> Chat
-              </TabsTrigger>
-              <TabsTrigger value="tasks">
-                <SquareKanban aria-hidden /> Tasks
-              </TabsTrigger>
-            </TabsList>
+        {desktop === null ? null : desktop ? (
+          /* Desktop: chats, the open conversation and the board side by side. */
+          <div className="grid h-full grid-cols-[17rem_minmax(0,3fr)_minmax(22rem,2fr)]">
+            <nav aria-label="Chats" className="flex min-h-0 flex-col border-r">
+              <PanelTitle icon={MessageCircle} title="Chats" />
+              <div className="min-h-0 flex-1 overflow-y-auto p-2">
+                <StudentThreadList selected={desktopPersona?.id ?? null} onSelect={(t) => setPicked(t.persona.id)} />
+              </div>
+            </nav>
+            <section aria-label="Conversation" className="flex min-h-0 flex-col border-r">
+              {desktopPersona ? (
+                <>
+                  <ConversationHeader persona={desktopPersona} />
+                  <ConversationView
+                    key={desktopPersona.id}
+                    target={{ personaId: desktopPersona.id, enrollmentId: null }}
+                    other={{ name: desktopPersona.name, avatar: <PersonaAvatar persona={desktopPersona} size="sm" /> }}
+                    onOpenTask={setOpenTask}
+                  />
+                </>
+              ) : (
+                <div className="flex flex-1 items-center justify-center p-6">
+                  {threads.isPending ? null : (
+                    <EmptyState icon={MessageCircle} title="Your team will reach out here">
+                      Tickets and updates from your managers show up as chats once your internship starts.
+                    </EmptyState>
+                  )}
+                </div>
+              )}
+            </section>
+            <section aria-label="Task board" className="flex min-h-0 flex-col">
+              <PanelTitle icon={SquareKanban} title="Your board" />
+              <BoardPanel ws={ws} personas={byId} openTaskId={openTask} onOpenTask={setOpenTask} />
+            </section>
           </div>
-          <TabsContent value="chat" className="flex min-h-0 flex-1 flex-col">
-            <ChatPanel ws={ws} onOpenTask={openFromChat} />
-          </TabsContent>
-          <TabsContent value="tasks" className="flex min-h-0 flex-1 flex-col">
-            <BoardPanel ws={ws} openTaskId={openTask} onOpenTask={setOpenTask} />
-          </TabsContent>
-        </Tabs>
+        ) : (
+          /* Phones and tablets: one panel at a time. */
+          <Tabs value={tab} onValueChange={(v) => setTab(v === "tasks" ? "tasks" : "chat")} className="flex h-full flex-col gap-0">
+            <div className="border-b px-4 py-2">
+              <TabsList className="w-full">
+                <TabsTrigger value="chat">
+                  <MessageCircle aria-hidden /> Chats
+                  {unread > 0 ? (
+                    <span
+                      className="bg-primary text-primary-foreground rounded-full px-1.5 text-[11px] font-semibold tabular-nums"
+                      aria-label={`${unread} unread`}
+                    >
+                      {unread > 99 ? "99+" : unread}
+                    </span>
+                  ) : null}
+                </TabsTrigger>
+                <TabsTrigger value="tasks">
+                  <SquareKanban aria-hidden /> Tasks
+                </TabsTrigger>
+              </TabsList>
+            </div>
+            <TabsContent value="chat" className="flex min-h-0 flex-1 flex-col">
+              {phonePersona ? (
+                <>
+                  <ConversationHeader persona={phonePersona} onBack={() => setPhoneThread(null)} />
+                  <ConversationView
+                    key={phonePersona.id}
+                    target={{ personaId: phonePersona.id, enrollmentId: null }}
+                    other={{ name: phonePersona.name, avatar: <PersonaAvatar persona={phonePersona} size="sm" /> }}
+                    onOpenTask={openFromChat}
+                  />
+                </>
+              ) : (
+                <div className="min-h-0 flex-1 overflow-y-auto p-2">
+                  <StudentThreadList selected={null} onSelect={(t) => setPhoneThread(t.persona.id)} />
+                </div>
+              )}
+            </TabsContent>
+            <TabsContent value="tasks" className="flex min-h-0 flex-1 flex-col">
+              <BoardPanel ws={ws} personas={byId} openTaskId={openTask} onOpenTask={setOpenTask} />
+            </TabsContent>
+          </Tabs>
+        )}
       </main>
+    </div>
+  );
+}
+
+function ConversationHeader({ persona, onBack }: { persona: Persona; onBack?: () => void }) {
+  return (
+    <div className="flex h-14 shrink-0 items-center gap-3 border-b px-3 sm:px-4">
+      {onBack ? (
+        <Button variant="ghost" size="icon" onClick={onBack} aria-label="All chats">
+          <ArrowLeft aria-hidden />
+        </Button>
+      ) : null}
+      <PersonaAvatar persona={persona} />
+      <div className="min-w-0">
+        <h2 className="truncate text-sm font-semibold">{persona.name}</h2>
+        <p className="text-muted-foreground truncate text-xs">{persona.title}</p>
+      </div>
     </div>
   );
 }
 
 function PanelTitle({ icon: Icon, title }: { icon: typeof MessageCircle; title: string }) {
   return (
-    <h2 className="flex h-11 shrink-0 items-center gap-2 border-b px-6 text-sm font-medium">
+    <h2 className="flex h-14 shrink-0 items-center gap-2 border-b px-4 text-sm font-medium">
       <Icon className="text-muted-foreground size-4" aria-hidden />
       {title}
     </h2>
@@ -107,8 +206,8 @@ function NoEnrollment({ me }: { me: Me }) {
             </Button>
           }
         >
-          You&apos;re signed in as @{me.user.github_login}, but you aren&apos;t enrolled in a program right now. If your college enrolled you, ask
-          your placement cell to check the email on your GitHub account.
+          You&apos;re signed in as @{me.user.github_login}, but you aren&apos;t enrolled in a program right now. If your college enrolled you, ask your
+          placement cell to check the email on your GitHub account.
         </EmptyState>
       </main>
     </div>

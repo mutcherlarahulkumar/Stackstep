@@ -1,6 +1,6 @@
 "use client";
 
-import { Copy, Monitor, Send } from "lucide-react";
+import { Copy, Inbox, Monitor, Send } from "lucide-react";
 import Link from "next/link";
 import { toast } from "sonner";
 
@@ -18,14 +18,19 @@ export function DesktopGate() {
           </span>
           <CardTitle className="text-lg">The admin console is built for a bigger screen</CardTitle>
           <CardDescription>
-            Reviews, cohorts and reports need room to work well. Open Stackstep on a computer for the full console. On this device you can still
-            assign tasks.
+            Flows, the task library, personas and reviews need room to work well. Open Stackstep on a computer for the full console. On this
+            device you can assign tasks and reply to students.
           </CardDescription>
         </CardHeader>
-        <CardContent>
+        <CardContent className="flex flex-col gap-2">
           <Button asChild size="lg" className="h-11 w-full">
             <Link href="/admin/assign">
               <Send data-icon="inline-start" aria-hidden /> Assign a task
+            </Link>
+          </Button>
+          <Button asChild size="lg" variant="outline" className="h-11 w-full">
+            <Link href="/admin/inbox">
+              <Inbox data-icon="inline-start" aria-hidden /> Open inbox
             </Link>
           </Button>
         </CardContent>

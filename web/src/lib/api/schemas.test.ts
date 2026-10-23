@@ -1,9 +1,9 @@
 import { describe, expect, it } from "vitest";
 
-import { enrollment, task, user } from "@/test/fixtures";
+import { enrollment, flowJson, message, persona, task, thread, user } from "@/test/fixtures";
 
 import { messageFor, ApiError, NetworkError } from "./errors";
-import { ERROR_CODES, Frame, Me, Task } from "./schemas";
+import { ERROR_CODES, FlowDetail, Frame, Me, Message, Persona, Task, TaskSpec, Thread } from "./schemas";
 
 describe("contract schemas", () => {
   it("parses a valid task into Dates", () => {
@@ -44,5 +44,16 @@ describe("contract schemas", () => {
     }
     expect(messageFor(new NetworkError("x"))).toMatch(/connection/);
     expect(messageFor(new ApiError(429, "rate_limited", "", {}, 7200))).toMatch(/2h/);
+  });
+
+  it("feature 2 payloads: personas, threads, flows", () => {
+    expect(Persona.safeParse(persona({ color: "pink" })).success).toBe(false);
+    expect(Message.safeParse(message({ author: "lead" })).success).toBe(false);
+    expect(Thread.parse(thread({ unread: 2 })).unread).toBe(2);
+    const spec = { type: "dsa", title: "Two pointers", brief: "", persona_id: persona().id, review_mode: "self", due_minutes: 60 };
+    expect(TaskSpec.safeParse({ ...spec, release_time: "10:00" }).success).toBe(true);
+    expect(TaskSpec.safeParse({ ...spec, release_time: "24:00" }).success).toBe(false);
+    expect(TaskSpec.safeParse({ ...spec, release_time: "10:00", due_minutes: 10 }).success).toBe(false);
+    expect(FlowDetail.parse({ flow: flowJson(), draft: null, published: null }).flow.days).toBe(30);
   });
 });

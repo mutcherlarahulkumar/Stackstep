@@ -1,5 +1,5 @@
 /** Mirrors backend/internal/domain/task.go. The server stays the authority. */
-import { type TaskStatus } from "./api/schemas";
+import { type ReviewMode, type TaskStatus } from "./api/schemas";
 
 export const Bounds = {
   titleMin: 3,
@@ -10,6 +10,19 @@ export const Bounds = {
   searchMax: 100,
   minTaskMinutes: 15,
   backdateGraceMinutes: 5,
+  personaNameMin: 2,
+  personaNameMax: 60,
+  flowNameMin: 3,
+  flowNameMax: 80,
+  streamMin: 2,
+  streamMax: 40,
+  flowDescriptionMax: 500,
+  dueMinutesMin: 15,
+  dueMinutesMax: 7 * 24 * 60,
+  itemsPerDay: 10,
+  itemsPerFlow: 600,
+  broadcastMax: 500,
+  bulkAssignMax: 500,
 } as const;
 
 const CONTROL_MULTILINE = /[\u0000-\u0008\u000B\u000C\u000E-\u001F\u007F-\u009F\u2028\u2029]/;
@@ -62,13 +75,13 @@ export function validateSchedule(now: Date, scheduledFor: Date | null, dueAt: Da
   return { scheduled_for: scheduled, due_at: due };
 }
 
-/** Student-allowed moves, mirroring the server's transition graph. */
-export function studentMoves(from: TaskStatus): TaskStatus[] {
+/** Student-allowed moves, mirroring the server's transition graph. Self-reviewed tasks are finished by the student. */
+export function studentMoves(from: TaskStatus, mode: ReviewMode = "manual"): TaskStatus[] {
   switch (from) {
     case "todo":
       return ["in_progress"];
     case "in_progress":
-      return ["in_review"];
+      return mode === "self" ? ["done"] : ["in_review"];
     case "changes_requested":
       return ["in_review", "in_progress"];
     case "in_review":
@@ -91,4 +104,42 @@ export function staffMoves(from: TaskStatus): TaskStatus[] {
     case "cancelled":
       return [];
   }
+}
+
+/** A single-line field with a length range, like the server's lineBetween. */
+export function validateLine(raw: string, label: string, min: number, max: number): string | null {
+  const t = normalizeLine(raw);
+  const n = runeLength(t);
+  if (n === 0) return `${label} is required.`;
+  if (n < min) return `${label} must be at least ${min} characters.`;
+  if (n > max) return `${label} can be at most ${max} characters.`;
+  if (CONTROL_LINE.test(t)) return `${label} contains characters that can't be displayed.`;
+  return null;
+}
+
+export function validateDescription(raw: string): string | null {
+  const d = raw.trim();
+  if (runeLength(d) > Bounds.flowDescriptionMax) return "Description can be at most 500 characters.";
+  if (CONTROL_MULTILINE.test(d)) return "Description contains characters that can't be displayed.";
+  return null;
+}
+
+const CLOCK = /^([01]\d|2[0-3]):[0-5]\d$/;
+
+export function validateReleaseTime(raw: string): string | null {
+  return CLOCK.test(raw) ? null : "Use a 24-hour time like 10:00.";
+}
+
+export function validateDueMinutes(n: number): string | null {
+  if (!Number.isInteger(n) || n < Bounds.dueMinutesMin || n > Bounds.dueMinutesMax) return "Time to finish must be between 15 minutes and 7 days.";
+  return null;
+}
+
+/** "45 min", "2 h", "1 day 4 h" for due_minutes. */
+export function durationLabel(minutes: number): string {
+  const d = Math.floor(minutes / 1440);
+  const h = Math.floor((minutes % 1440) / 60);
+  const m = minutes % 60;
+  const parts = [d ? `${d} ${d === 1 ? "day" : "days"}` : "", h ? `${h} h` : "", m ? `${m} min` : ""].filter(Boolean);
+  return parts.join(" ") || "0 min";
 }

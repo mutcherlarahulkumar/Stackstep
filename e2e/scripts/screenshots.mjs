@@ -27,4 +27,14 @@ await shoot("08-admin-phone-gate", "anits-tpo", "/admin", { width: 390, height: 
 await shoot("09-assign-phone", "anits-tpo", "/admin/assign", { width: 390, height: 844, before: async (p) => { await p.getByTestId("student-asha-dev").click(); await p.waitForTimeout(400); } });
 await shoot("10-student-phone", "asha-dev", "/workspace", { width: 390, height: 844, dark: true });
 await shoot("11-no-enrollment", "nora-dev", "/workspace");
+await shoot("12-workspace-flow", "meera-dev", "/workspace");
+await shoot("13-flows", "admin-demo", "/admin/flows");
+await shoot("14-flow-builder", "admin-demo", "/admin/flows/00000000-0000-4000-8000-0000000000f1", { before: async (p) => { await p.getByTestId("day-3").click(); await p.waitForTimeout(300); } });
+await shoot("15-flow-item", "admin-demo", "/admin/flows/00000000-0000-4000-8000-0000000000f1", { before: async (p) => { await p.getByTestId("day-2").click(); await p.getByTestId("item-Two Sum").getByRole("button", { name: "Two Sum", exact: true }).click(); await p.waitForTimeout(500); } });
+await shoot("16-library", "admin-demo", "/admin/library");
+await shoot("17-personas", "admin-demo", "/admin/personas");
+await shoot("18-inbox", "admin-demo", "/admin/inbox", { before: async (p) => { await p.getByTestId("staff-thread-asha-dev-Sam Rivera").click(); await p.waitForTimeout(600); } });
+await shoot("19-broadcast", "admin-demo", "/admin/inbox", { before: async (p) => { await p.getByTestId("open-broadcast").click(); await p.waitForTimeout(500); } });
+await shoot("20-inbox-phone", "admin-demo", "/admin/inbox", { width: 390, height: 844, dark: true });
+await shoot("21-student-chats-phone", "meera-dev", "/workspace", { width: 390, height: 844 });
 await browser.close();

@@ -320,6 +320,18 @@ func TestAssignFlow(t *testing.T) {
 		t.Fatalf("no announcement from the engineering manager: %+v", threads.Items)
 	}
 
+	// The admin inbox hides conversations that only hold announcements still scheduled
+	// (the content lead posts tomorrow).
+	var inbox struct {
+		Items []staffThreadDTO `json:"items"`
+	}
+	e.expect(e.do("GET", "/v1/admin/threads?persona_id="+seed.ContentLeadID.String(), adm, nil), 200).json(t, &inbox)
+	for _, th := range inbox.Items {
+		if th.EnrollmentID == enr {
+			t.Fatalf("scheduled-only thread listed: %+v", th)
+		}
+	}
+
 	// Self-review task: the student finishes it without a reviewer.
 	e.clock.Advance(5 * time.Hour) // 15:00 IST
 	stu = e.login(seed.StudentLogin)

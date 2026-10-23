@@ -16,6 +16,7 @@ import { homeFor, useSession } from "@/lib/session";
 const DEV_USERS = [
   { login: "asha-dev", label: "Student" },
   { login: "ravi-dev", label: "Student 2" },
+  { login: "meera-dev", label: "On a flow" },
   { login: "nora-dev", label: "No internship" },
   { login: "anits-tpo", label: "College admin" },
   { login: "admin-demo", label: "Admin" },

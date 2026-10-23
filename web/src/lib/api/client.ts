@@ -9,11 +9,23 @@ import * as S from "./schemas";
  */
 export type CreateTaskInput = {
   type: S.TaskType;
+  /** Null lets the server pick the default team lead. */
+  persona_id: string | null;
+  review_mode: S.ReviewMode;
   title: string;
   brief: string;
   scheduled_for: Date | null;
   due_at: Date;
 };
+
+export type PersonaInput = { name: string; title: string; color: S.PersonaColor; auto_reply: boolean };
+export type TemplateInput = S.TaskSpec;
+export type FlowInput = { name: string; stream: string; description: string; days: 30 | 60 };
+export type DraftItemInput = S.TaskSpec & { day: number; template_id: string | null };
+export type TemplateFilter = { q?: string; type?: S.TaskType | null; personaId?: string | null; includeArchived?: boolean };
+
+type Method = "GET" | "POST" | "PUT" | "PATCH";
+type SendOpts = { body?: unknown; query?: Record<string, string | null>; auth?: boolean; retried?: boolean };
 
 type Options = { baseUrl?: string; fetch?: typeof fetch; now?: () => number; timeoutMs?: number };
 
@@ -83,12 +95,20 @@ export class ApiClient {
     return (await this.send("GET", "/v1/me/tasks", S.TaskList)).items;
   }
 
-  messages(cursor: string | null = null, limit = 50) {
-    return this.send("GET", "/v1/me/messages", S.MessagePage, { query: { limit: String(limit), cursor } });
+  async threads() {
+    return (await this.send("GET", "/v1/me/threads", S.ThreadList)).items;
   }
 
-  sendMessage(clientId: string, body: string) {
-    return this.send("POST", "/v1/me/messages", S.Message, { body: { client_id: clientId, body } });
+  messages(personaId: string, cursor: string | null = null, limit = 50) {
+    return this.send("GET", `/v1/me/threads/${seg(personaId)}/messages`, S.MessagePage, { query: { limit: String(limit), cursor } });
+  }
+
+  sendMessage(personaId: string, clientId: string, body: string) {
+    return this.send("POST", `/v1/me/threads/${seg(personaId)}/messages`, S.Message, { body: { client_id: clientId, body } });
+  }
+
+  async markRead(personaId: string): Promise<void> {
+    await this.send("POST", `/v1/me/threads/${seg(personaId)}/read`, null);
   }
 
   transition(taskId: string, to: S.TaskStatus, expectedVersion: number, note = "") {
@@ -104,19 +124,126 @@ export class ApiClient {
   }
 
   enrollmentTasks(enrollmentId: string) {
-    return this.send("GET", `/v1/admin/enrollments/${encodeURIComponent(enrollmentId)}/tasks`, S.EnrollmentTasks);
+    return this.send("GET", `/v1/admin/enrollments/${seg(enrollmentId)}/tasks`, S.EnrollmentTasks);
   }
 
   createTask(enrollmentId: string, input: CreateTaskInput) {
     return this.send("POST", `/v1/admin/enrollments/${encodeURIComponent(enrollmentId)}/tasks`, S.Task, {
       body: {
         type: input.type,
+        persona_id: input.persona_id,
+        review_mode: input.review_mode,
         title: input.title,
         brief: input.brief,
         scheduled_for: input.scheduled_for?.toISOString() ?? null,
         due_at: input.due_at.toISOString(),
       },
     });
+  }
+
+  // ---- Inbox ----
+
+  staffThreads(opts: { personaId?: string | null; unreadOnly?: boolean; cursor?: string | null; limit?: number } = {}) {
+    return this.send("GET", "/v1/admin/threads", S.StaffThreadPage, {
+      query: {
+        limit: String(opts.limit ?? 30),
+        persona_id: opts.personaId ?? null,
+        unread: opts.unreadOnly ? "true" : null,
+        cursor: opts.cursor ?? null,
+      },
+    });
+  }
+
+  staffMessages(enrollmentId: string, personaId: string, cursor: string | null = null, limit = 50) {
+    return this.send("GET", `/v1/admin/threads/${seg(enrollmentId)}/${seg(personaId)}/messages`, S.MessagePage, {
+      query: { limit: String(limit), cursor },
+    });
+  }
+
+  staffSend(enrollmentId: string, personaId: string, clientId: string, body: string) {
+    return this.send("POST", `/v1/admin/threads/${seg(enrollmentId)}/${seg(personaId)}/messages`, S.Message, { body: { client_id: clientId, body } });
+  }
+
+  async staffMarkRead(enrollmentId: string, personaId: string): Promise<void> {
+    await this.send("POST", `/v1/admin/threads/${seg(enrollmentId)}/${seg(personaId)}/read`, null);
+  }
+
+  broadcast(personaId: string, clientId: string, enrollmentIds: string[], body: string) {
+    return this.send("POST", "/v1/admin/broadcasts", S.BroadcastResult, {
+      body: { persona_id: personaId, client_id: clientId, enrollment_ids: enrollmentIds, body },
+    });
+  }
+
+  // ---- Catalog ----
+
+  async personas(includeArchived = false) {
+    return (await this.send("GET", "/v1/admin/personas", S.PersonaList, { query: { include_archived: includeArchived ? "true" : null } })).items;
+  }
+
+  createPersona(input: PersonaInput) {
+    return this.send("POST", "/v1/admin/personas", S.Persona, { body: input });
+  }
+
+  updatePersona(id: string, input: PersonaInput & { archived: boolean }, expectedVersion: number) {
+    return this.send("PATCH", `/v1/admin/personas/${seg(id)}`, S.Persona, { body: { ...input, expected_version: expectedVersion } });
+  }
+
+  templates(f: TemplateFilter = {}, cursor: string | null = null, limit = 50) {
+    return this.send("GET", "/v1/admin/task-templates", S.TemplatePage, {
+      query: {
+        limit: String(limit),
+        q: f.q || null,
+        type: f.type ?? null,
+        persona_id: f.personaId ?? null,
+        include_archived: f.includeArchived ? "true" : null,
+        cursor,
+      },
+    });
+  }
+
+  createTemplate(input: TemplateInput) {
+    return this.send("POST", "/v1/admin/task-templates", S.TaskTemplate, { body: input });
+  }
+
+  updateTemplate(id: string, input: TemplateInput & { archived: boolean }, expectedVersion: number) {
+    return this.send("PATCH", `/v1/admin/task-templates/${seg(id)}`, S.TaskTemplate, { body: { ...input, expected_version: expectedVersion } });
+  }
+
+  async flows(includeArchived = false) {
+    return (await this.send("GET", "/v1/admin/flows", S.FlowList, { query: { include_archived: includeArchived ? "true" : null } })).items;
+  }
+
+  flow(id: string) {
+    return this.send("GET", `/v1/admin/flows/${seg(id)}`, S.FlowDetail);
+  }
+
+  createFlow(input: FlowInput) {
+    return this.send("POST", "/v1/admin/flows", S.FlowDetail, { body: input });
+  }
+
+  updateFlow(id: string, input: FlowInput & { archived: boolean }, expectedVersion: number) {
+    return this.send("PATCH", `/v1/admin/flows/${seg(id)}`, S.Flow, { body: { ...input, expected_version: expectedVersion } });
+  }
+
+  /** Replaces the draft's items. `expectedRevision` 0 starts a new draft from the published version. */
+  saveDraft(id: string, expectedRevision: number, items: DraftItemInput[]) {
+    return this.send("PUT", `/v1/admin/flows/${seg(id)}/draft`, S.FlowDetail, { body: { expected_revision: expectedRevision, items } });
+  }
+
+  publishFlow(id: string, expectedRevision: number) {
+    return this.send("POST", `/v1/admin/flows/${seg(id)}/publish`, S.FlowDetail, { body: { expected_revision: expectedRevision } });
+  }
+
+  duplicateFlow(id: string, name: string, stream: string) {
+    return this.send("POST", `/v1/admin/flows/${seg(id)}/duplicate`, S.FlowDetail, { body: { name, stream } });
+  }
+
+  async assignFlowToMany(flowId: string, enrollmentIds: string[]) {
+    return (await this.send("POST", `/v1/admin/flows/${seg(flowId)}/assign`, S.AssignResultList, { body: { enrollment_ids: enrollmentIds } })).items;
+  }
+
+  assignFlow(enrollmentId: string, flowId: string) {
+    return this.send("PUT", `/v1/admin/enrollments/${seg(enrollmentId)}/flow`, S.AssignResult, { body: { flow_id: flowId } });
   }
 
   // ---- Transport ----
@@ -156,24 +283,9 @@ export class ApiClient {
     }
   }
 
-  private async send<T extends z.ZodType>(
-    method: "GET" | "POST",
-    path: string,
-    schema: T,
-    opts?: { body?: unknown; query?: Record<string, string | null>; auth?: boolean; retried?: boolean },
-  ): Promise<z.output<T>>;
-  private async send(
-    method: "GET" | "POST",
-    path: string,
-    schema: null,
-    opts?: { body?: unknown; query?: Record<string, string | null>; auth?: boolean; retried?: boolean },
-  ): Promise<null>;
-  private async send<T extends z.ZodType>(
-    method: "GET" | "POST",
-    path: string,
-    schema: T | null,
-    opts: { body?: unknown; query?: Record<string, string | null>; auth?: boolean; retried?: boolean } = {},
-  ): Promise<z.output<T> | null> {
+  private async send<T extends z.ZodType>(method: Method, path: string, schema: T, opts?: SendOpts): Promise<z.output<T>>;
+  private async send(method: Method, path: string, schema: null, opts?: SendOpts): Promise<null>;
+  private async send<T extends z.ZodType>(method: Method, path: string, schema: T | null, opts: SendOpts = {}): Promise<z.output<T> | null> {
     const auth = opts.auth ?? true;
     if (auth && !(await this.ensureFresh())) {
       this.onSessionExpired?.();
@@ -215,6 +327,9 @@ export class ApiClient {
     throw await toApiError(res);
   }
 }
+
+/** Encodes one path segment. */
+const seg = (s: string) => encodeURIComponent(s);
 
 async function toApiError(res: Response): Promise<Error> {
   if (res.status >= 502 && res.status <= 504) return new NetworkError(`HTTP ${res.status}`);
