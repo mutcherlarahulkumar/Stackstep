@@ -10,6 +10,7 @@ import 'package:stackstep/core/theme.dart';
 import 'package:stackstep/features/chat/chat_controller.dart';
 import 'package:stackstep/shared/errors.dart';
 import 'package:stackstep/shared/format.dart';
+import 'package:stackstep/shared/motion.dart';
 import 'package:stackstep/shared/state_views.dart';
 import 'package:stackstep/ui/ui.dart';
 
@@ -34,11 +35,13 @@ class ChatScreen extends ConsumerWidget {
       children: [
         ConnectionBanner(status: rt.status),
         Expanded(
-          child: switch (chat) {
-            AsyncData(:final value) => _Thread(state: value, target: target, other: other, otherName: otherName, onOpenTask: onOpenTask),
-            AsyncError(:final error) => ErrorState(message: messageFor(error), onRetry: () => ref.invalidate(chatProvider(target))),
-            _ => const SkeletonList(rows: 6, height: 56),
-          },
+          child: FadeSwitch(
+            child: switch (chat) {
+              AsyncData(:final value) => _Thread(state: value, target: target, other: other, otherName: otherName, onOpenTask: onOpenTask),
+              AsyncError(:final error) => ErrorState(message: messageFor(error), onRetry: () => ref.invalidate(chatProvider(target))),
+              _ => const SkeletonList(rows: 6, height: 56),
+            },
+          ),
         ),
         if (chat.hasValue) _Composer(target: target, otherName: otherName),
       ],

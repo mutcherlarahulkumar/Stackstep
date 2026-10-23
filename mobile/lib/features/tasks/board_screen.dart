@@ -14,6 +14,7 @@ import 'package:stackstep/features/tasks/board_controller.dart';
 import 'package:stackstep/features/tasks/task_work.dart';
 import 'package:stackstep/shared/errors.dart';
 import 'package:stackstep/shared/format.dart';
+import 'package:stackstep/shared/motion.dart';
 import 'package:stackstep/shared/state_views.dart';
 import 'package:stackstep/ui/ui.dart';
 
@@ -59,11 +60,13 @@ class _BoardScreenState extends ConsumerState<BoardScreen> {
       if (next.hasValue) _maybeFocus();
     });
     final board = ref.watch(boardProvider);
-    return switch (board) {
-      AsyncData(:final value) => _Board(groups: groupBoard(value), column: _column, onColumn: (c) => setState(() => _column = c)),
-      AsyncError(:final error) => ErrorState(message: messageFor(error), onRetry: () => ref.invalidate(boardProvider)),
-      _ => const SkeletonList(),
-    };
+    return FadeSwitch(
+      child: switch (board) {
+        AsyncData(:final value) => _Board(groups: groupBoard(value), column: _column, onColumn: (c) => setState(() => _column = c)),
+        AsyncError(:final error) => ErrorState(message: messageFor(error), onRetry: () => ref.invalidate(boardProvider)),
+        _ => const SkeletonList(),
+      },
+    );
   }
 }
 

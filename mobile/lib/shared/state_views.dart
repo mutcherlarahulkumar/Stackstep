@@ -1,7 +1,10 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:shadcn_ui/shadcn_ui.dart';
 import 'package:stackstep/api/realtime.dart';
 import 'package:stackstep/core/theme.dart';
+import 'package:stackstep/shared/motion.dart';
 
 /// Pulsing placeholder rows shown while a list loads.
 class SkeletonList extends StatefulWidget {
@@ -33,12 +36,14 @@ class _SkeletonListState extends State<SkeletonList> with SingleTickerProviderSt
         child: ListView.separated(
           physics: const NeverScrollableScrollPhysics(),
           padding: const EdgeInsets.all(Space.lg),
-          itemCount: widget.rows,
+          itemCount: widget.rows + (widget.rows >= 3 ? 1 : 0),
           separatorBuilder: (_, _) => const SizedBox(height: Space.md),
-          itemBuilder: (_, _) => Container(
-            height: widget.height,
-            decoration: BoxDecoration(color: color, borderRadius: const BorderRadius.all(Radii.md)),
-          ),
+          itemBuilder: (_, i) => i == widget.rows
+              ? Quip(seed: widget.rows)
+              : Container(
+                  height: widget.height,
+                  decoration: BoxDecoration(color: color, borderRadius: const BorderRadius.all(Radii.md)),
+                ),
         ),
       ),
     );
@@ -102,45 +107,89 @@ class ErrorState extends StatelessWidget {
   );
 }
 
-/// A slim banner while the live connection is down. Hidden when live.
-class ConnectionBanner extends StatelessWidget {
+/// How long the live connection may be down before we mention it. Blips stay invisible.
+const bannerGrace = Duration(seconds: 4);
+
+/// A slim banner once the live connection has been down for [bannerGrace]. Hidden when live.
+class ConnectionBanner extends StatefulWidget {
   const ConnectionBanner({required this.status, super.key});
 
   final Stream<SocketStatus> status;
 
   @override
+  State<ConnectionBanner> createState() => _ConnectionBannerState();
+}
+
+class _ConnectionBannerState extends State<ConnectionBanner> {
+  StreamSubscription<SocketStatus>? _sub;
+  Timer? _timer;
+  var _show = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _listen();
+  }
+
+  @override
+  void didUpdateWidget(ConnectionBanner old) {
+    super.didUpdateWidget(old);
+    if (old.status != widget.status) _listen();
+  }
+
+  void _listen() {
+    unawaited(_sub?.cancel());
+    _sub = widget.status.listen((s) {
+      switch (s) {
+        case SocketStatus.live:
+          _timer?.cancel();
+          if (_show) setState(() => _show = false);
+        case SocketStatus.offline:
+          _timer ??= Timer(bannerGrace, () {
+            _timer = null;
+            if (mounted) setState(() => _show = true);
+          });
+        case SocketStatus.connecting:
+          break; // keep whatever we show while a retry is in flight
+      }
+    });
+  }
+
+  @override
+  void dispose() {
+    unawaited(_sub?.cancel());
+    _timer?.cancel();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
-    return StreamBuilder<SocketStatus>(
-      stream: status,
-      builder: (context, snap) {
-        final show = snap.data == SocketStatus.offline;
-        final t = ShadTheme.of(context);
-        return AnimatedSize(
-          duration: const Duration(milliseconds: 200),
-          child: show
-              ? Semantics(
-                  liveRegion: true,
-                  child: Container(
-                    width: double.infinity,
-                    color: Color.alphaBlend(Brand.warning.withValues(alpha: 0.14), t.colorScheme.background),
-                    padding: const EdgeInsets.symmetric(horizontal: Space.lg, vertical: Space.sm),
-                    child: Row(
-                      children: [
-                        const Icon(LucideIcons.wifiOff, size: 16, color: Brand.warning),
-                        const SizedBox(width: Space.sm),
-                        Expanded(
-                          child: Text(
-                            'Reconnecting… new messages appear when you’re back online.',
-                            style: t.textTheme.small.copyWith(color: t.colorScheme.foreground, fontWeight: FontWeight.w500),
-                          ),
-                        ),
-                      ],
+    final show = _show;
+    final t = ShadTheme.of(context);
+    return AnimatedSize(
+      duration: const Duration(milliseconds: 200),
+      child: show
+          ? Semantics(
+              liveRegion: true,
+              child: Container(
+                width: double.infinity,
+                color: Color.alphaBlend(Brand.warning.withValues(alpha: 0.14), t.colorScheme.background),
+                padding: const EdgeInsets.symmetric(horizontal: Space.lg, vertical: Space.sm),
+                child: Row(
+                  children: [
+                    const Icon(LucideIcons.wifiOff, size: 16, color: Brand.warning),
+                    const SizedBox(width: Space.sm),
+                    Expanded(
+                      child: Text(
+                        'Reconnecting… new messages appear when you’re back online.',
+                        style: t.textTheme.small.copyWith(color: t.colorScheme.foreground, fontWeight: FontWeight.w500),
+                      ),
                     ),
-                  ),
-                )
-              : const SizedBox(width: double.infinity),
-        );
-      },
+                  ],
+                ),
+              ),
+            )
+          : const SizedBox(width: double.infinity),
     );
   }
 }
