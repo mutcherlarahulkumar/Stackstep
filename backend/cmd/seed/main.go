@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"os"
 	"time"
+	_ "time/tzdata" // seed dates use the students' time zone, even in minimal images
 
 	"github.com/mutcherlarahulkumar/stackstep/backend/internal/config"
 	"github.com/mutcherlarahulkumar/stackstep/backend/internal/db"

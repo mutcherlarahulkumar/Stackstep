@@ -57,13 +57,17 @@ func (s *Server) websocket(c *gin.Context) {
 		OriginPatterns: origins,
 	})
 	if err != nil {
-		return // Accept already wrote the HTTP error
+		// Accept already wrote the HTTP error. Log why, so a misconfigured ALLOWED_ORIGINS or
+		// proxy shows up in the logs instead of as a silent reconnect loop in the browser.
+		s.log.WarnContext(c.Request.Context(), "websocket rejected", "origin", c.GetHeader("Origin"), "allowed", s.cfg.AllowedOrigins, "err", err)
+		return
 	}
 	defer func() { _ = conn.CloseNow() }()
 
 	ctx := c.Request.Context()
 	u, err := s.userFromToken(ctx, token)
 	if err != nil {
+		s.log.InfoContext(ctx, "websocket closed: unauthenticated")
 		_ = conn.Close(wsCloseAuth, "unauthenticated")
 		return
 	}

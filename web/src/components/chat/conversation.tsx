@@ -148,7 +148,7 @@ function Bubble({
   const failed = !!o?.error;
   const sending = !!o && !failed;
   return (
-    <li className={cn("flex gap-2", row.mine ? "justify-end" : "justify-start", showMeta ? "mb-3" : "mb-0.5")}>
+    <li className={cn("animate-enter flex gap-2", row.mine ? "justify-end" : "justify-start", showMeta ? "mb-3" : "mb-0.5")}>
       {!row.mine ? (
         showAvatar ? (
           <span className="mt-0.5 shrink-0" aria-hidden>

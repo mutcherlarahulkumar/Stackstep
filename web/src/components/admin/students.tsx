@@ -18,6 +18,7 @@ import { normalizeLineSafe } from "./util";
 import { Bounds } from "@/lib/validation";
 
 import { EmptyState, ErrorState, ListSkeleton } from "../app/state";
+import { stagger } from "../app/loading";
 
 export function useStudents(query: string) {
   const { api } = useSession();
@@ -68,8 +69,8 @@ export function StudentList({ selectedId, onSelect }: { selectedId: string | nul
           </EmptyState>
         ) : (
           <ul className="flex flex-col gap-1" aria-label="Students">
-            {items.map((s) => (
-              <li key={s.user.id}>
+            {items.map((s, i) => (
+              <li key={s.user.id} className="animate-enter-stagger" style={stagger(i)}>
                 <StudentRow student={s} selected={s.user.id === selectedId} onSelect={() => onSelect(s)} />
               </li>
             ))}

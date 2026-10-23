@@ -23,6 +23,7 @@ import { EmptyState, ErrorState, ListSkeleton } from "../app/state";
 import { StatusBadge, TypeBadge } from "../app/task-badges";
 import { HandInDialog, QuizPlayer, ResourceList, SubmissionCard } from "./task-work";
 import { type useWorkspace } from "./use-workspace";
+import { stagger } from "../app/loading";
 
 type Workspace = ReturnType<typeof useWorkspace>;
 
@@ -114,8 +115,8 @@ export function BoardPanel({
           </EmptyState>
         ) : (
           <ul className="flex flex-col gap-3" aria-label={`${COLUMN_LABEL[column]} tasks`}>
-            {groups[column].map((t) => (
-              <li key={t.id}>
+            {groups[column].map((t, i) => (
+              <li key={t.id} className="animate-enter-stagger" style={stagger(i)}>
                 <TaskCard task={t} persona={personas.get(t.persona_id)} onOpen={() => onOpenTask(t.id)} />
               </li>
             ))}

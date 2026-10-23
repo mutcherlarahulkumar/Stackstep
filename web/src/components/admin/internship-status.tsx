@@ -65,7 +65,7 @@ export function InternshipStatus({ student, enrollment }: { student: Student; en
             {moves.length > 0 ? <ChevronDown data-icon="inline-end" aria-hidden /> : null}
           </Button>
         </DropdownMenuTrigger>
-        <DropdownMenuContent align="end">
+        <DropdownMenuContent align="end" className="w-56">
           <DropdownMenuLabel>Internship</DropdownMenuLabel>
           <DropdownMenuSeparator />
           {moves.map((to) => (

@@ -89,7 +89,7 @@ function Frame({ me, section, phone, children }: { me: Me; section: Section; pho
         )}
       </AppHeader>
       <ConnectionBanner status={socket} />
-      <main id="main" className="flex min-h-0 flex-1 flex-col">
+      <main id="main" className="animate-enter flex min-h-0 flex-1 flex-col">
         {desktop === null ? null : !desktop && phone === "gate" ? <DesktopGate /> : children(me, desktop)}
       </main>
     </div>

@@ -62,6 +62,9 @@ export function connectRealtime(opts: Options): () => void {
     ws.onclose = (ev) => {
       socket = null;
       if (stopped) return;
+      // 1006 with no reason usually means the server refused the handshake: check
+      // PUBLIC_WS_URL (wss://…/v1/ws) and the API's ALLOWED_ORIGINS for this site's origin.
+      if (ev.code !== 1000) console.warn(`Live updates disconnected (code ${ev.code}${ev.reason ? `: ${ev.reason}` : ""}); retrying.`);
       opts.onStatus("offline");
       if (ev.code === 4409) return;
       schedule();

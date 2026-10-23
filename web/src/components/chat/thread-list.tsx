@@ -14,6 +14,7 @@ import { cn } from "@/lib/utils";
 import { PERSONA_DOT, PersonaAvatar, PersonAvatar } from "../app/persona-avatar";
 import { AIAvatar } from "../ai/ai-helper";
 import { EmptyState, ErrorState, ListSkeleton } from "../app/state";
+import { stagger } from "../app/loading";
 
 function preview(m: Message | null, staff: boolean): string {
   if (!m) return "No messages yet";
@@ -129,8 +130,8 @@ export function StudentThreadList({ selected, onSelect, onAI }: { selected: stri
   return (
     <ul className="flex flex-col gap-0.5" aria-label="Chats">
       {ai}
-      {q.data.map((t) => (
-        <li key={t.persona.id}>
+      {q.data.map((t, i) => (
+        <li key={t.persona.id} className="animate-enter-stagger" style={stagger(i + 1)}>
           <Row
             avatar={<PersonaAvatar persona={t.persona} size="lg" />}
             title={t.persona.name}
@@ -164,8 +165,8 @@ export function StaffThreadList({ unreadOnly, selected, onSelect }: { unreadOnly
   return (
     <>
       <ul className="flex flex-col gap-0.5" aria-label="Conversations">
-        {items.map((t) => (
-          <li key={threadKey(t)}>
+        {items.map((t, i) => (
+          <li key={threadKey(t)} className="animate-enter-stagger" style={stagger(i)}>
             <Row
               avatar={<PersonAvatar name={t.student.name} login={t.student.github_login} url={t.student.avatar_url} size="lg" />}
               title={t.student.name}

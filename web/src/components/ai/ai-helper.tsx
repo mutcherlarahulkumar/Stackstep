@@ -2,7 +2,7 @@
 
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { ArrowLeft, Clock, Coins, Lightbulb, Lock, MessageSquarePlus, Send, Sparkles } from "lucide-react";
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
@@ -25,6 +25,7 @@ import { aiConversationsKey, useWallet, walletKey } from "@/lib/wallet-queries";
 
 import { EmptyState, ErrorState, ListSkeleton } from "../app/state";
 import { SafeMarkdown } from "./markdown";
+import { Quip } from "../app/loading";
 
 export function AIAvatar({ size = "default" }: { size?: "sm" | "default" | "lg" }) {
   return (
@@ -315,6 +316,7 @@ function QuestionForm({ tasks, wallet, onAsked }: { tasks: readonly Task[]; wall
             {wallet.credits.balance} credits · {Math.max(0, wallet.ai.daily_limit - wallet.ai.used_today)} questions left today
           </span>
         </div>
+        {busy ? <AIThinking /> : null}
       </form>
     </div>
   );
@@ -490,6 +492,25 @@ function FollowUp({ detail }: { detail: AIConversationDetail }) {
           {detail.follow_ups_left} follow-up{detail.follow_ups_left === 1 ? "" : "s"} left · {w.credits.balance} credits
         </span>
       </div>
+      {busy ? <AIThinking /> : null}
     </form>
+  );
+}
+
+/** Shown while Groq answers: typing dots and a rotating line, so the wait feels alive. */
+function AIThinking() {
+  const ref = useRef<HTMLDivElement>(null);
+  // The card appears under a long form; bring it into view so the wait is visible.
+  useEffect(() => ref.current?.scrollIntoView({ block: "nearest", behavior: "smooth" }), []);
+  return (
+    <div ref={ref} role="status" aria-label="The AI helper is thinking" className="animate-enter bg-muted/40 flex items-center gap-3 rounded-xl border p-3" data-testid="ai-thinking">
+      <AIAvatar size="sm" />
+      <span className="flex items-center gap-1" aria-hidden>
+        {[0, 1, 2].map((i) => (
+          <span key={i} className="bg-foreground/40 size-1.5 animate-bounce rounded-full" style={{ animationDelay: `${i * 150}ms` }} />
+        ))}
+      </span>
+      <Quip className="flex-1 text-left" seed={7} />
+    </div>
   );
 }

@@ -73,4 +73,23 @@ await shoot("34-overview", "admin-demo", "/admin/overview");
 await shoot("35-overview-dark", "admin-demo", "/admin/overview", { dark: true });
 await shoot("36-overview-student", "admin-demo", "/admin/overview", { before: async (p) => { await p.getByTestId("overview-row-asha-dev").getByRole("button").click(); await p.waitForTimeout(600); } });
 await shoot("37-nudge", "admin-demo", "/admin/overview", { before: async (p) => { await p.getByTestId("open-nudge").click(); await p.waitForTimeout(500); } });
+await shoot("38-people-enroll", "admin-demo", "/admin/people");
+await shoot("39-people-cohorts", "admin-demo", "/admin/people", { before: async (p) => { await p.getByRole("tab", { name: "Colleges & cohorts" }).click(); await p.waitForTimeout(600); } });
+await shoot("40-people-staff", "admin-demo", "/admin/people", { dark: true, before: async (p) => { await p.getByRole("tab", { name: "Staff" }).click(); await p.waitForTimeout(600); } });
+await shoot("41-people-import", "admin-demo", "/admin/people", { before: async (p) => { await p.locator("form").nth(1).getByLabel("Roster").fill("github_login,name\nnew-one,New One\nbad login,Bad\nnew-one,Dup"); await p.waitForTimeout(400); } });
+await shoot("42-status-menu", "admin-demo", "/admin", { before: async (p) => { await p.getByTestId("student-asha-dev").click(); await p.getByTestId("internship-status").click(); await p.waitForTimeout(400); } });
+// Loading states: hold the API so the loaders stay on screen.
+await shoot("43-loading-full", null, null, { before: async (p) => { await p.route("**/api/v1/auth/refresh", () => {}); await p.goto("http://localhost:3000/workspace"); await p.waitForTimeout(1500); } });
+await shoot("44-loading-panel", "admin-demo", null, { before: async (p) => { await p.route("**/api/v1/admin/overview*", () => {}); await p.goto("http://localhost:3000/admin/overview"); await p.waitForTimeout(1500); } });
+await shoot("45-ai-thinking", "ravi-dev", "/workspace", {
+  before: async (p) => {
+    await p.route("**/api/v1/me/ai/conversations", (r) => (r.request().method() === "POST" ? undefined : r.continue()));
+    await p.getByTestId("thread-ai").first().click();
+    await p.getByTestId("ai-new").click();
+    await p.getByLabel("What are you trying to do?").fill("Center the hero section vertically on mobile with flexbox.");
+    await p.getByLabel("What have you tried so far?").fill("I set display:flex and align-items:center on the section, but it stays at the top on small screens.");
+    await p.getByTestId("ai-ask").click();
+    await p.waitForTimeout(1200);
+  },
+});
 await browser.close();

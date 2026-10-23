@@ -70,7 +70,10 @@ func Run(ctx context.Context, q store.Q, now time.Time) error {
 		ids[p.login] = id
 	}
 
-	today := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, time.UTC)
+	// Seeded students are on day 3 in their own time zone (enrollments default to Kolkata),
+	// whatever the server's UTC date is.
+	local := now.In(seedZone)
+	today := time.Date(local.Year(), local.Month(), local.Day(), 0, 0, 0, 0, time.UTC)
 	start := today.AddDate(0, 0, -2)
 	var cohortID uuid.UUID
 	if err := q.QueryRow(ctx, `SELECT id FROM cohorts WHERE name = 'ANITS Batch 1'`).Scan(&cohortID); err != nil {
@@ -135,6 +138,15 @@ func Run(ctx context.Context, q store.Q, now time.Time) error {
 	}
 	return nil
 }
+
+// seedZone is the time zone seeded enrollments use (the column default).
+var seedZone = func() *time.Location {
+	loc, err := time.LoadLocation(domain.DefaultTimezone)
+	if err != nil {
+		return time.UTC
+	}
+	return loc
+}()
 
 // Seeded catalog ids, fixed so tests and demos can refer to them.
 var (

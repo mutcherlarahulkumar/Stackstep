@@ -8,6 +8,7 @@ import { type Me } from "@/lib/api/schemas";
 import { homeFor, useSession } from "@/lib/session";
 
 import { BrandMark } from "./brand";
+import { Quip } from "./loading";
 
 export function FullPageLoader() {
   return (
@@ -16,9 +17,13 @@ export function FullPageLoader() {
         <BrandMark />
         <Skeleton className="h-4 w-28" />
       </div>
-      <div className="grid flex-1 gap-4 p-6 lg:grid-cols-[3fr_2fr]">
+      <div className="relative grid flex-1 gap-4 p-6 lg:grid-cols-[3fr_2fr]">
         <Skeleton className="h-full min-h-64" />
         <Skeleton className="hidden h-full lg:block" />
+        <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 p-6">
+          <BrandMark className="size-10 animate-pulse" />
+          <Quip />
+        </div>
       </div>
     </div>
   );
