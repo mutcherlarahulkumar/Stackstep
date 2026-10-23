@@ -22,9 +22,7 @@ Message message({String id = 'm-9', String author = 'persona', String persona = 
     Message.fromJson(JsonReader(messageJson(id: id, author: author, personaId: persona, sentAt: at)));
 
 void main() {
-  final lead = thread(
-    last: messageJson(id: 'm-1', sentAt: '2026-11-04T09:00:00Z'),
-  );
+  final lead = thread(last: messageJson(sentAt: '2026-11-04T09:00:00Z'));
   final manager = thread(
     persona: managerId,
     name: 'Priya Sharma',

@@ -3,9 +3,9 @@ name: E2E
 on:
   push:
     branches: [main]
-    paths: [backend/**, web/**, e2e/**, .github/workflows/e2e.yml]
+    paths: [backend/**, web/**, e2e/**, mobile/lib/**, mobile/test/live/**, .github/workflows/e2e.yml]
   pull_request:
-    paths: [backend/**, web/**, e2e/**, .github/workflows/e2e.yml]
+    paths: [backend/**, web/**, e2e/**, mobile/lib/**, mobile/test/live/**, .github/workflows/e2e.yml]
   workflow_call:
 
 permissions:
@@ -96,3 +96,50 @@ jobs:
             e2e/playwright-report
             e2e/test-results
           retention-days: 7
+
+  app-live:
+    name: Flutter API client against the live API
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    services:
+      postgres:
+        image: postgres:18.6-alpine3.24
+        env:
+          POSTGRES_USER: stackstep
+          POSTGRES_PASSWORD: stackstep
+          POSTGRES_DB: stackstep
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U stackstep" --health-interval 2s --health-timeout 3s --health-retries 30
+    env:
+      DATABASE_URL: postgres://stackstep:stackstep@localhost:5432/stackstep?sslmode=disable
+      APP_ENV: test
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-go@v7
+        with:
+          go-version-file: backend/go.mod
+          cache-dependency-path: backend/go.sum
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: 3.47.7
+          channel: stable
+          cache: true
+      - name: Build, seed and start the API
+        working-directory: backend
+        run: |
+          go build -o "$RUNNER_TEMP/api" ./cmd/api
+          go run ./cmd/seed -reset
+          LEAD_REPLY_DELAY=3s AUTH_RATE_PER_MINUTE=1000 nohup "$RUNNER_TEMP/api" > "$RUNNER_TEMP/api.log" 2>&1 &
+          for i in $(seq 1 60); do curl -sf localhost:8080/readyz && break; sleep 1; done
+          curl -sf localhost:8080/readyz
+      - name: Live API tests
+        working-directory: mobile
+        env:
+          STACKSTEP_LIVE_API: http://localhost:8080
+        run: |
+          flutter pub get --enforce-lockfile
+          flutter test test/live
+      - name: API log
+        if: failure()
+        run: tail -n 300 "$RUNNER_TEMP/api.log"
