@@ -16,6 +16,8 @@ const row = (day: number, title: string): DraftRow => ({
   review_mode: "manual",
   release_time: "10:00",
   due_minutes: 60,
+  release_window: 0,
+  content: { resources: [], quiz: null },
 });
 
 describe("flow draft", () => {

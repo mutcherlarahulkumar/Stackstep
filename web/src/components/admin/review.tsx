@@ -116,7 +116,9 @@ export function StudentDetail({ student }: { student: Student }) {
                         <PersonaTag persona={personas.get(t.persona_id)} />
                         {t.review_mode === "self" ? <span>Self-check</span> : null}
                         {t.from_flow ? <span>From flow</span> : null}
+                        {t.quiz_result ? <span data-testid="quiz-score">Quiz {t.quiz_result.best_score}%</span> : null}
                       </span>
+                      {t.submission ? <HandIn submission={t.submission} /> : null}
                     </div>
                   </TableCell>
                   <TableCell>
@@ -184,6 +186,29 @@ export function StudentDetail({ student }: { student: Student }) {
           if (reviewing) move.mutate({ task: reviewing.task, to: reviewing.to, note });
         }}
       />
+    </div>
+  );
+}
+
+/** The latest hand-in, compact: the link, then the note behind a disclosure. */
+function HandIn({ submission }: { submission: NonNullable<Task["submission"]> }) {
+  return (
+    <div className="flex flex-col gap-1 text-xs" data-testid="hand-in">
+      {submission.url ? (
+        <a href={submission.url} target="_blank" rel="noopener noreferrer" className="text-primary truncate font-medium underline-offset-4 hover:underline">
+          {submission.url.replace(/^https?:\/\//, "")}
+        </a>
+      ) : null}
+      {submission.note ? (
+        <details className="text-muted-foreground">
+          <summary className="cursor-pointer select-none">
+            Note{submission.attempt > 1 ? ` · attempt ${submission.attempt}` : ""}
+          </summary>
+          <p className="text-foreground mt-1 max-h-48 overflow-y-auto whitespace-pre-wrap">{submission.note}</p>
+        </details>
+      ) : submission.attempt > 1 ? (
+        <span className="text-muted-foreground">Attempt {submission.attempt}</span>
+      ) : null}
     </div>
   );
 }

@@ -77,5 +77,44 @@ void main() {
       expect(User.fromJson(JsonReader(userJson(name: 'Asha  Rao'))).initials, 'AR');
       expect(User.fromJson(JsonReader(userJson(name: 'Asha'))).initials, 'A');
     });
+
+    test('quiz content: students get null answers; stats decode strictly', () {
+      final t = Task.fromJson(
+        JsonReader(
+          taskJson(
+            type: 'quiz',
+            reviewMode: 'self',
+            content: {
+              'resources': [
+                {'title': 'Pro Git', 'url': 'https://git-scm.com/book'},
+              ],
+              'quiz': {
+                'pass_percent': 70,
+                'questions': [
+                  {
+                    'prompt': 'What does git add do?',
+                    'options': ['Commits', 'Stages'],
+                    'answer': null,
+                  },
+                ],
+              },
+            },
+            quizResult: {
+              'attempts': 1,
+              'attempts_left': 2,
+              'best_score': 0,
+              'passed': false,
+              'last_correct': [false],
+            },
+          ),
+        ),
+      );
+      expect(t.isQuiz, isTrue);
+      expect(t.content.quiz!.questions.single.answer, isNull);
+      expect(t.content.resources.single.title, 'Pro Git');
+      expect(t.quizFinished, isFalse);
+      final bad = taskJson(content: {'resources': 'nope', 'quiz': null});
+      expect(() => Task.fromJson(JsonReader(bad)), throwsA(isA<ContractViolation>()));
+    });
   });
 }

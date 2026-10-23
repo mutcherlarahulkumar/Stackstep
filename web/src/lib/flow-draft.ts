@@ -1,14 +1,16 @@
-import { type DraftItemInput } from "./api/client";
+import { type DraftItemInput, type TemplateInput } from "./api/client";
 import { type FlowItem, type TaskSpec, type TaskTemplate } from "./api/schemas";
+import { contentForEdit } from "./content";
 import { Bounds } from "./validation";
 
 /** A draft row in the builder: the task spec, its day, and a stable client key. */
-export type DraftRow = TaskSpec & { key: string; day: number; template_id: string | null };
+export type DraftRow = TemplateInput & { key: string; day: number; template_id: string | null };
 
 let seq = 0;
 export const newKey = () => `row-${Date.now().toString(36)}-${(++seq).toString(36)}`;
 
-const spec = (s: TaskSpec): TaskSpec => ({
+/** A server spec (template or flow item) as an editable draft. */
+const fromServer = (s: TaskSpec): TemplateInput => ({
   type: s.type,
   title: s.title,
   brief: s.brief,
@@ -16,16 +18,31 @@ const spec = (s: TaskSpec): TaskSpec => ({
   review_mode: s.review_mode,
   release_time: s.release_time,
   due_minutes: s.due_minutes,
+  release_window: s.release_window,
+  content: contentForEdit(s.content),
+});
+
+/** The spec part of a row, without client-only fields. */
+const specOfRow = (r: DraftRow): TemplateInput => ({
+  type: r.type,
+  title: r.title,
+  brief: r.brief,
+  persona_id: r.persona_id,
+  review_mode: r.review_mode,
+  release_time: r.release_time,
+  due_minutes: r.due_minutes,
+  release_window: r.release_window,
+  content: r.content,
 });
 
 /** Rows from a saved version, in day then position order. */
 export function rowsFromItems(items: readonly FlowItem[]): DraftRow[] {
   return [...items]
     .sort((a, b) => a.day - b.day || a.position - b.position)
-    .map((it) => ({ ...spec(it), key: newKey(), day: it.day, template_id: it.template_id }));
+    .map((it) => ({ ...fromServer(it), key: newKey(), day: it.day, template_id: it.template_id }));
 }
 
-export const rowFromTemplate = (t: TaskTemplate, day: number): DraftRow => ({ ...spec(t), key: newKey(), day, template_id: t.id });
+export const rowFromTemplate = (t: TaskTemplate, day: number): DraftRow => ({ ...fromServer(t), key: newKey(), day, template_id: t.id });
 
 /** Rows in the order the server stores them: by day, keeping the order within a day. */
 export function ordered(rows: readonly DraftRow[]): DraftRow[] {
@@ -33,7 +50,7 @@ export function ordered(rows: readonly DraftRow[]): DraftRow[] {
 }
 
 export function toInput(rows: readonly DraftRow[]): DraftItemInput[] {
-  return ordered(rows).map((r) => ({ ...spec(r), day: r.day, template_id: r.template_id }));
+  return ordered(rows).map((r) => ({ ...specOfRow(r), day: r.day, template_id: r.template_id }));
 }
 
 export function countByDay(rows: readonly DraftRow[]): Map<number, number> {

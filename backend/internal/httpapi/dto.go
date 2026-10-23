@@ -86,18 +86,114 @@ type taskDTO struct {
 	ReviewMode   domain.ReviewMode `json:"review_mode"`
 	PersonaID    uuid.UUID         `json:"persona_id"`
 	FromFlow     bool              `json:"from_flow"`
+	Content      contentDTO        `json:"content"`
+	Submission   *submissionDTO    `json:"submission"`
+	QuizResult   *quizStatsDTO     `json:"quiz_result"`
 }
 
-func toTask(t domain.Task) taskDTO {
-	return taskDTO{ID: t.ID, EnrollmentID: t.EnrollmentID, Type: t.Type, Title: t.Title, Brief: t.Brief, Status: t.Status,
+type resourceDTO struct {
+	Title string `json:"title"`
+	URL   string `json:"url"`
+}
+
+type quizQuestionDTO struct {
+	Prompt  string   `json:"prompt"`
+	Options []string `json:"options"`
+	// Answer is the right option's index; null for students until the quiz is finished.
+	Answer *int `json:"answer"`
+}
+
+type quizDTO struct {
+	Questions   []quizQuestionDTO `json:"questions"`
+	PassPercent int               `json:"pass_percent"`
+}
+
+type contentDTO struct {
+	Resources []resourceDTO `json:"resources"`
+	Quiz      *quizDTO      `json:"quiz"`
+}
+
+func toContent(c domain.TaskContent, showAnswers bool) contentDTO {
+	out := contentDTO{Resources: make([]resourceDTO, len(c.Resources))}
+	for i, r := range c.Resources {
+		out.Resources[i] = resourceDTO(r)
+	}
+	if c.Quiz != nil {
+		q := &quizDTO{PassPercent: c.Quiz.PassPercent, Questions: make([]quizQuestionDTO, len(c.Quiz.Questions))}
+		for i, qq := range c.Quiz.Questions {
+			q.Questions[i] = quizQuestionDTO{Prompt: qq.Prompt, Options: qq.Options}
+			if showAnswers {
+				a := qq.Answer
+				q.Questions[i].Answer = &a
+			}
+		}
+		out.Quiz = q
+	}
+	return out
+}
+
+// input converts a request body; a missing answer becomes -1 so validation flags it.
+func (c contentDTO) input() domain.TaskContent {
+	out := domain.TaskContent{Resources: make([]domain.Resource, len(c.Resources))}
+	for i, r := range c.Resources {
+		out.Resources[i] = domain.Resource(r)
+	}
+	if c.Quiz != nil {
+		q := &domain.Quiz{PassPercent: c.Quiz.PassPercent, Questions: make([]domain.QuizQuestion, len(c.Quiz.Questions))}
+		for i, qq := range c.Quiz.Questions {
+			a := -1
+			if qq.Answer != nil {
+				a = *qq.Answer
+			}
+			q.Questions[i] = domain.QuizQuestion{Prompt: qq.Prompt, Options: qq.Options, Answer: a}
+		}
+		out.Quiz = q
+	}
+	return out
+}
+
+type submissionDTO struct {
+	Attempt     int       `json:"attempt"`
+	URL         *string   `json:"url"`
+	Note        string    `json:"note"`
+	SubmittedAt time.Time `json:"submitted_at"`
+}
+
+type quizStatsDTO struct {
+	Attempts     int    `json:"attempts"`
+	AttemptsLeft int    `json:"attempts_left"`
+	BestScore    int    `json:"best_score"`
+	Passed       bool   `json:"passed"`
+	LastCorrect  []bool `json:"last_correct"`
+}
+
+// toTask renders a task. Students see a quiz's answers only once it is finished.
+func toTask(t domain.Task, staff bool) taskDTO {
+	finished := t.Quiz != nil && t.Quiz.Finished() || t.Status == domain.StatusDone
+	dto := taskDTO{ID: t.ID, EnrollmentID: t.EnrollmentID, Type: t.Type, Title: t.Title, Brief: t.Brief, Status: t.Status,
 		ScheduledFor: t.ScheduledFor.UTC(), DueAt: t.DueAt.UTC(), Version: t.Version, CreatedAt: t.CreatedAt.UTC(), UpdatedAt: t.UpdatedAt.UTC(),
-		ReviewMode: t.ReviewMode, PersonaID: t.PersonaID, FromFlow: t.FlowItemID != nil}
+		ReviewMode: t.ReviewMode, PersonaID: t.PersonaID, FromFlow: t.FlowItemID != nil, Content: toContent(t.Content, staff || finished)}
+	if s := t.Submission; s != nil {
+		dto.Submission = &submissionDTO{Attempt: s.Attempt, Note: s.Note, SubmittedAt: s.SubmittedAt.UTC()}
+		if s.URL != "" {
+			u := s.URL
+			dto.Submission.URL = &u
+		}
+	}
+	if q := t.Quiz; q != nil {
+		dto.QuizResult = &quizStatsDTO{Attempts: q.Attempts, AttemptsLeft: max(0, domain.MaxQuizAttempts-q.Attempts), BestScore: q.BestScore,
+			Passed: q.Passed, LastCorrect: q.LastCorrect}
+		if q.Passed {
+			dto.QuizResult.AttemptsLeft = 0
+		}
+	}
+	return dto
 }
 
-func toTasks(ts []domain.Task) []taskDTO {
+func toTasks(ts []domain.Task, staff bool) []taskDTO {
 	out := make([]taskDTO, len(ts))
 	for i, t := range ts {
-		out[i] = toTask(t)
+		out[i] = toTask(t, staff)
 	}
 	return out
 }
@@ -160,6 +256,7 @@ type refreshReq struct {
 }
 
 type createTaskReq struct {
+	Content      contentDTO        `json:"content"`
 	Type         domain.TaskType   `json:"type"`
 	PersonaID    *uuid.UUID        `json:"persona_id"`
 	ReviewMode   domain.ReviewMode `json:"review_mode"`
@@ -173,10 +270,33 @@ type transitionReq struct {
 	To              domain.TaskStatus `json:"to"`
 	ExpectedVersion int               `json:"expected_version"`
 	Note            string            `json:"note"`
+	Submission      *submissionReq    `json:"submission"`
+}
+
+type submissionReq struct {
+	URL  string `json:"url"`
+	Note string `json:"note"`
 }
 
 func (r transitionReq) input() app.TransitionInput {
-	return app.TransitionInput{To: r.To, ExpectedVersion: r.ExpectedVersion, Note: r.Note}
+	in := app.TransitionInput{To: r.To, ExpectedVersion: r.ExpectedVersion, Note: r.Note}
+	if r.Submission != nil {
+		in.Submission = &domain.Submission{URL: r.Submission.URL, Note: r.Submission.Note}
+	}
+	return in
+}
+
+type quizReq struct {
+	ExpectedVersion int   `json:"expected_version"`
+	Answers         []int `json:"answers"`
+}
+
+type quizResultDTO struct {
+	Attempt      int    `json:"attempt"`
+	Score        int    `json:"score"`
+	Passed       bool   `json:"passed"`
+	Correct      []bool `json:"correct"`
+	AttemptsLeft int    `json:"attempts_left"`
 }
 
 type sendMessageReq struct {
@@ -230,23 +350,25 @@ func (r personaReq) input() domain.PersonaInput {
 }
 
 type taskSpecDTO struct {
-	Type        domain.TaskType   `json:"type"`
-	Title       string            `json:"title"`
-	Brief       string            `json:"brief"`
-	PersonaID   uuid.UUID         `json:"persona_id"`
-	ReviewMode  domain.ReviewMode `json:"review_mode"`
-	ReleaseTime string            `json:"release_time"`
-	DueMinutes  int               `json:"due_minutes"`
+	Type          domain.TaskType   `json:"type"`
+	Title         string            `json:"title"`
+	Brief         string            `json:"brief"`
+	PersonaID     uuid.UUID         `json:"persona_id"`
+	ReviewMode    domain.ReviewMode `json:"review_mode"`
+	ReleaseTime   string            `json:"release_time"`
+	DueMinutes    int               `json:"due_minutes"`
+	ReleaseWindow int               `json:"release_window"`
+	Content       contentDTO        `json:"content"`
 }
 
 func toSpec(s domain.TaskSpec) taskSpecDTO {
 	return taskSpecDTO{Type: s.Type, Title: s.Title, Brief: s.Brief, PersonaID: s.PersonaID, ReviewMode: s.ReviewMode,
-		ReleaseTime: s.ReleaseTime.String(), DueMinutes: s.DueMinutes}
+		ReleaseTime: s.ReleaseTime.String(), DueMinutes: s.DueMinutes, ReleaseWindow: s.ReleaseWindow, Content: toContent(s.Content, true)}
 }
 
 func (s taskSpecDTO) input() domain.TaskSpecInput {
 	return domain.TaskSpecInput{Type: s.Type, Title: s.Title, Brief: s.Brief, PersonaID: s.PersonaID, ReviewMode: s.ReviewMode,
-		ReleaseTime: s.ReleaseTime, DueMinutes: s.DueMinutes}
+		ReleaseTime: s.ReleaseTime, DueMinutes: s.DueMinutes, ReleaseWindow: s.ReleaseWindow, Content: s.Content.input()}
 }
 
 type templateDTO struct {
@@ -269,13 +391,15 @@ type templateReq struct {
 	ReviewMode      domain.ReviewMode `json:"review_mode"`
 	ReleaseTime     string            `json:"release_time"`
 	DueMinutes      int               `json:"due_minutes"`
+	ReleaseWindow   int               `json:"release_window"`
+	Content         contentDTO        `json:"content"`
 	Archived        bool              `json:"archived"`
 	ExpectedVersion int               `json:"expected_version"`
 }
 
 func (r templateReq) spec() domain.TaskSpecInput {
 	return domain.TaskSpecInput{Type: r.Type, Title: r.Title, Brief: r.Brief, PersonaID: r.PersonaID, ReviewMode: r.ReviewMode,
-		ReleaseTime: r.ReleaseTime, DueMinutes: r.DueMinutes}
+		ReleaseTime: r.ReleaseTime, DueMinutes: r.DueMinutes, ReleaseWindow: r.ReleaseWindow, Content: r.Content.input()}
 }
 
 type flowDTO struct {

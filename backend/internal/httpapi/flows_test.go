@@ -255,14 +255,14 @@ func TestFlowDuplicate(t *testing.T) {
 	var dup flowDetailResp
 	e.expect(e.do("POST", "/v1/admin/flows/"+seed.ReactFlowID.String()+"/duplicate", adm,
 		map[string]any{"name": "Angular Frontend · 30 days", "stream": "Angular"}), 201).json(t, &dup)
-	if dup.Draft == nil || len(dup.Draft.Items) != 10 || dup.Published != nil {
+	if dup.Draft == nil || len(dup.Draft.Items) != 11 || dup.Published != nil {
 		t.Fatalf("duplicate = %+v", dup)
 	}
 	// Changing the copy leaves the source alone.
 	e.expect(e.saveDraft(adm, dup.Flow.ID, dup.Draft.Revision, []map[string]any{}), 200)
 	var src flowDetailResp
 	e.expect(e.do("GET", "/v1/admin/flows/"+seed.ReactFlowID.String(), adm, nil), 200).json(t, &src)
-	if len(src.Published.Items) != 10 {
+	if len(src.Published.Items) != 11 {
 		t.Fatalf("source changed: %d items", len(src.Published.Items))
 	}
 	e.expect(e.do("POST", "/v1/admin/flows/"+seed.ReactFlowID.String()+"/duplicate", adm,

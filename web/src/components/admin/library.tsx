@@ -17,8 +17,9 @@ import { Spinner } from "@/components/ui/spinner";
 import { Switch } from "@/components/ui/switch";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { messageFor } from "@/lib/api/errors";
-import { TASK_TYPES, type Persona, type TaskSpec, type TaskTemplate, type TaskType } from "@/lib/api/schemas";
+import { TASK_TYPES, type Persona, type TaskTemplate, type TaskType } from "@/lib/api/schemas";
 import { TYPE_LABEL } from "@/lib/board";
+import { releaseLabel } from "@/lib/content";
 import { DEFAULT_PERSONA_ID } from "@/lib/inbox";
 import { usePersonas } from "@/lib/inbox-queries";
 import { useSession } from "@/lib/session";
@@ -32,7 +33,7 @@ import { AdminShell } from "./admin-shell";
 import { personaMap, useAllPersonas, useTemplates } from "./catalog-queries";
 import { splitError } from "./form-errors";
 import { normalizeLineSafe } from "./util";
-import { cleanSpec, emptySpec, SpecFields, validateSpec, type SpecErrors } from "./task-spec-form";
+import { cleanSpec, emptySpec, SpecFields, specFromServer, validateSpec, type SpecDraft, type SpecErrors } from "./task-spec-form";
 
 export function LibraryScreen() {
   return (
@@ -167,7 +168,8 @@ function Library({ canEdit }: { canEdit: boolean }) {
                     </TableCell>
                     <TableCell className="text-muted-foreground text-sm">{t.review_mode === "self" ? "Student marks done" : "Admin reviews"}</TableCell>
                     <TableCell className="text-muted-foreground text-sm whitespace-nowrap">
-                      {t.release_time} · {durationLabel(t.due_minutes)}
+                      {t.release_window > 0 ? `Surprise ${releaseLabel(t.release_time, t.release_window)}` : t.release_time} · {durationLabel(t.due_minutes)}
+                      {t.content.quiz ? ` · ${t.content.quiz.questions.length} questions` : ""}
                     </TableCell>
                   </TableRow>
                 );
@@ -186,15 +188,7 @@ function Library({ canEdit }: { canEdit: boolean }) {
   );
 }
 
-const specOf = (t: TaskTemplate): TaskSpec => ({
-  type: t.type,
-  title: t.title,
-  brief: t.brief,
-  persona_id: t.persona_id,
-  review_mode: t.review_mode,
-  release_time: t.release_time,
-  due_minutes: t.due_minutes,
-});
+const specOf = (t: TaskTemplate): SpecDraft => specFromServer(t);
 
 /** Create or edit a library task. Also used from the flow builder ("Save to library"). */
 export function TemplateDialog({ editing, onClose, onSaved }: { editing: TaskTemplate | "new" | null; onClose: () => void; onSaved?: (t: TaskTemplate) => void }) {
@@ -204,13 +198,13 @@ export function TemplateDialog({ editing, onClose, onSaved }: { editing: TaskTem
   const active: Persona[] = personas.data ?? [];
   const current = editing && editing !== "new" ? editing : null;
   const fallback = active.some((p) => p.id === DEFAULT_PERSONA_ID) ? DEFAULT_PERSONA_ID : (active[0]?.id ?? DEFAULT_PERSONA_ID);
-  const [spec, setSpec] = useState<TaskSpec>(current ? specOf(current) : emptySpec(fallback));
+  const [spec, setSpec] = useState<SpecDraft>(current ? specOf(current) : emptySpec(fallback));
   const [archived, setArchived] = useState(current?.archived ?? false);
   const [errors, setErrors] = useState<SpecErrors>({});
   const [formError, setFormError] = useState<string | null>(null);
 
   const save = useMutation({
-    mutationFn: (s: TaskSpec) => (current ? api.updateTemplate(current.id, { ...s, archived }, current.version) : api.createTemplate(s)),
+    mutationFn: (s: SpecDraft) => (current ? api.updateTemplate(current.id, { ...s, archived }, current.version) : api.createTemplate(s)),
     onSuccess: (t) => {
       toast.success(current ? "Saved" : `Added “${t.title}” to the library`);
       void qc.invalidateQueries({ queryKey: ["templates"] });

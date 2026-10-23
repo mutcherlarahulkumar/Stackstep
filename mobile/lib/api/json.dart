@@ -34,6 +34,22 @@ extension type const JsonReader(Json raw) {
 
   int integer(String key) => _req<int>(key);
 
+  int? integerOrNull(String key) {
+    final value = raw[key];
+    if (value == null) return null;
+    if (value is int) return value;
+    throw ContractViolation(key, 'int or null');
+  }
+
+  /// A list of plain values (strings, ints, bools).
+  List<T> values<T>(String key) {
+    final value = _req<List<Object?>>(key);
+    return [
+      for (final (i, item) in value.indexed)
+        if (item is T) item else throw ContractViolation('$key[$i]', '$T'),
+    ];
+  }
+
   bool boolean(String key) => _req<bool>(key);
 
   DateTime dateTime(String key) {

@@ -534,7 +534,7 @@ func ApplyFlow(ctx context.Context, q store.Q, e domain.Enrollment, flowID, acto
 		s := r.Item.Spec
 		task, err := insertAnnouncedTask(ctx, q, e, actor, domain.ValidatedTask{
 			Type: s.Type, Title: s.Title, Brief: s.Brief, PersonaID: s.PersonaID, ReviewMode: s.ReviewMode,
-			ScheduledFor: r.ScheduledFor, DueAt: r.DueAt, FlowItemID: &itemID,
+			ScheduledFor: r.ScheduledFor, DueAt: r.DueAt, FlowItemID: &itemID, Content: s.Content,
 		}, now)
 		if err != nil {
 			return res, err

@@ -5,8 +5,10 @@ import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
-import { TASK_TYPES, type Persona, type TaskSpec } from "@/lib/api/schemas";
+import { type TemplateInput } from "@/lib/api/client";
+import { TASK_TYPES, type Persona, type TaskSpec, type TaskType } from "@/lib/api/schemas";
 import { TYPE_LABEL } from "@/lib/board";
+import { blankQuestion, cleanContent, ContentBounds, contentForEdit, emptyContent, releaseLabel, validateContent } from "@/lib/content";
 import { cn } from "@/lib/utils";
 import { Bounds, durationLabel, normalizeLine, runeLength, validateBrief, validateDueMinutes, validateReleaseTime, validateTitle } from "@/lib/validation";
 
@@ -14,9 +16,37 @@ import { choiceItem } from "../app/choice";
 import { PersonaAvatar } from "../app/persona-avatar";
 import { TYPE_ICON } from "../app/task-badges";
 import { REVIEW_HINT, REVIEW_LABEL } from "./assign-task-form";
+import { QuizEditor, ResourcesEditor } from "./content-editors";
 
-export type SpecField = keyof TaskSpec;
-export type SpecErrors = Partial<Record<SpecField, string>>;
+/** A task spec as the admin edits it: quiz answers are always set. */
+export type SpecDraft = TemplateInput;
+/** Field errors keyed like the server ("title", "quiz.questions[0].options", "day"). */
+export type SpecErrors = Record<string, string | undefined>;
+
+export const specFromServer = (s: TaskSpec): SpecDraft => ({
+  type: s.type,
+  title: s.title,
+  brief: s.brief,
+  persona_id: s.persona_id,
+  review_mode: s.review_mode,
+  release_time: s.release_time,
+  due_minutes: s.due_minutes,
+  release_window: s.release_window,
+  content: contentForEdit(s.content),
+});
+
+/** Surprise windows offered in the editor (minutes). */
+export const WINDOW_CHOICES = [0, 60, 120, 240, 480] as const;
+
+/** Switching type keeps the quiz in step: quizzes get a first question and self-check. */
+export function withType(s: SpecDraft, type: TaskType): SpecDraft {
+  const next: SpecDraft = { ...s, type, ...(s.title ? {} : defaultsFor(type)) };
+  if (type === "quiz") {
+    next.review_mode = "self";
+    next.content = { ...s.content, quiz: s.content.quiz ?? { pass_percent: ContentBounds.passDefault, questions: [blankQuestion()] } };
+  } else next.content = { ...s.content, quiz: null };
+  return next;
+}
 
 /** Time-to-finish choices, 15 minutes to 7 days (the server's range). */
 export const DUE_CHOICES = [15, 30, 60, 120, 240, 480, 1440, 2880, 4320, 7200, 10_080] as const;
@@ -41,13 +71,17 @@ export function defaultsFor(type: TaskSpec["type"]): Pick<TaskSpec, "review_mode
   }
 }
 
-export function emptySpec(personaId: string): TaskSpec {
-  return { type: "feature", title: "", brief: "", persona_id: personaId, ...defaultsFor("feature") };
+export function emptySpec(personaId: string): SpecDraft {
+  return { type: "feature", title: "", brief: "", persona_id: personaId, release_window: 0, content: emptyContent(), ...defaultsFor("feature") };
 }
 
 /** Client checks mirroring domain.ValidateTaskSpec. */
-export function validateSpec(s: TaskSpec, personaOk: (id: string) => boolean): SpecErrors {
-  const e: SpecErrors = {};
+export function validateSpec(s: SpecDraft, personaOk: (id: string) => boolean): SpecErrors {
+  const e: SpecErrors = validateContent(s.content, s.type);
+  if (s.type === "quiz" && s.review_mode !== "self") e.review_mode = "Quizzes are graded automatically, so the student finishes them.";
+  const [h = 0, m = 0] = s.release_time.split(":").map(Number);
+  if (s.release_window < 0 || s.release_window > ContentBounds.windowMax) e.release_window = "A surprise window can be at most 8 hours.";
+  else if (h * 60 + m + s.release_window > 23 * 60 + 59) e.release_window = "The surprise window must end the same day.";
   const title = validateTitle(s.title);
   if (title) e.title = title;
   const brief = validateBrief(s.brief);
@@ -61,7 +95,7 @@ export function validateSpec(s: TaskSpec, personaOk: (id: string) => boolean): S
 }
 
 /** Normalizes text the way the server will store it. */
-export const cleanSpec = (s: TaskSpec): TaskSpec => ({ ...s, title: normalizeLine(s.title), brief: s.brief.trim() });
+export const cleanSpec = (s: SpecDraft): SpecDraft => ({ ...s, title: normalizeLine(s.title), brief: s.brief.trim(), content: cleanContent(s.content) });
 
 /** Picks the errors for one row out of a server response keyed like "items[3].title". */
 export function rowErrors(fields: Record<string, string>, prefix: string): SpecErrors & { day?: string } {
@@ -76,14 +110,17 @@ export function SpecFields({
   errors,
   personas,
   idPrefix,
+  showWindow = true,
 }: {
-  value: TaskSpec;
-  onChange: (next: TaskSpec) => void;
+  value: SpecDraft;
+  onChange: (next: SpecDraft) => void;
   errors: SpecErrors;
   personas: readonly Persona[];
   idPrefix: string;
+  /** Surprise windows apply to flows and library tasks, not one-off assignments. */
+  showWindow?: boolean;
 }) {
-  const set = <K extends SpecField>(k: K, v: TaskSpec[K]) => onChange({ ...value, [k]: v });
+  const set = <K extends keyof SpecDraft>(k: K, v: SpecDraft[K]) => onChange({ ...value, [k]: v });
   const titleLen = runeLength(normalizeLine(value.title));
   const id = (s: string) => `${idPrefix}-${s}`;
   return (
@@ -95,7 +132,7 @@ export function SpecFields({
             value={value.type}
             onValueChange={(v) => {
               const t = TASK_TYPES.find((x) => x === v);
-              if (t) onChange({ ...value, type: t, ...(value.title ? {} : defaultsFor(t)) });
+              if (t) onChange(withType(value, t));
             }}
           >
             <SelectTrigger id={id("type")} className="w-full">
@@ -156,6 +193,7 @@ export function SpecFields({
             if (v === "manual" || v === "self") set("review_mode", v);
           }}
           className="justify-start"
+          disabled={value.type === "quiz"}
         >
           <ToggleGroupItem value="manual" className={choiceItem}>
             {REVIEW_LABEL.manual}
@@ -164,8 +202,17 @@ export function SpecFields({
             {REVIEW_LABEL.self}
           </ToggleGroupItem>
         </ToggleGroup>
-        {errors.review_mode ? <FieldError>{errors.review_mode}</FieldError> : <FieldDescription>{REVIEW_HINT[value.review_mode]}</FieldDescription>}
+        {errors.review_mode ? (
+          <FieldError>{errors.review_mode}</FieldError>
+        ) : (
+          <FieldDescription>{value.type === "quiz" ? "Quizzes grade themselves against your answer key." : REVIEW_HINT[value.review_mode]}</FieldDescription>
+        )}
       </Field>
+      {value.content.quiz ? (
+        <QuizEditor value={value.content.quiz} onChange={(quiz) => set("content", { ...value.content, quiz })} errors={errors} idPrefix={id("quiz")} />
+      ) : null}
+      {errors.quiz ? <FieldError>{errors.quiz}</FieldError> : null}
+      <ResourcesEditor value={value.content.resources} onChange={(resources) => set("content", { ...value.content, resources })} errors={errors} idPrefix={id("links")} />
       <div className="grid gap-4 sm:grid-cols-2">
         <Field data-invalid={!!errors.release_time}>
           <FieldLabel htmlFor={id("release")}>Shows up at</FieldLabel>
@@ -189,6 +236,32 @@ export function SpecFields({
           {errors.due_minutes ? <FieldError>{errors.due_minutes}</FieldError> : <FieldDescription>Never past the internship&apos;s last day.</FieldDescription>}
         </Field>
       </div>
+      {showWindow ? (
+        <Field data-invalid={!!errors.release_window}>
+          <FieldLabel htmlFor={id("window")}>Surprise</FieldLabel>
+          <Select value={String(value.release_window)} onValueChange={(v) => set("release_window", Number(v))}>
+            <SelectTrigger id={id("window")} className="w-full sm:w-72">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {WINDOW_CHOICES.map((w) => (
+                <SelectItem key={w} value={String(w)}>
+                  {w === 0 ? "Exact time" : `Random time within ${durationLabel(w)}`}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          {errors.release_window ? (
+            <FieldError>{errors.release_window}</FieldError>
+          ) : (
+            <FieldDescription>
+              {value.release_window === 0
+                ? "Shows up at exactly this time."
+                : `Each student gets it at a different time between ${releaseLabel(value.release_time, value.release_window)}.`}
+            </FieldDescription>
+          )}
+        </Field>
+      ) : null}
     </FieldGroup>
   );
 }

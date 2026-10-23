@@ -247,6 +247,9 @@ final class Task {
     required this.reviewMode,
     required this.personaId,
     required this.fromFlow,
+    required this.content,
+    required this.submission,
+    required this.quizResult,
   });
 
   factory Task.fromJson(JsonReader j) => Task(
@@ -264,6 +267,15 @@ final class Task {
     reviewMode: j.enumValue('review_mode', ReviewMode.values, (m) => m.wire),
     personaId: j.string('persona_id'),
     fromFlow: j.boolean('from_flow'),
+    content: TaskContent.fromJson(j.object('content')),
+    submission: switch (j.objectOrNull('submission')) {
+      final s? => Submission.fromJson(s),
+      null => null,
+    },
+    quizResult: switch (j.objectOrNull('quiz_result')) {
+      final q? => QuizStats.fromJson(q),
+      null => null,
+    },
   );
 
   Task withStatus(TaskStatus s) => Task(
@@ -281,6 +293,9 @@ final class Task {
     reviewMode: reviewMode,
     personaId: personaId,
     fromFlow: fromFlow,
+    content: content,
+    submission: submission,
+    quizResult: quizResult,
   );
 
   final String id;
@@ -297,6 +312,111 @@ final class Task {
   final ReviewMode reviewMode;
   final String personaId;
   final bool fromFlow;
+  final TaskContent content;
+  final Submission? submission;
+  final QuizStats? quizResult;
+
+  bool get isQuiz => type == TaskType.quiz && content.quiz != null;
+
+  /// No more attempts: passed, used all three, or done.
+  bool get quizFinished => status == TaskStatus.done || (quizResult?.passed ?? false) || (quizResult?.attemptsLeft == 0);
+}
+
+final class Resource {
+  const Resource({required this.title, required this.url});
+  factory Resource.fromJson(JsonReader j) => Resource(title: j.string('title'), url: j.string('url'));
+  final String title;
+  final String url;
+}
+
+final class QuizQuestion {
+  const QuizQuestion({required this.prompt, required this.options, required this.answer});
+  factory QuizQuestion.fromJson(JsonReader j) =>
+      QuizQuestion(prompt: j.string('prompt'), options: j.values<String>('options'), answer: j.integerOrNull('answer'));
+  final String prompt;
+  final List<String> options;
+
+  /// Null for students until the quiz is finished.
+  final int? answer;
+}
+
+final class Quiz {
+  const Quiz({required this.questions, required this.passPercent});
+  factory Quiz.fromJson(JsonReader j) =>
+      Quiz(questions: j.list('questions', QuizQuestion.fromJson), passPercent: j.integer('pass_percent'));
+  final List<QuizQuestion> questions;
+  final int passPercent;
+}
+
+final class TaskContent {
+  const TaskContent({required this.resources, required this.quiz});
+  factory TaskContent.fromJson(JsonReader j) => TaskContent(
+    resources: j.list('resources', Resource.fromJson),
+    quiz: switch (j.objectOrNull('quiz')) {
+      final q? => Quiz.fromJson(q),
+      null => null,
+    },
+  );
+  final List<Resource> resources;
+  final Quiz? quiz;
+}
+
+final class Submission {
+  const Submission({required this.attempt, required this.url, required this.note, required this.submittedAt});
+  factory Submission.fromJson(JsonReader j) => Submission(
+    attempt: j.integer('attempt'),
+    url: j.stringOrNull('url'),
+    note: j.string('note'),
+    submittedAt: j.dateTime('submitted_at'),
+  );
+  final int attempt;
+  final String? url;
+  final String note;
+  final DateTime submittedAt;
+}
+
+final class QuizStats {
+  const QuizStats({
+    required this.attempts,
+    required this.attemptsLeft,
+    required this.bestScore,
+    required this.passed,
+    required this.lastCorrect,
+  });
+  factory QuizStats.fromJson(JsonReader j) => QuizStats(
+    attempts: j.integer('attempts'),
+    attemptsLeft: j.integer('attempts_left'),
+    bestScore: j.integer('best_score'),
+    passed: j.boolean('passed'),
+    lastCorrect: j.values<bool>('last_correct'),
+  );
+  final int attempts;
+  final int attemptsLeft;
+  final int bestScore;
+  final bool passed;
+  final List<bool> lastCorrect;
+}
+
+final class QuizAttemptResult {
+  const QuizAttemptResult({
+    required this.attempt,
+    required this.score,
+    required this.passed,
+    required this.correct,
+    required this.attemptsLeft,
+  });
+  factory QuizAttemptResult.fromJson(JsonReader j) => QuizAttemptResult(
+    attempt: j.integer('attempt'),
+    score: j.integer('score'),
+    passed: j.boolean('passed'),
+    correct: j.values<bool>('correct'),
+    attemptsLeft: j.integer('attempts_left'),
+  );
+  final int attempt;
+  final int score;
+  final bool passed;
+  final List<bool> correct;
+  final int attemptsLeft;
 }
 
 final class Message {

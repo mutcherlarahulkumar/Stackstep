@@ -16,12 +16,17 @@ export type CreateTaskInput = {
   brief: string;
   scheduled_for: Date | null;
   due_at: Date;
+  content: ContentInput;
 };
 
+/** Content as sent: quiz answers are always set by the author. */
+export type ContentInput = { resources: S.Resource[]; quiz: { questions: { prompt: string; options: string[]; answer: number }[]; pass_percent: number } | null };
+export type SubmissionInput = { url: string; note: string };
+
 export type PersonaInput = { name: string; title: string; color: S.PersonaColor; auto_reply: boolean };
-export type TemplateInput = S.TaskSpec;
+export type TemplateInput = Omit<S.TaskSpec, "content"> & { content: ContentInput };
 export type FlowInput = { name: string; stream: string; description: string; days: 30 | 60 };
-export type DraftItemInput = S.TaskSpec & { day: number; template_id: string | null };
+export type DraftItemInput = TemplateInput & { day: number; template_id: string | null };
 export type TemplateFilter = { q?: string; type?: S.TaskType | null; personaId?: string | null; includeArchived?: boolean };
 
 type Method = "GET" | "POST" | "PUT" | "PATCH";
@@ -111,10 +116,14 @@ export class ApiClient {
     await this.send("POST", `/v1/me/threads/${seg(personaId)}/read`, null);
   }
 
-  transition(taskId: string, to: S.TaskStatus, expectedVersion: number, note = "") {
-    return this.send("POST", `/v1/tasks/${encodeURIComponent(taskId)}/transitions`, S.Task, {
-      body: { to, expected_version: expectedVersion, note },
+  transition(taskId: string, to: S.TaskStatus, expectedVersion: number, note = "", submission: SubmissionInput | null = null) {
+    return this.send("POST", `/v1/tasks/${seg(taskId)}/transitions`, S.Task, {
+      body: { to, expected_version: expectedVersion, note, submission },
     });
+  }
+
+  submitQuiz(taskId: string, expectedVersion: number, answers: number[]) {
+    return this.send("POST", `/v1/tasks/${seg(taskId)}/quiz`, S.QuizAnswerResponse, { body: { expected_version: expectedVersion, answers } });
   }
 
   // ---- Admin ----
@@ -128,7 +137,7 @@ export class ApiClient {
   }
 
   createTask(enrollmentId: string, input: CreateTaskInput) {
-    return this.send("POST", `/v1/admin/enrollments/${encodeURIComponent(enrollmentId)}/tasks`, S.Task, {
+    return this.send("POST", `/v1/admin/enrollments/${seg(enrollmentId)}/tasks`, S.Task, {
       body: {
         type: input.type,
         persona_id: input.persona_id,
@@ -137,6 +146,7 @@ export class ApiClient {
         brief: input.brief,
         scheduled_for: input.scheduled_for?.toISOString() ?? null,
         due_at: input.due_at.toISOString(),
+        content: input.content,
       },
     });
   }

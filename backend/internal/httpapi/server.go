@@ -114,6 +114,7 @@ func (s *Server) Handler() http.Handler {
 	authed.POST("/me/threads/:persona/messages", s.sendMessage)
 	authed.POST("/me/threads/:persona/read", s.markRead)
 	authed.POST("/tasks/:id/transitions", s.transition)
+	authed.POST("/tasks/:id/quiz", s.submitQuiz)
 
 	admin := authed.Group("/admin", s.requireStaff)
 	admin.GET("/students", s.students)

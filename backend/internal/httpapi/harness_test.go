@@ -248,7 +248,12 @@ func (e *env) mustCreateTask(token string, enrollment uuid.UUID) taskResp {
 	return t
 }
 
+// move transitions a task; submitting for review carries a default PR link.
 func (e *env) move(token string, id uuid.UUID, to string, version int, note string) resp {
 	e.t.Helper()
-	return e.do("POST", "/v1/tasks/"+id.String()+"/transitions", token, map[string]any{"to": to, "expected_version": version, "note": note})
+	body := map[string]any{"to": to, "expected_version": version, "note": note}
+	if to == "in_review" {
+		body["submission"] = map[string]any{"url": "https://github.com/asha-dev/portfolio/pull/1", "note": ""}
+	}
+	return e.do("POST", "/v1/tasks/"+id.String()+"/transitions", token, body)
 }

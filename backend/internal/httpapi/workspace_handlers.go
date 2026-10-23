@@ -31,7 +31,7 @@ func (s *Server) myTasks(c *gin.Context) {
 		s.fail(c, err)
 		return
 	}
-	c.JSON(http.StatusOK, gin.H{"items": toTasks(tasks)})
+	c.JSON(http.StatusOK, gin.H{"items": toTasks(tasks, false)})
 }
 
 func (s *Server) page(c *gin.Context) (limit int, cursorRaw string, err error) {
@@ -138,12 +138,44 @@ func (s *Server) transition(c *gin.Context) {
 		s.fail(c, err)
 		return
 	}
-	t, err := s.workspace.Transition(c.Request.Context(), currentUser(c), id, req.input())
+	u := currentUser(c)
+	t, err := s.workspace.Transition(c.Request.Context(), u, id, req.input())
 	if err != nil {
 		s.fail(c, err)
 		return
 	}
-	c.JSON(http.StatusOK, toTask(t))
+	c.JSON(http.StatusOK, toTask(t, u.Role.IsStaff()))
+}
+
+func (s *Server) submitQuiz(c *gin.Context) {
+	id, err := pathUUID(c, "id")
+	if err != nil {
+		s.fail(c, err)
+		return
+	}
+	var req quizReq
+	if err := decode(c, &req); err != nil {
+		s.fail(c, err)
+		return
+	}
+	if req.Answers == nil {
+		s.fail(c, apperr.Validation(map[string]string{"answers": "Answer the questions first."}))
+		return
+	}
+	out, err := s.workspace.SubmitQuiz(c.Request.Context(), currentUser(c), id, req.ExpectedVersion, req.Answers)
+	if err != nil {
+		s.fail(c, err)
+		return
+	}
+	r := out.Result
+	left := domain.MaxQuizAttempts - r.Attempt
+	if r.Passed {
+		left = 0
+	}
+	c.JSON(http.StatusOK, gin.H{
+		"task":   toTask(out.Task, false),
+		"result": quizResultDTO{Attempt: r.Attempt, Score: r.Score, Passed: r.Passed, Correct: r.Correct, AttemptsLeft: left},
+	})
 }
 
 func (s *Server) students(c *gin.Context) {
@@ -172,7 +204,7 @@ func (s *Server) enrollmentTasks(c *gin.Context) {
 		s.fail(c, err)
 		return
 	}
-	c.JSON(http.StatusOK, gin.H{"enrollment": toEnrollment(e, s.clock.Now()), "items": toTasks(tasks)})
+	c.JSON(http.StatusOK, gin.H{"enrollment": toEnrollment(e, s.clock.Now()), "items": toTasks(tasks, true)})
 }
 
 func (s *Server) createTask(c *gin.Context) {
@@ -186,7 +218,8 @@ func (s *Server) createTask(c *gin.Context) {
 		s.fail(c, err)
 		return
 	}
-	in := domain.NewTaskInput{Type: req.Type, Title: req.Title, Brief: req.Brief, ScheduledFor: req.ScheduledFor, DueAt: req.DueAt, ReviewMode: req.ReviewMode}
+	in := domain.NewTaskInput{Type: req.Type, Title: req.Title, Brief: req.Brief, ScheduledFor: req.ScheduledFor, DueAt: req.DueAt,
+		ReviewMode: req.ReviewMode, Content: req.Content.input()}
 	if req.PersonaID != nil {
 		in.PersonaID = *req.PersonaID
 	}
@@ -195,7 +228,7 @@ func (s *Server) createTask(c *gin.Context) {
 		s.fail(c, err)
 		return
 	}
-	c.JSON(http.StatusCreated, toTask(t))
+	c.JSON(http.StatusCreated, toTask(t, true))
 }
 
 func nullable(s string) *string {

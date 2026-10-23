@@ -85,6 +85,44 @@ export type Enrollment = z.output<typeof Enrollment>;
 export const Me = z.object({ user: User, enrollment: Enrollment.nullable() });
 export type Me = z.output<typeof Me>;
 
+export const Resource = z.object({ title: z.string().min(1).max(80), url: z.string().min(1).max(2048) });
+export type Resource = z.output<typeof Resource>;
+
+export const QuizQuestion = z.object({
+  prompt: z.string(),
+  options: z.array(z.string()).min(2).max(6),
+  /** Null for students until the quiz is finished. */
+  answer: z.int().min(0).nullable(),
+});
+export type QuizQuestion = z.output<typeof QuizQuestion>;
+
+export const Quiz = z.object({ questions: z.array(QuizQuestion).min(1).max(20), pass_percent: z.int().min(1).max(100) });
+export type Quiz = z.output<typeof Quiz>;
+
+export const TaskContent = z.object({ resources: z.array(Resource).max(5), quiz: Quiz.nullable() });
+export type TaskContent = z.output<typeof TaskContent>;
+
+export const Submission = z.object({ attempt: z.int().min(1), url: z.string().nullable(), note: z.string(), submitted_at: timestamp });
+export type Submission = z.output<typeof Submission>;
+
+export const QuizStats = z.object({
+  attempts: z.int().min(0).max(3),
+  attempts_left: z.int().min(0).max(3),
+  best_score: z.int().min(0).max(100),
+  passed: z.boolean(),
+  last_correct: z.array(z.boolean()),
+});
+export type QuizStats = z.output<typeof QuizStats>;
+
+export const QuizAttemptResult = z.object({
+  attempt: z.int().min(1).max(3),
+  score: z.int().min(0).max(100),
+  passed: z.boolean(),
+  correct: z.array(z.boolean()),
+  attempts_left: z.int().min(0).max(2),
+});
+export type QuizAttemptResult = z.output<typeof QuizAttemptResult>;
+
 export const Task = z.object({
   id: z.uuid(),
   enrollment_id: z.uuid(),
@@ -100,6 +138,9 @@ export const Task = z.object({
   review_mode: ReviewMode,
   persona_id: z.uuid(),
   from_flow: z.boolean(),
+  content: TaskContent,
+  submission: Submission.nullable(),
+  quiz_result: QuizStats.nullable(),
 });
 export type Task = z.output<typeof Task>;
 
@@ -145,6 +186,8 @@ const taskSpec = {
   review_mode: ReviewMode,
   release_time: clockTime,
   due_minutes: z.int().min(15).max(10_080),
+  release_window: z.int().min(0).max(480),
+  content: TaskContent,
 };
 export const TaskSpec = z.object(taskSpec);
 export type TaskSpec = z.output<typeof TaskSpec>;
@@ -221,6 +264,8 @@ export const MessagePage = page(Message);
 export const StudentPage = page(Student);
 export const EnrollmentTasks = z.object({ enrollment: Enrollment, items: z.array(Task) });
 export const ThreadList = z.object({ items: z.array(Thread) });
+export const QuizAnswerResponse = z.object({ task: Task, result: QuizAttemptResult });
+export type QuizAnswerResponse = z.output<typeof QuizAnswerResponse>;
 export const StaffThreadPage = page(StaffThread);
 export const PersonaList = z.object({ items: z.array(Persona) });
 export const TemplatePage = page(TaskTemplate);

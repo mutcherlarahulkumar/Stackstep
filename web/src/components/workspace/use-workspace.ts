@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useReducer, useRef } from "react";
 
+import { type SubmissionInput } from "@/lib/api/client";
 import { ApiError, messageFor, NetworkError } from "@/lib/api/errors";
 import { type Frame, type Task, type TaskStatus } from "@/lib/api/schemas";
 import { upsertTask } from "@/lib/board";
@@ -57,11 +58,11 @@ export function useWorkspace() {
 
   /** Optimistic move with rollback. Returns a user-facing error, or null. */
   const move = useCallback(
-    async (task: Task, to: TaskStatus): Promise<string | null> => {
+    async (task: Task, to: TaskStatus, submission: SubmissionInput | null = null): Promise<string | null> => {
       const before = tasksRef.current;
       dispatch({ type: "replaced", items: before.map((t) => (t.id === task.id ? { ...t, status: to } : t)) });
       try {
-        dispatch({ type: "upserted", task: await api.transition(task.id, to, task.version) });
+        dispatch({ type: "upserted", task: await api.transition(task.id, to, task.version, "", submission) });
         return null;
       } catch (e) {
         dispatch({ type: "replaced", items: before });
@@ -70,11 +71,15 @@ export function useWorkspace() {
           return "This task changed on another device. We refreshed your board.";
         }
         if (e instanceof NetworkError) return "You're offline. The task wasn't moved.";
+        if (e instanceof ApiError && e.code === "validation_failed") return Object.values(e.fields)[0] ?? messageFor(e);
         return messageFor(e);
       }
     },
     [api, loadTasks],
   );
 
-  return { state, move, reload: () => void loadTasks() };
+  /** Applies a task the server returned outside a move (e.g. a graded quiz). */
+  const apply = useCallback((t: Task) => dispatch({ type: "upserted", task: t }), []);
+
+  return { state, move, apply, reload: () => void loadTasks() };
 }

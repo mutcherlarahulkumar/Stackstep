@@ -160,7 +160,10 @@ func (s *Server) EncodeEvent(ctx context.Context, ev store.Event) ([]realtime.De
 		if err != nil {
 			return nil, err
 		}
-		dto := toTask(t)
+		if t, err = store.EnrichTask(ctx, s.store.Pool, t); err != nil {
+			return nil, err
+		}
+		dto := toTask(t, false)
 		b, err := json.Marshal(frame{Type: frameTask, Task: &dto})
 		if err != nil {
 			return nil, err

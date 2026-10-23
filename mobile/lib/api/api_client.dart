@@ -76,7 +76,14 @@ typedef CreateTaskInput = ({
   String brief,
   DateTime? scheduledFor,
   DateTime dueAt,
+  // Quizzes are built on desktop; phones can attach links.
+  List<Resource> resources,
 });
+
+/// A hand-in sent with "Submit for review" (or when finishing a self-check task).
+typedef SubmissionInput = ({String url, String note});
+
+String _seg(String s) => Uri.encodeComponent(s);
 
 final class ApiClient {
   ApiClient({
@@ -166,12 +173,38 @@ final class ApiClient {
     return Page(items: j.list('items', Message.fromJson), nextCursor: j.stringOrNull('next_cursor'));
   }
 
-  Future<Task> transition({required String taskId, required TaskStatus to, required int expectedVersion, String note = ''}) async =>
-      Task.fromJson(
-        asObject(
-          await _send('POST', '/v1/tasks/$taskId/transitions', body: {'to': to.wire, 'expected_version': expectedVersion, 'note': note}),
-        ),
-      );
+  Future<Task> transition({
+    required String taskId,
+    required TaskStatus to,
+    required int expectedVersion,
+    String note = '',
+    SubmissionInput? submission,
+  }) async => Task.fromJson(
+    asObject(
+      await _send(
+        'POST',
+        '/v1/tasks/${_seg(taskId)}/transitions',
+        body: {
+          'to': to.wire,
+          'expected_version': expectedVersion,
+          'note': note,
+          'submission': submission == null ? null : {'url': submission.url, 'note': submission.note},
+        },
+      ),
+    ),
+  );
+
+  /// Grades quiz answers on the server (against the answer key, no AI).
+  Future<({Task task, QuizAttemptResult result})> submitQuiz({
+    required String taskId,
+    required int expectedVersion,
+    required List<int> answers,
+  }) async {
+    final j = asObject(
+      await _send('POST', '/v1/tasks/${_seg(taskId)}/quiz', body: {'expected_version': expectedVersion, 'answers': answers}),
+    );
+    return (task: Task.fromJson(j.object('task')), result: QuizAttemptResult.fromJson(j.object('result')));
+  }
 
   // ---- Admin ----
 
@@ -195,6 +228,12 @@ final class ApiClient {
           'brief': input.brief,
           'scheduled_for': input.scheduledFor?.toUtc().toIso8601String(),
           'due_at': input.dueAt.toUtc().toIso8601String(),
+          'content': {
+            'resources': [
+              for (final r in input.resources) {'title': r.title, 'url': r.url},
+            ],
+            'quiz': null,
+          },
         },
       ),
     ),

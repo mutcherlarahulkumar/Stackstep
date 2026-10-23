@@ -28,10 +28,13 @@ Json taskJson({
   String title = 'Add filtering',
   String reviewMode = 'manual',
   String personaId = leadId,
+  String type = 'feature',
+  Json? content,
+  Json? quizResult,
 }) => {
   'id': id,
   'enrollment_id': 'e-1',
-  'type': 'feature',
+  'type': type,
   'title': title,
   'brief': 'Use Array.filter.',
   'status': status,
@@ -43,6 +46,9 @@ Json taskJson({
   'review_mode': reviewMode,
   'persona_id': personaId,
   'from_flow': false,
+  'content': content ?? {'resources': <Object?>[], 'quiz': null},
+  'submission': null,
+  'quiz_result': quizResult,
 };
 
 Json messageJson({

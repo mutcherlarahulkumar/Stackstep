@@ -22,7 +22,7 @@ test("flows: duplicate, add a task, publish and assign; the student gets it from
   await admin.getByLabel("Stream").fill("Angular");
   await admin.getByTestId("dup-save").click();
   await expect(admin.getByRole("heading", { name })).toBeVisible();
-  await expect(admin.getByText(/· 10 tasks/)).toBeVisible();
+  await expect(admin.getByText(/· 11 tasks/)).toBeVisible();
 
   // Today is day 3 for the seeded students; a 00:00 item releases right away.
   await admin.getByTestId("day-3").click();
@@ -45,7 +45,7 @@ test("flows: duplicate, add a task, publish and assign; the student gets it from
 
   // The React flow is unchanged by the copy.
   await admin.getByRole("link", { name: "All flows" }).click();
-  await expect(admin.getByTestId("flow-row-React Frontend · 30 days")).toContainText("10");
+  await expect(admin.getByTestId("flow-row-React Frontend · 30 days")).toContainText("11");
 
   await admin.getByRole("link", { name }).click();
   await admin.getByTestId("open-assign-flow").click();

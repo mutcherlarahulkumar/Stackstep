@@ -11,14 +11,19 @@ import (
 	"github.com/mutcherlarahulkumar/stackstep/backend/internal/domain"
 )
 
-const taskCols = "id, enrollment_id, type, title, brief, status, scheduled_for, due_at, created_by, version, created_at, updated_at, review_mode, persona_id, flow_item_id"
+const taskCols = "id, enrollment_id, type, title, brief, status, scheduled_for, due_at, created_by, version, created_at, updated_at, review_mode, persona_id, flow_item_id, content"
 
 func scanTask(row pgx.Row) (domain.Task, error) {
 	var t domain.Task
 	var typ, status, review string
+	var content []byte
 	if err := row.Scan(&t.ID, &t.EnrollmentID, &typ, &t.Title, &t.Brief, &status, &t.ScheduledFor, &t.DueAt,
-		&t.CreatedBy, &t.Version, &t.CreatedAt, &t.UpdatedAt, &review, &t.PersonaID, &t.FlowItemID); err != nil {
+		&t.CreatedBy, &t.Version, &t.CreatedAt, &t.UpdatedAt, &review, &t.PersonaID, &t.FlowItemID, &content); err != nil {
 		return domain.Task{}, notFound(err)
+	}
+	var err error
+	if t.Content, err = decodeContent(content); err != nil {
+		return domain.Task{}, fmt.Errorf("task %s content: %w", t.ID, err)
 	}
 	t.Type, t.Status, t.ReviewMode = domain.TaskType(typ), domain.TaskStatus(status), domain.ReviewMode(review)
 	if !t.Type.Valid() || !t.Status.Valid() || !t.ReviewMode.Valid() {
@@ -31,11 +36,11 @@ func scanTask(row pgx.Row) (domain.Task, error) {
 func InsertTask(ctx context.Context, q Q, enrollmentID, createdBy uuid.UUID, v domain.ValidatedTask, now time.Time) (domain.Task, error) {
 	return scanTask(q.QueryRow(ctx, `
 		INSERT INTO tasks (enrollment_id, type, title, brief, status, scheduled_for, due_at, created_by, created_at, updated_at,
-		                   review_mode, persona_id, flow_item_id)
-		VALUES ($1, $2, $3, $4, 'todo', $5, $6, $7, $8, $8, $9, $10, $11)
+		                   review_mode, persona_id, flow_item_id, content)
+		VALUES ($1, $2, $3, $4, 'todo', $5, $6, $7, $8, $8, $9, $10, $11, $12)
 		RETURNING `+taskCols,
 		enrollmentID, string(v.Type), v.Title, v.Brief, v.ScheduledFor, v.DueAt, createdBy, now,
-		string(v.ReviewMode), v.PersonaID, v.FlowItemID))
+		string(v.ReviewMode), v.PersonaID, v.FlowItemID, encodeContent(v.Content)))
 }
 
 // GetTaskForUpdate loads and row-locks a task.

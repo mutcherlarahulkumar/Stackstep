@@ -120,7 +120,33 @@ type Task struct {
 	ReviewMode   ReviewMode
 	PersonaID    uuid.UUID
 	FlowItemID   *uuid.UUID
+	Content      TaskContent
+
+	// Loaded separately (store.EnrichTasks); nil when there is none.
+	Submission *SubmissionRecord
+	Quiz       *QuizStats
 }
+
+// SubmissionRecord is the latest hand-in of a task.
+type SubmissionRecord struct {
+	Attempt          int
+	URL              string
+	Note             string
+	SubmittedAt      time.Time
+	FirstSubmittedAt time.Time
+}
+
+// QuizStats summarizes a student's attempts at a quiz task.
+type QuizStats struct {
+	Attempts  int
+	BestScore int
+	Passed    bool
+	// LastCorrect marks which questions the latest attempt got right.
+	LastCorrect []bool
+}
+
+// Finished reports whether the quiz accepts no more attempts.
+func (q QuizStats) Finished() bool { return q.Passed || q.Attempts >= MaxQuizAttempts }
 
 // Actor is who is attempting a transition, from the task's point of view.
 type Actor string
@@ -184,6 +210,7 @@ type NewTaskInput struct {
 	Brief        string
 	ScheduledFor *time.Time
 	DueAt        time.Time
+	Content      TaskContent
 }
 
 // ValidatedTask is a NewTaskInput that passed every rule, with normalized values.
@@ -196,6 +223,7 @@ type ValidatedTask struct {
 	Brief        string
 	ScheduledFor time.Time
 	DueAt        time.Time
+	Content      TaskContent
 }
 
 // ValidateNewTask checks a new task against the enrollment window and field bounds.
@@ -221,6 +249,12 @@ func ValidateNewTask(in NewTaskInput, e Enrollment, now time.Time) (ValidatedTas
 	} else if hasBadControl(out.Brief, true) {
 		errs["brief"] = "Brief contains characters that can't be displayed."
 	}
+
+	content, cErrs := ValidateContent(in.Content, in.Type, out.ReviewMode, "")
+	for k, v := range cErrs {
+		errs[k] = v
+	}
+	out.Content = content
 
 	opens, closes := e.Window()
 	if in.ScheduledFor == nil {

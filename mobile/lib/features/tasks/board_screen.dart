@@ -4,12 +4,14 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shadcn_ui/shadcn_ui.dart';
+import 'package:stackstep/api/api_client.dart';
 import 'package:stackstep/api/models.dart';
 import 'package:stackstep/api/validation.dart';
 import 'package:stackstep/core/providers.dart';
 import 'package:stackstep/core/theme.dart';
 import 'package:stackstep/features/chat/inbox_controller.dart';
 import 'package:stackstep/features/tasks/board_controller.dart';
+import 'package:stackstep/features/tasks/task_work.dart';
 import 'package:stackstep/shared/errors.dart';
 import 'package:stackstep/shared/format.dart';
 import 'package:stackstep/shared/state_views.dart';
@@ -254,6 +256,8 @@ String _actionLabel(TaskStatus from, TaskStatus to) => switch ((from, to)) {
 };
 
 String _nextStepHint(Task task) => switch (task.status) {
+  _ when task.type == TaskType.quiz && task.status == TaskStatus.done => 'Finished. The answer key is below.',
+  _ when task.type == TaskType.quiz => 'Answer every question, then check your answers. The best of three attempts counts.',
   TaskStatus.todo when task.reviewMode == ReviewMode.self => 'Tap Start working when you begin. You mark this one done yourself.',
   TaskStatus.inProgress when task.reviewMode == ReviewMode.self => 'No review needed. Mark it done once you’ve finished.',
   TaskStatus.todo => 'Create a branch for this ticket, then tap Start working.',
@@ -276,22 +280,13 @@ class _TaskSheetState extends ConsumerState<TaskSheet> {
   TaskStatus? _pending;
 
   Future<void> _move(Task task, TaskStatus to) async {
+    SubmissionInput? submission;
     if (to == TaskStatus.inReview) {
-      final ok = await showShadDialog<bool>(
-        context: context,
-        builder: (ctx) => ShadDialog.alert(
-          title: const Text('Submit for review?'),
-          description: const Text('Make sure your PR is open and the description says what changed.'),
-          actions: [
-            ShadButton.outline(onPressed: () => Navigator.pop(ctx, false), child: const Text('Not yet')),
-            ShadButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('Submit')),
-          ],
-        ),
-      );
-      if (!(ok ?? false)) return;
+      submission = await askForHandIn(context, task);
+      if (submission == null || !mounted) return;
     }
     setState(() => _pending = to);
-    final err = await ref.read(boardProvider.notifier).move(task, to);
+    final err = await ref.read(boardProvider.notifier).move(task, to, submission: submission);
     if (!mounted) return;
     setState(() => _pending = null);
     if (err != null) {
@@ -317,7 +312,8 @@ class _TaskSheetState extends ConsumerState<TaskSheet> {
       );
     }
     final now = ref.watch(clockProvider)();
-    final moves = studentMoves(task.status, task.reviewMode);
+    // Quizzes finish only through grading.
+    final moves = task.isQuiz ? const <TaskStatus>[] : studentMoves(task.status, task.reviewMode);
     final persona = taskPersona(ref, task);
     return DraggableScrollableSheet(
       expand: false,
@@ -363,6 +359,9 @@ class _TaskSheetState extends ConsumerState<TaskSheet> {
             Text('No brief for this one. Ask ${persona?.name ?? 'your lead'} in chat if anything is unclear.', style: t.textTheme.muted)
           else
             SelectableText(task.brief, style: t.textTheme.p.copyWith(height: 1.55)),
+          ResourceLinks(resources: task.content.resources),
+          if (task.submission case final sub?) SubmissionCard(submission: sub),
+          if (task.isQuiz) QuizPlayer(key: ValueKey('quiz-${task.version}'), task: task, onGraded: ref.read(boardProvider.notifier).apply),
           const SizedBox(height: Space.xl),
           for (final (i, to) in moves.indexed) ...[
             if (i == 0)

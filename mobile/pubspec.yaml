@@ -19,6 +19,7 @@ dependencies:
   http: 1.6.0
   intl: 0.20.3
   shadcn_ui: 0.57.2
+  url_launcher: 6.3.3
   uuid: 4.6.0
   web_socket_channel: 3.0.3
 

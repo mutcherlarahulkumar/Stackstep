@@ -4,22 +4,13 @@ import { AlarmClock, CalendarClock, CircleCheck, Clock, Coffee, Footprints, GitP
 import { useState } from "react";
 import { toast } from "sonner";
 
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from "@/components/ui/alert-dialog";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Sheet, SheetContent, SheetDescription, SheetFooter, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { Spinner } from "@/components/ui/spinner";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
+import { type SubmissionInput } from "@/lib/api/client";
 import { type Persona, type Task, type TaskStatus } from "@/lib/api/schemas";
 import { COLUMN_LABEL, COLUMNS, columnOf, groupBoard, STATUS_LABEL, type Column } from "@/lib/board";
 import { dateTimeLabel, dueLabel, isOverdue } from "@/lib/format";
@@ -30,6 +21,7 @@ import { choiceItem } from "../app/choice";
 import { PersonaAvatar } from "../app/persona-avatar";
 import { EmptyState, ErrorState, ListSkeleton } from "../app/state";
 import { StatusBadge, TypeBadge } from "../app/task-badges";
+import { HandInDialog, QuizPlayer, ResourceList, SubmissionCard } from "./task-work";
 import { type useWorkspace } from "./use-workspace";
 
 type Workspace = ReturnType<typeof useWorkspace>;
@@ -51,6 +43,7 @@ const ACTION_LABEL = (from: TaskStatus, to: TaskStatus): string => {
 };
 
 function nextStep(t: Task): string {
+  if (t.type === "quiz") return t.status === "done" ? "Finished. The answer key is below." : "Answer every question, then check your answers. The best of three attempts counts.";
   if (t.review_mode === "self" && t.status === "todo") return "Start when you begin. You mark this one done yourself.";
   if (t.review_mode === "self" && t.status === "in_progress") return "No review needed. Mark it done once you've finished.";
   if (t.review_mode === "self" && t.status === "done") return "Finished. Nice work.";
@@ -134,13 +127,16 @@ export function BoardPanel({
         persona={open ? personas.get(open.persona_id) : undefined}
         missing={openTaskId !== null && !open}
         onClose={() => onOpenTask(null)}
-        onMove={async (task, to) => {
-          const err = await ws.move(task, to);
-          if (err) toast.error(err);
-          else {
-            toast.success(to === "in_review" ? "Sent for review" : to === "done" ? "Nice work. Marked as done." : `Moved to ${STATUS_LABEL[to]}`);
-            setColumn(columnOf(to));
+        onGraded={ws.apply}
+        onMove={async (task, to, submission) => {
+          const err = await ws.move(task, to, submission);
+          if (err) {
+            toast.error(err);
+            return err;
           }
+          toast.success(to === "in_review" ? "Sent for review" : to === "done" ? "Nice work. Marked as done." : `Moved to ${STATUS_LABEL[to]}`);
+          setColumn(columnOf(to));
+          return null;
         }}
       />
     </div>
@@ -186,22 +182,27 @@ function TaskSheet({
   missing,
   onClose,
   onMove,
+  onGraded,
 }: {
   task: Task | null;
   persona: Persona | undefined;
   missing: boolean;
   onClose: () => void;
-  onMove: (task: Task, to: TaskStatus) => Promise<void>;
+  onMove: (task: Task, to: TaskStatus, submission?: SubmissionInput | null) => Promise<string | null>;
+  onGraded: (t: Task) => void;
 }) {
   const [pending, setPending] = useState<TaskStatus | null>(null);
-  const [confirm, setConfirm] = useState<TaskStatus | null>(null);
+  const [handIn, setHandIn] = useState(false);
 
-  const run = async (to: TaskStatus) => {
-    if (!task) return;
+  const run = async (to: TaskStatus, submission: SubmissionInput | null = null): Promise<string | null> => {
+    if (!task) return null;
     setPending(to);
-    await onMove(task, to);
+    const err = await onMove(task, to, submission);
     setPending(null);
+    return err;
   };
+  // Quizzes move only through grading.
+  const moves = task && task.type !== "quiz" ? studentMoves(task.status, task.review_mode) : [];
 
   return (
     <Sheet open={task !== null || missing} onOpenChange={(o) => !o && onClose()}>
@@ -236,16 +237,19 @@ function TaskSheet({
               ) : (
                 <p className="text-muted-foreground text-sm">No brief for this one. Ask {persona?.name ?? "your lead"} in chat if anything is unclear.</p>
               )}
+              <ResourceList resources={task.content.resources} />
+              {task.submission ? <SubmissionCard submission={task.submission} title="Your hand-in" /> : null}
+              {task.type === "quiz" ? <QuizPlayer key={task.version} task={task} onGraded={onGraded} disabled={false} /> : null}
             </div>
-            {studentMoves(task.status, task.review_mode).length > 0 ? (
+            {moves.length > 0 ? (
               <SheetFooter className="border-t">
-                {studentMoves(task.status, task.review_mode).map((to, i) => (
+                {moves.map((to, i) => (
                   <Button
                     key={to}
                     size="lg"
                     variant={i === 0 ? "default" : "outline"}
                     disabled={pending !== null}
-                    onClick={() => (to === "in_review" ? setConfirm(to) : void run(to))}
+                    onClick={() => (to === "in_review" ? setHandIn(true) : void run(to))}
                     data-testid={`move-${to}`}
                   >
                     {pending === to ? <Spinner data-icon="inline-start" /> : null}
@@ -262,26 +266,18 @@ function TaskSheet({
           </SheetHeader>
         )}
       </SheetContent>
-      <AlertDialog open={confirm !== null} onOpenChange={(o) => !o && setConfirm(null)}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Submit for review?</AlertDialogTitle>
-            <AlertDialogDescription>Make sure your PR is open and its description says what changed.</AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>Not yet</AlertDialogCancel>
-            <AlertDialogAction
-              onClick={() => {
-                const to = confirm;
-                setConfirm(null);
-                if (to) void run(to);
-              }}
-            >
-              Submit
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
+      {task && handIn ? (
+        <HandInDialog
+          task={task}
+          open={handIn}
+          onClose={() => setHandIn(false)}
+          onSubmit={async (sub) => {
+            const err = await run("in_review", sub);
+            if (!err) setHandIn(false);
+            return err;
+          }}
+        />
+      ) : null}
     </Sheet>
   );
 }

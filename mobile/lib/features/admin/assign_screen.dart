@@ -140,6 +140,8 @@ class AssignTaskScreen extends ConsumerStatefulWidget {
 class _AssignTaskScreenState extends ConsumerState<AssignTaskScreen> {
   final _title = TextEditingController();
   final _brief = TextEditingController();
+  final _linkName = TextEditingController();
+  final _linkUrl = TextEditingController();
   TaskType _type = TaskType.feature;
 
   /// Null until the admin picks one; the server then uses the default team lead.
@@ -171,6 +173,8 @@ class _AssignTaskScreenState extends ConsumerState<AssignTaskScreen> {
   void dispose() {
     _title.dispose();
     _brief.dispose();
+    _linkName.dispose();
+    _linkUrl.dispose();
     super.dispose();
   }
 
@@ -209,6 +213,8 @@ class _AssignTaskScreenState extends ConsumerState<AssignTaskScreen> {
     final errors = <String, String>{
       'title': ?validateTitle(_title.text),
       'brief': ?validateBrief(_brief.text),
+      'resources[0].url': ?validateLink(name: _linkName.text, url: _linkUrl.text).url,
+      'resources[0].title': ?validateLink(name: _linkName.text, url: _linkUrl.text).name,
       if (_startLater && start == null) 'scheduled_for': 'Pick a start time.',
       'scheduled_for': ?schedule.scheduledFor,
       'due_at': ?schedule.dueAt,
@@ -229,6 +235,7 @@ class _AssignTaskScreenState extends ConsumerState<AssignTaskScreen> {
         brief: _brief.text.trim(),
         scheduledFor: start,
         dueAt: due!,
+        resources: [if (_linkUrl.text.trim().isNotEmpty) Resource(title: normalizeLine(_linkName.text), url: _linkUrl.text.trim())],
       ));
       if (!mounted) return;
       unawaited(HapticFeedback.mediumImpact());
@@ -267,6 +274,8 @@ class _AssignTaskScreenState extends ConsumerState<AssignTaskScreen> {
     if (again ?? false) {
       _title.clear();
       _brief.clear();
+      _linkName.clear();
+      _linkUrl.clear();
       setState(() => _errors = {});
     } else {
       Navigator.of(context).pop();
@@ -326,7 +335,8 @@ class _AssignTaskScreenState extends ConsumerState<AssignTaskScreen> {
                 spacing: Space.sm,
                 runSpacing: Space.sm,
                 children: [
-                  for (final type in TaskType.values)
+                  // Quizzes need an answer key editor; they're built on desktop.
+                  for (final type in TaskType.values.where((t) => t != TaskType.quiz))
                     Semantics(
                       selected: type == _type,
                       child: (type == _type ? ShadButton.new : ShadButton.outline)(
@@ -413,6 +423,30 @@ class _AssignTaskScreenState extends ConsumerState<AssignTaskScreen> {
                   ? CharCounter(length: runeLength(_brief.text.trim()), max: Bounds.briefMax)
                   : null,
               child: ShadTextarea(key: const Key('task-brief'), controller: _brief, placeholder: const Text('Optional'), minHeight: 100),
+            ),
+            const SizedBox(height: Space.lg),
+            AppField(
+              label: 'Link',
+              description: 'Optional: docs or a starter repo. Quizzes and more links are on desktop.',
+              error: _errors['resources[0].url'] ?? _errors['resources[0].title'],
+              child: Column(
+                children: [
+                  ShadInput(
+                    key: const Key('task-link-name'),
+                    controller: _linkName,
+                    placeholder: const Text('Name, e.g. MDN: Flexbox'),
+                    textInputAction: TextInputAction.next,
+                  ),
+                  const SizedBox(height: Space.sm),
+                  ShadInput(
+                    key: const Key('task-link-url'),
+                    controller: _linkUrl,
+                    placeholder: const Text('https://'),
+                    keyboardType: TextInputType.url,
+                    autocorrect: false,
+                  ),
+                ],
+              ),
             ),
             const SizedBox(height: Space.lg),
             AppField(

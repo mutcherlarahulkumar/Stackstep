@@ -92,7 +92,11 @@ func (w *Workspace) StudentTasks(ctx context.Context, u domain.User) ([]domain.T
 		return nil, err
 	}
 	now := w.Clock.Now()
-	return store.ListTasks(ctx, w.Store.Pool, e.ID, store.TaskFilter{VisibleAt: &now})
+	tasks, err := store.ListTasks(ctx, w.Store.Pool, e.ID, store.TaskFilter{VisibleAt: &now})
+	if err != nil {
+		return nil, err
+	}
+	return tasks, store.EnrichTasks(ctx, w.Store.Pool, tasks)
 }
 
 // StaffTasks returns every task of an enrollment for staff.
@@ -102,7 +106,10 @@ func (w *Workspace) StaffTasks(ctx context.Context, u domain.User, enrollmentID 
 		return nil, domain.Enrollment{}, err
 	}
 	tasks, err := store.ListTasks(ctx, w.Store.Pool, e.ID, store.TaskFilter{IncludeCancelled: true})
-	return tasks, e, err
+	if err != nil {
+		return nil, e, err
+	}
+	return tasks, e, store.EnrichTasks(ctx, w.Store.Pool, tasks)
 }
 
 // CreateTask assigns a task to a student and has the lead announce it in chat.
@@ -165,6 +172,9 @@ type TransitionInput struct {
 	To              domain.TaskStatus
 	ExpectedVersion int
 	Note            string
+	// Submission is the student's hand-in: required when submitting for review, optional
+	// when finishing a self-reviewed task, ignored otherwise.
+	Submission *domain.Submission
 }
 
 // Transition moves a task along the graph if the actor is allowed to.
@@ -224,8 +234,27 @@ func (w *Workspace) Transition(ctx context.Context, u domain.User, taskID uuid.U
 		if !domain.CanTransition(t.Status, in.To, actor, t.ReviewMode) {
 			return apperr.New(apperr.CodeInvalidTransition, fmt.Sprintf("A task can't move from %s to %s.", t.Status, in.To))
 		}
+		// Quizzes finish only through grading.
+		if t.Type == domain.TaskQuiz && actor == domain.ActorStudent && in.To == domain.StatusDone {
+			return apperr.New(apperr.CodeInvalidTransition, "Quizzes are finished by submitting your answers.")
+		}
+		var sub *domain.Submission
+		if actor == domain.ActorStudent && (in.To == domain.StatusInReview || in.To == domain.StatusDone) {
+			var subErrs map[string]string
+			if sub, subErrs = domain.ValidateSubmission(in.Submission, t.Type, in.To); len(subErrs) > 0 {
+				return apperr.Validation(subErrs)
+			}
+		}
 		if out, err = store.SetTaskStatus(ctx, q, t, in.To, u.ID, note, now); err != nil {
 			return fmt.Errorf("set status: %w", err)
+		}
+		if sub != nil {
+			if err := store.InsertSubmission(ctx, q, t.ID, u.ID, *sub, now); err != nil {
+				return fmt.Errorf("insert submission: %w", err)
+			}
+		}
+		if out, err = store.EnrichTask(ctx, q, out); err != nil {
+			return err
 		}
 		if msg := lead.AnnounceTransition(out, in.To, note); actor == domain.ActorStaff && msg != "" {
 			id := out.ID
@@ -454,4 +483,75 @@ func (w *Workspace) Students(ctx context.Context, u domain.User, search string, 
 		rows = []store.StudentRow{}
 	}
 	return rows, next, nil
+}
+
+// QuizOutcome is a graded attempt plus the task after it.
+type QuizOutcome struct {
+	Task   domain.Task
+	Result domain.QuizResult
+}
+
+// SubmitQuiz grades a student's answers. Passing, or using the last attempt, finishes the
+// task; the best score counts. A todo quiz is started automatically.
+func (w *Workspace) SubmitQuiz(ctx context.Context, u domain.User, taskID uuid.UUID, expectedVersion int, answers []int) (QuizOutcome, error) {
+	if expectedVersion < 1 {
+		return QuizOutcome{}, apperr.Validation(map[string]string{"expected_version": "Must be a positive integer."})
+	}
+	e, err := w.requireEnrollment(ctx, u)
+	if err != nil {
+		return QuizOutcome{}, err
+	}
+	if e.Status != domain.EnrollmentActive {
+		return QuizOutcome{}, apperr.New(apperr.CodeEnrollmentNotActive, "Your internship is "+string(e.Status)+".")
+	}
+	now := w.Clock.Now()
+	var out QuizOutcome
+	err = w.Store.Tx(ctx, func(q store.Q) error {
+		t, err := store.GetTaskForUpdate(ctx, q, taskID)
+		if errors.Is(err, store.ErrNotFound) || err == nil && (t.EnrollmentID != e.ID || t.ScheduledFor.After(now) || t.Status == domain.StatusCancelled) {
+			return errNotFound
+		}
+		if err != nil {
+			return err
+		}
+		if t.Type != domain.TaskQuiz || t.Content.Quiz == nil {
+			return apperr.New(apperr.CodeInvalidTransition, "This task isn't a quiz.")
+		}
+		if t.Version != expectedVersion {
+			return apperr.New(apperr.CodeVersionConflict, "This task changed since you loaded it.")
+		}
+		if t.Status != domain.StatusTodo && t.Status != domain.StatusInProgress {
+			return apperr.New(apperr.CodeInvalidTransition, "This quiz is already finished.")
+		}
+		used, err := store.QuizAttempts(ctx, q, t.ID)
+		if err != nil {
+			return err
+		}
+		if used >= domain.MaxQuizAttempts {
+			return apperr.New(apperr.CodeInvalidTransition, "No attempts left on this quiz.")
+		}
+		res, msg := domain.GradeQuiz(*t.Content.Quiz, answers, used+1)
+		if msg != "" {
+			return apperr.Validation(map[string]string{"answers": msg})
+		}
+		if err := store.InsertQuizAttempt(ctx, q, t.ID, answers, res, now); err != nil {
+			return fmt.Errorf("insert quiz attempt: %w", err)
+		}
+		if t.Status == domain.StatusTodo {
+			if t, err = store.SetTaskStatus(ctx, q, t, domain.StatusInProgress, u.ID, "", now); err != nil {
+				return err
+			}
+		}
+		if res.Passed || res.Attempt == domain.MaxQuizAttempts {
+			if t, err = store.SetTaskStatus(ctx, q, t, domain.StatusDone, u.ID, fmt.Sprintf("Quiz score %d%%", res.Score), now); err != nil {
+				return err
+			}
+		}
+		if t, err = store.EnrichTask(ctx, q, t); err != nil {
+			return err
+		}
+		out = QuizOutcome{Task: t, Result: res}
+		return store.Notify(ctx, q, store.Event{Kind: store.EventTask, ID: t.ID, EnrollmentID: e.ID})
+	})
+	return out, err
 }

@@ -1,7 +1,7 @@
 openapi: 3.1.0
 info:
   title: Stackstep API
-  version: 0.2.0
+  version: 0.3.0
   description: |
     Workspace core (feature 01). All timestamps are RFC 3339 UTC. All errors use the
     `Error` envelope; clients switch on `error.code`, never on `message`.
@@ -221,8 +221,48 @@ paths:
                 to: { $ref: "#/components/schemas/TaskStatus" }
                 expected_version: { type: integer, minimum: 1 }
                 note: { type: string, maxLength: 2000, description: Required when to = changes_requested }
+                submission:
+                  description: |
+                    The student's hand-in. Required when moving to in_review (feature, bug_fix, git_chore,
+                    code_review and blog need a url; others need a url or a note); optional when finishing a
+                    self-check task; ignored otherwise.
+                  oneOf: [{ $ref: "#/components/schemas/SubmissionInput" }, { type: "null" }]
       responses:
         "200": { description: Moved, content: { application/json: { schema: { $ref: "#/components/schemas/Task" } } } }
+        "404": { $ref: "#/components/responses/Error" }
+        "409": { $ref: "#/components/responses/Error" }
+        "422": { $ref: "#/components/responses/Error" }
+  /v1/tasks/{id}/quiz:
+    post:
+      tags: [student]
+      operationId: submitQuiz
+      summary: Grade quiz answers
+      description: |
+        Graded against the answer key (no AI). Passing, or using the third attempt, finishes the task;
+        the best score counts. A todo quiz starts automatically.
+      parameters: [{ $ref: "#/components/parameters/Id" }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [expected_version, answers]
+              properties:
+                expected_version: { type: integer, minimum: 1 }
+                answers: { type: array, items: { type: integer, minimum: 0 }, maxItems: 20, description: Chosen option index per question }
+      responses:
+        "200":
+          description: Graded
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [task, result]
+                properties:
+                  task: { $ref: "#/components/schemas/Task" }
+                  result: { $ref: "#/components/schemas/QuizAttemptResult" }
         "404": { $ref: "#/components/responses/Error" }
         "409": { $ref: "#/components/responses/Error" }
         "422": { $ref: "#/components/responses/Error" }
@@ -287,6 +327,7 @@ paths:
                 brief: { type: string, maxLength: 8000 }
                 scheduled_for: { type: [string, "null"], format: date-time, description: Defaults to now (or the internship start) }
                 due_at: { type: string, format: date-time, description: "At least scheduled_for + 15 min and no later than the end of the last day" }
+                content: { $ref: "#/components/schemas/TaskContent" }
       responses:
         "201": { description: Created, content: { application/json: { schema: { $ref: "#/components/schemas/Task" } } } }
         "404": { $ref: "#/components/responses/Error" }
@@ -780,7 +821,7 @@ components:
             - type: "null"
     Task:
       type: object
-      required: [id, enrollment_id, type, title, brief, status, scheduled_for, due_at, version, created_at, updated_at, review_mode, persona_id, from_flow]
+      required: [id, enrollment_id, type, title, brief, status, scheduled_for, due_at, version, created_at, updated_at, review_mode, persona_id, from_flow, content, submission, quiz_result]
       properties:
         id: { type: string, format: uuid }
         enrollment_id: { type: string, format: uuid }
@@ -796,6 +837,66 @@ components:
         review_mode: { $ref: "#/components/schemas/ReviewMode" }
         persona_id: { type: string, format: uuid }
         from_flow: { type: boolean }
+        content: { $ref: "#/components/schemas/TaskContent" }
+        submission: { oneOf: [{ $ref: "#/components/schemas/Submission" }, { type: "null" }] }
+        quiz_result: { oneOf: [{ $ref: "#/components/schemas/QuizStats" }, { type: "null" }] }
+    Resource:
+      type: object
+      required: [title, url]
+      properties:
+        title: { type: string, minLength: 1, maxLength: 80 }
+        url: { type: string, format: uri, maxLength: 2048, description: "http(s) only" }
+    QuizQuestion:
+      type: object
+      required: [prompt, options, answer]
+      properties:
+        prompt: { type: string, minLength: 3, maxLength: 500 }
+        options: { type: array, minItems: 2, maxItems: 6, items: { type: string, minLength: 1, maxLength: 200 } }
+        answer: { type: [integer, "null"], minimum: 0, description: Right option index. Null for students until the quiz is finished. }
+    Quiz:
+      type: object
+      required: [questions, pass_percent]
+      properties:
+        questions: { type: array, minItems: 1, maxItems: 20, items: { $ref: "#/components/schemas/QuizQuestion" } }
+        pass_percent: { type: integer, minimum: 1, maximum: 100, description: Defaults to 70 when sent as 0 }
+    TaskContent:
+      type: object
+      required: [resources, quiz]
+      properties:
+        resources: { type: array, maxItems: 5, items: { $ref: "#/components/schemas/Resource" } }
+        quiz: { oneOf: [{ $ref: "#/components/schemas/Quiz" }, { type: "null" }], description: Only (and always) on quiz tasks }
+    SubmissionInput:
+      type: object
+      additionalProperties: false
+      properties:
+        url: { type: string, maxLength: 2048 }
+        note: { type: string, maxLength: 4000 }
+    Submission:
+      type: object
+      required: [attempt, url, note, submitted_at]
+      properties:
+        attempt: { type: integer, minimum: 1 }
+        url: { type: [string, "null"] }
+        note: { type: string }
+        submitted_at: { type: string, format: date-time }
+    QuizStats:
+      type: object
+      required: [attempts, attempts_left, best_score, passed, last_correct]
+      properties:
+        attempts: { type: integer, minimum: 0, maximum: 3 }
+        attempts_left: { type: integer, minimum: 0, maximum: 3 }
+        best_score: { type: integer, minimum: 0, maximum: 100 }
+        passed: { type: boolean }
+        last_correct: { type: array, items: { type: boolean } }
+    QuizAttemptResult:
+      type: object
+      required: [attempt, score, passed, correct, attempts_left]
+      properties:
+        attempt: { type: integer, minimum: 1, maximum: 3 }
+        score: { type: integer, minimum: 0, maximum: 100 }
+        passed: { type: boolean }
+        correct: { type: array, items: { type: boolean } }
+        attempts_left: { type: integer, minimum: 0, maximum: 2 }
     Message:
       type: object
       required: [id, enrollment_id, persona_id, author, body, task_id, client_id, sent_at]
@@ -845,6 +946,8 @@ components:
         review_mode: { $ref: "#/components/schemas/ReviewMode" }
         release_time: { type: string, pattern: "^([01][0-9]|2[0-3]):[0-5][0-9]$", description: Local time in the student's time zone }
         due_minutes: { type: integer, minimum: 15, maximum: 10080 }
+        release_window: { type: integer, minimum: 0, maximum: 480, description: "Surprise window in minutes (0 = exact time). Must end by 23:59." }
+        content: { $ref: "#/components/schemas/TaskContent" }
     TaskTemplate:
       allOf:
         - $ref: "#/components/schemas/TaskSpec"

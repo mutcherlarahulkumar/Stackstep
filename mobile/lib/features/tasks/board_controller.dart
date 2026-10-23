@@ -85,7 +85,10 @@ final class BoardController extends AsyncNotifier<List<Task>> {
   }
 
   /// Moves a task optimistically. Returns a message for the user on failure, or null.
-  Future<String?> move(Task task, TaskStatus to) async {
+  /// Applies a task the server returned outside a move (a graded quiz).
+  void apply(Task t) => _upsert(t);
+
+  Future<String?> move(Task task, TaskStatus to, {SubmissionInput? submission}) async {
     final before = state.value;
     if (before == null) return null;
     state = AsyncData([
@@ -93,12 +96,13 @@ final class BoardController extends AsyncNotifier<List<Task>> {
         if (t.id == task.id) t.withStatus(to) else t,
     ]);
     try {
-      final updated = await _api.transition(taskId: task.id, to: to, expectedVersion: task.version);
+      final updated = await _api.transition(taskId: task.id, to: to, expectedVersion: task.version, submission: submission);
       if (ref.mounted) _upsert(updated);
       return null;
     } on ApiException catch (e) {
       if (!ref.mounted) return null;
       state = AsyncData(before);
+      if (e.code == ErrorCode.validationFailed && e.fields.isNotEmpty) return e.fields.values.first;
       if (e.code == ErrorCode.versionConflict || e.code == ErrorCode.invalidTransition) {
         unawaited(refresh());
         return 'This task changed on another device. We refreshed your board.';

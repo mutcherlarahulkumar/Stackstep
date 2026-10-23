@@ -74,7 +74,12 @@ test("full loop: admin assigns → student works → admin reviews", async ({ br
   await student.getByTestId("move-in_progress").click();
   await expectToast(student, "Moved to In progress");
   await student.getByTestId("move-in_review").click();
-  await student.getByRole("button", { name: "Submit" }).click();
+  // A feature needs a link to the PR (S1).
+  await student.getByTestId("hand-in-submit").click();
+  await expect(student.getByText("Add the link to your work (PR, post or repo).")).toBeVisible();
+  await student.getByLabel("Link", { exact: true }).fill("https://github.com/asha-dev/portfolio/pull/7");
+  await student.getByLabel("Note (optional)").fill("Filters live in the URL.");
+  await student.getByTestId("hand-in-submit").click();
   await expectToast(student, "Sent for review");
   await student.keyboard.press("Escape");
 
@@ -83,6 +88,7 @@ test("full loop: admin assigns → student works → admin reviews", async ({ br
   await admin.getByTestId("student-asha-dev").click();
   const row = admin.getByTestId(`task-row-${title}`);
   await expect(row).toContainText("In review");
+  await expect(row.getByTestId("hand-in")).toContainText("github.com/asha-dev/portfolio/pull/7");
   await row.getByRole("button", { name: "Request changes" }).click();
   await admin.getByRole("button", { name: "Send to student" }).click();
   await expect(admin.getByText("Tell the student what to change.")).toBeVisible();
@@ -94,7 +100,10 @@ test("full loop: admin assigns → student works → admin reviews", async ({ br
   await student.getByRole("radio", { name: /Changes requested/ }).click();
   await board.getByRole("button", { name: title }).click();
   await student.getByTestId("move-in_review").click();
-  await student.getByRole("button", { name: "Submit" }).click();
+  // The last link is kept; the note says what changed this time.
+  await expect(student.getByLabel("Link", { exact: true })).toHaveValue("https://github.com/asha-dev/portfolio/pull/7");
+  await student.getByLabel("Note (optional)").fill("Kept the filter in the URL.");
+  await student.getByTestId("hand-in-submit").click();
   await expectToast(student, "Sent for review");
 
   await admin.reload();

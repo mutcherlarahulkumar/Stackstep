@@ -53,6 +53,9 @@ export const task = (o: Record<string, unknown> = {}) => ({
   review_mode: "manual",
   persona_id: LEAD_ID,
   from_flow: false,
+  content: { resources: [], quiz: null },
+  submission: null,
+  quiz_result: null,
   ...o,
 });
 

@@ -79,9 +79,11 @@ void main() {
         brief: 'Read and mark done.',
         scheduledFor: null,
         dueAt: now.add(const Duration(hours: 2)),
+        resources: const [Resource(title: 'MDN', url: 'https://developer.mozilla.org')],
       ));
       expect(task.personaId, _manager);
       expect(task.reviewMode, ReviewMode.self);
+      expect(task.content.resources.single.title, 'MDN');
 
       final student = await _signIn('asha-dev');
       final mine = (await student.myTasks()).firstWhere((t) => t.id == task.id);

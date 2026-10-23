@@ -62,4 +62,20 @@ void main() {
     expect(studentMoves(TaskStatus.inProgress, ReviewMode.self), [TaskStatus.done]);
     expect(studentMoves(TaskStatus.todo, ReviewMode.self), [TaskStatus.inProgress]);
   });
+
+  test('links and hand-ins mirror the server (R1, S1)', () {
+    for (final ok in ['https://go.dev/doc', 'http://localhost:3000/x']) {
+      expect(validUrl(ok), isTrue, reason: ok);
+    }
+    for (final bad in ['javascript:alert(1)', 'ftp://x.org', 'https://', 'go.dev', 'https://a b.com', 'https://u:p@x.com']) {
+      expect(validUrl(bad), isFalse, reason: bad);
+    }
+    expect(validateLink(name: '', url: '').url, isNull);
+    expect(validateLink(name: '', url: 'https://go.dev').name, isNotNull);
+    expect(validateLink(name: 'Go', url: 'nope').url, isNotNull);
+    expect(validateSubmission(url: '', note: '', type: TaskType.feature, required: true)['url'], isNotNull);
+    expect(validateSubmission(url: '', note: '', type: TaskType.dsa, required: true)['note'], isNotNull);
+    expect(validateSubmission(url: '', note: 'Hash map', type: TaskType.dsa, required: true), isEmpty);
+    expect(validateSubmission(url: 'https://x.dev', note: 'x' * 4001, type: TaskType.feature, required: true)['note'], isNotNull);
+  });
 }

@@ -106,17 +106,23 @@ type TaskSpec struct {
 	ReviewMode  ReviewMode
 	ReleaseTime ClockTime
 	DueMinutes  int
+	// ReleaseWindow > 0 makes it a surprise: each student gets it at a stable random time
+	// between ReleaseTime and ReleaseTime + ReleaseWindow minutes.
+	ReleaseWindow int
+	Content       TaskContent
 }
 
 // TaskSpecInput is a TaskSpec before validation; ReleaseTime is "HH:MM".
 type TaskSpecInput struct {
-	Type        TaskType
-	Title       string
-	Brief       string
-	PersonaID   uuid.UUID
-	ReviewMode  ReviewMode
-	ReleaseTime string
-	DueMinutes  int
+	Type          TaskType
+	Title         string
+	Brief         string
+	PersonaID     uuid.UUID
+	ReviewMode    ReviewMode
+	ReleaseTime   string
+	DueMinutes    int
+	ReleaseWindow int
+	Content       TaskContent
 }
 
 // ValidateTaskSpec checks a template or flow item. Field keys are prefixed with prefix
@@ -149,6 +155,18 @@ func ValidateTaskSpec(in TaskSpecInput, prefix string, personaOK func(uuid.UUID)
 	if in.DueMinutes < MinDueMinutes || in.DueMinutes > MaxDueMinutes {
 		errs[prefix+"due_minutes"] = "Time to finish must be between 15 minutes and 7 days."
 	}
+	out.ReleaseWindow = in.ReleaseWindow
+	switch {
+	case in.ReleaseWindow < 0 || in.ReleaseWindow > MaxReleaseWindowMin:
+		errs[prefix+"release_window"] = "A surprise window can be at most 8 hours."
+	case ok && int(t)+in.ReleaseWindow > 23*60+59:
+		errs[prefix+"release_window"] = "The surprise window must end the same day."
+	}
+	content, cErrs := ValidateContent(in.Content, in.Type, in.ReviewMode, prefix)
+	for k, v := range cErrs {
+		errs[k] = v
+	}
+	out.Content = content
 	return out, errs
 }
 
@@ -296,7 +314,8 @@ func Materialize(items []FlowItem, e Enrollment, now time.Time) (releases []Rele
 	})
 	for _, it := range sorted {
 		date := time.Date(sy, sm, sd+it.Day-1, 0, 0, 0, 0, loc)
-		release := date.Add(time.Duration(it.Spec.ReleaseTime) * time.Minute).UTC()
+		offset := SurpriseOffset(e.ID, it.ID, it.Spec.ReleaseWindow)
+		release := date.Add(time.Duration(int(it.Spec.ReleaseTime)+offset) * time.Minute).UTC()
 		y, m, d := date.Date()
 		isToday := y == todayY && m == todayM && d == todayD
 		switch {

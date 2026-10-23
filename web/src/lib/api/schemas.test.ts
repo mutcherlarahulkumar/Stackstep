@@ -50,7 +50,7 @@ describe("contract schemas", () => {
     expect(Persona.safeParse(persona({ color: "pink" })).success).toBe(false);
     expect(Message.safeParse(message({ author: "lead" })).success).toBe(false);
     expect(Thread.parse(thread({ unread: 2 })).unread).toBe(2);
-    const spec = { type: "dsa", title: "Two pointers", brief: "", persona_id: persona().id, review_mode: "self", due_minutes: 60 };
+    const spec = { type: "dsa", title: "Two pointers", brief: "", persona_id: persona().id, review_mode: "self", due_minutes: 60, release_window: 0, content: { resources: [], quiz: null } };
     expect(TaskSpec.safeParse({ ...spec, release_time: "10:00" }).success).toBe(true);
     expect(TaskSpec.safeParse({ ...spec, release_time: "24:00" }).success).toBe(false);
     expect(TaskSpec.safeParse({ ...spec, release_time: "10:00", due_minutes: 10 }).success).toBe(false);

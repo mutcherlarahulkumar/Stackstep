@@ -97,7 +97,7 @@ func UpdatePersona(ctx context.Context, q Q, id uuid.UUID, in domain.PersonaInpu
 
 // ---- Task templates ----
 
-const templateCols = "id, type, title, brief, persona_id, review_mode, release_time, due_minutes, version, archived_at, updated_at"
+const templateCols = "id, type, title, brief, persona_id, review_mode, release_time, due_minutes, version, archived_at, updated_at, release_window, content"
 
 // clockFromDB converts a Postgres time (as microseconds since midnight) to a ClockTime.
 func clockFromDB(microseconds int64) domain.ClockTime {
@@ -108,9 +108,14 @@ func scanTemplate(row pgx.Row) (domain.Template, error) {
 	var t domain.Template
 	var typ, review string
 	var release pgTime
+	var content []byte
 	if err := row.Scan(&t.ID, &typ, &t.Spec.Title, &t.Spec.Brief, &t.Spec.PersonaID, &review, &release, &t.Spec.DueMinutes,
-		&t.Version, &t.ArchivedAt, &t.UpdatedAt); err != nil {
+		&t.Version, &t.ArchivedAt, &t.UpdatedAt, &t.Spec.ReleaseWindow, &content); err != nil {
 		return domain.Template{}, notFound(err)
+	}
+	var err error
+	if t.Spec.Content, err = decodeContent(content); err != nil {
+		return domain.Template{}, fmt.Errorf("template %s content: %w", t.ID, err)
 	}
 	t.Spec.Type, t.Spec.ReviewMode, t.Spec.ReleaseTime = domain.TaskType(typ), domain.ReviewMode(review), clockFromDB(release.Microseconds)
 	if !t.Spec.Type.Valid() || !t.Spec.ReviewMode.Valid() {
@@ -179,19 +184,21 @@ func GetTemplate(ctx context.Context, q Q, id uuid.UUID) (domain.Template, error
 // InsertTemplate creates a library entry.
 func InsertTemplate(ctx context.Context, q Q, s domain.TaskSpec, by uuid.UUID, now time.Time) (domain.Template, error) {
 	return scanTemplate(q.QueryRow(ctx, `INSERT INTO task_templates
-		(type, title, brief, persona_id, review_mode, release_time, due_minutes, created_by, created_at, updated_at)
-		VALUES ($1, $2, $3, $4, $5, $6::time, $7, $8, $9, $9) RETURNING `+templateCols,
-		string(s.Type), s.Title, s.Brief, s.PersonaID, string(s.ReviewMode), s.ReleaseTime.String(), s.DueMinutes, by, now))
+		(type, title, brief, persona_id, review_mode, release_time, due_minutes, created_by, created_at, updated_at, release_window, content)
+		VALUES ($1, $2, $3, $4, $5, $6::time, $7, $8, $9, $9, $10, $11) RETURNING `+templateCols,
+		string(s.Type), s.Title, s.Brief, s.PersonaID, string(s.ReviewMode), s.ReleaseTime.String(), s.DueMinutes, by, now,
+		s.ReleaseWindow, encodeContent(s.Content)))
 }
 
 // UpdateTemplate edits a library entry if the version matches.
 func UpdateTemplate(ctx context.Context, q Q, id uuid.UUID, s domain.TaskSpec, archived bool, expectedVersion int, now time.Time) (domain.Template, error) {
 	return scanTemplate(q.QueryRow(ctx, `UPDATE task_templates SET type = $2, title = $3, brief = $4, persona_id = $5,
 		review_mode = $6, release_time = $7::time, due_minutes = $8,
-		archived_at = CASE WHEN $9 THEN COALESCE(archived_at, $11) ELSE NULL END, version = version + 1, updated_at = $11
+		archived_at = CASE WHEN $9 THEN COALESCE(archived_at, $11) ELSE NULL END, version = version + 1, updated_at = $11,
+		release_window = $12, content = $13
 		WHERE id = $1 AND version = $10 RETURNING `+templateCols,
 		id, string(s.Type), s.Title, s.Brief, s.PersonaID, string(s.ReviewMode), s.ReleaseTime.String(), s.DueMinutes,
-		archived, expectedVersion, now))
+		archived, expectedVersion, now, s.ReleaseWindow, encodeContent(s.Content)))
 }
 
 // ---- Flows ----
@@ -341,17 +348,20 @@ func InsertFlowItems(ctx context.Context, q Q, versionID uuid.UUID, items []doma
 		return nil
 	}
 	var b strings.Builder
-	args := make([]any, 0, len(items)*10+1)
+	args := make([]any, 0, len(items)*12+1)
 	args = append(args, versionID)
-	b.WriteString(`INSERT INTO flow_items (version_id, day, position, template_id, type, title, brief, persona_id, review_mode, release_time, due_minutes) VALUES `)
+	b.WriteString(`INSERT INTO flow_items (version_id, day, position, template_id, type, title, brief, persona_id, review_mode,
+		release_time, due_minutes, release_window, content) VALUES `)
 	for i, it := range items {
 		if i > 0 {
 			b.WriteString(", ")
 		}
 		n := len(args)
-		fmt.Fprintf(&b, "($1, $%d, $%d, $%d, $%d, $%d, $%d, $%d, $%d, $%d::time, $%d)", n+1, n+2, n+3, n+4, n+5, n+6, n+7, n+8, n+9, n+10)
+		fmt.Fprintf(&b, "($1, $%d, $%d, $%d, $%d, $%d, $%d, $%d, $%d, $%d::time, $%d, $%d, $%d)",
+			n+1, n+2, n+3, n+4, n+5, n+6, n+7, n+8, n+9, n+10, n+11, n+12)
 		args = append(args, it.Day, it.Position, it.TemplateID, string(it.Spec.Type), it.Spec.Title, it.Spec.Brief,
-			it.Spec.PersonaID, string(it.Spec.ReviewMode), it.Spec.ReleaseTime.String(), it.Spec.DueMinutes)
+			it.Spec.PersonaID, string(it.Spec.ReviewMode), it.Spec.ReleaseTime.String(), it.Spec.DueMinutes,
+			it.Spec.ReleaseWindow, encodeContent(it.Spec.Content))
 	}
 	_, err := q.Exec(ctx, b.String(), args...)
 	return err
@@ -359,7 +369,8 @@ func InsertFlowItems(ctx context.Context, q Q, versionID uuid.UUID, items []doma
 
 // ListFlowItems returns a version's items by day and position.
 func ListFlowItems(ctx context.Context, q Q, versionID uuid.UUID) ([]domain.FlowItem, error) {
-	rows, err := q.Query(ctx, `SELECT id, day, position, template_id, type, title, brief, persona_id, review_mode, release_time, due_minutes
+	rows, err := q.Query(ctx, `SELECT id, day, position, template_id, type, title, brief, persona_id, review_mode, release_time, due_minutes,
+		release_window, content
 		FROM flow_items WHERE version_id = $1 ORDER BY day, position`, versionID)
 	if err != nil {
 		return nil, err
@@ -370,9 +381,14 @@ func ListFlowItems(ctx context.Context, q Q, versionID uuid.UUID) ([]domain.Flow
 		var it domain.FlowItem
 		var typ, review string
 		var release pgTime
+		var content []byte
 		if err := rows.Scan(&it.ID, &it.Day, &it.Position, &it.TemplateID, &typ, &it.Spec.Title, &it.Spec.Brief, &it.Spec.PersonaID,
-			&review, &release, &it.Spec.DueMinutes); err != nil {
+			&review, &release, &it.Spec.DueMinutes, &it.Spec.ReleaseWindow, &content); err != nil {
 			return nil, err
+		}
+		var err error
+		if it.Spec.Content, err = decodeContent(content); err != nil {
+			return nil, fmt.Errorf("flow item %s content: %w", it.ID, err)
 		}
 		it.Spec.Type, it.Spec.ReviewMode, it.Spec.ReleaseTime = domain.TaskType(typ), domain.ReviewMode(review), clockFromDB(release.Microseconds)
 		out = append(out, it)

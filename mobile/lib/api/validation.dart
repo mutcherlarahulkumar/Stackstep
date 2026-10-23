@@ -84,3 +84,45 @@ List<TaskStatus> studentMoves(TaskStatus from, [ReviewMode mode = ReviewMode.man
   TaskStatus.changesRequested => const [TaskStatus.inReview, TaskStatus.inProgress],
   TaskStatus.inReview || TaskStatus.done || TaskStatus.cancelled => const [],
 };
+
+/// Client mirror of domain.ValidURL: absolute http(s) with a host, no spaces or credentials.
+bool validUrl(String raw) {
+  final s = raw.trim();
+  if (s.isEmpty || s.length > 2048 || RegExp(r'\s').hasMatch(s)) return false;
+  final u = Uri.tryParse(s);
+  return u != null && (u.scheme == 'https' || u.scheme == 'http') && u.host.isNotEmpty && u.userInfo.isEmpty;
+}
+
+/// An optional link: both empty is fine; a link needs a name and a valid address.
+({String? name, String? url}) validateLink({required String name, required String url}) {
+  final n = normalizeLine(name);
+  final u = url.trim();
+  if (n.isEmpty && u.isEmpty) return (name: null, url: null);
+  if (!validUrl(u)) return (name: null, url: 'Use a full link starting with https://.');
+  if (n.isEmpty) return (name: 'Give the link a name.', url: null);
+  if (runeLength(n) > 80) return (name: 'Link names can be at most 80 characters.', url: null);
+  return (name: null, url: null);
+}
+
+/// Needs a link when handed in (PR, post, repo). Mirrors TaskType.NeedsLink.
+bool needsLink(TaskType t) => switch (t) {
+  TaskType.feature || TaskType.bugFix || TaskType.gitChore || TaskType.codeReview || TaskType.blog => true,
+  TaskType.dsa || TaskType.docReading || TaskType.quiz || TaskType.standup => false,
+};
+
+/// Mirrors domain.ValidateSubmission. Keys: url, note.
+Map<String, String> validateSubmission({required String url, required String note, required TaskType type, required bool required}) {
+  final e = <String, String>{};
+  final u = url.trim();
+  final n = note.trim();
+  if (u.isNotEmpty && !validUrl(u)) e['url'] = 'Use a full link starting with https://.';
+  if (runeLength(n) > 4000) e['note'] = 'Notes can be at most 4000 characters.';
+  if (required && !e.containsKey('url')) {
+    if (needsLink(type) && u.isEmpty) {
+      e['url'] = 'Add the link to your work (PR, post or repo).';
+    } else if (u.isEmpty && n.isEmpty) {
+      e['note'] = 'Add your solution or a note for the reviewer.';
+    }
+  }
+  return e;
+}

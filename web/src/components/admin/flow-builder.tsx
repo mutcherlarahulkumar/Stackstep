@@ -43,8 +43,9 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Sheet, SheetContent, SheetDescription, SheetFooter, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { Spinner } from "@/components/ui/spinner";
 import { ApiError, messageFor } from "@/lib/api/errors";
-import { type FlowDetail, type Persona, type TaskSpec } from "@/lib/api/schemas";
+import { type FlowDetail, type Persona } from "@/lib/api/schemas";
 import { addBlocked, countByDay, errorsByRow, newKey, ordered, rowFromTemplate, rowsFromItems, sameRows, shift, toInput, type DraftRow } from "@/lib/flow-draft";
+import { releaseLabel } from "@/lib/content";
 import { DEFAULT_PERSONA_ID } from "@/lib/inbox";
 import { usePersonas } from "@/lib/inbox-queries";
 import { useSession } from "@/lib/session";
@@ -59,7 +60,7 @@ import { personaMap, useAllPersonas } from "./catalog-queries";
 import { DuplicateFlowDialog, FlowDetailsDialog } from "./flow-dialogs";
 import { AssignStudentsDialog, ImportPicker, LibraryPicker } from "./flow-pickers";
 import { FlowStatus } from "./flows";
-import { cleanSpec, emptySpec, SpecFields, validateSpec, type SpecErrors } from "./task-spec-form";
+import { cleanSpec, emptySpec, SpecFields, validateSpec, type SpecDraft, type SpecErrors } from "./task-spec-form";
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
@@ -515,8 +516,11 @@ function ItemCard({
               </span>
             ) : null}
             <span className="tabular-nums">
-              {row.release_time} · {durationLabel(row.due_minutes)} to finish
+              {row.release_window > 0 ? `Surprise ${releaseLabel(row.release_time, row.release_window)}` : row.release_time} ·{" "}
+              {durationLabel(row.due_minutes)} to finish
             </span>
+            {row.content.quiz ? <span>{row.content.quiz.questions.length} questions</span> : null}
+            {row.content.resources.length ? <span>{row.content.resources.length} {row.content.resources.length === 1 ? "link" : "links"}</span> : null}
             <span>{row.review_mode === "self" ? "Student marks done" : "Admin reviews"}</span>
             {error ? <span className="text-destructive font-medium">Needs fixing</span> : null}
           </div>
@@ -565,7 +569,7 @@ function ItemSheet({
   const { api } = useSession();
   const qc = useQueryClient();
   const current = editing && editing !== "new" ? editing : null;
-  const [spec, setSpec] = useState<TaskSpec>(current ?? emptySpec(fallbackPersona));
+  const [spec, setSpec] = useState<SpecDraft>(current ?? emptySpec(fallbackPersona));
   const [rowDay, setRowDay] = useState(current?.day ?? day);
   const [errors, setErrors] = useState<SpecErrors & { day?: string }>(serverErrors);
   const [templateId, setTemplateId] = useState<string | null>(current?.template_id ?? null);

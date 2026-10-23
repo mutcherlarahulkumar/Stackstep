@@ -15,6 +15,8 @@ import { ApiError, messageFor } from "@/lib/api/errors";
 import { TASK_TYPES, type ReviewMode, type Student, type Task, type TaskType } from "@/lib/api/schemas";
 import { TYPE_LABEL } from "@/lib/board";
 import { dateTimeLabel, firstName, fromLocalInput, toLocalInput } from "@/lib/format";
+import { type ContentInput } from "@/lib/api/client";
+import { blankQuestion, cleanContent, ContentBounds, emptyContent, validateContent } from "@/lib/content";
 import { DEFAULT_PERSONA_ID } from "@/lib/inbox";
 import { usePersonas } from "@/lib/inbox-queries";
 import { useSession } from "@/lib/session";
@@ -23,10 +25,11 @@ import { Bounds, normalizeLine, runeLength, validateBrief, validateSchedule, val
 
 import { choiceItem } from "../app/choice";
 import { PersonaAvatar } from "../app/persona-avatar";
+import { QuizEditor, ResourcesEditor } from "./content-editors";
 import { TYPE_ICON } from "../app/task-badges";
 
 type DuePreset = "2h" | "today" | "tomorrow" | "custom";
-type Errors = Partial<Record<"type" | "persona_id" | "review_mode" | "title" | "brief" | "scheduled_for" | "due_at", string>>;
+type Errors = Record<string, string | undefined>;
 
 export const REVIEW_LABEL: Record<ReviewMode, string> = { manual: "Admin reviews", self: "Student marks done" };
 export const REVIEW_HINT: Record<ReviewMode, string> = {
@@ -56,6 +59,14 @@ export function AssignTaskForm({ student, onAssigned }: { student: Student; onAs
   const personas = usePersonas();
   const [personaPick, setPersonaPick] = useState<string | null>(null);
   const [reviewMode, setReviewMode] = useState<ReviewMode>("manual");
+  const [content, setContent] = useState<ContentInput>(emptyContent());
+  const changeType = (t: TaskType) => {
+    setType(t);
+    if (t === "quiz") {
+      setReviewMode("self");
+      setContent((c) => ({ ...c, quiz: c.quiz ?? { pass_percent: ContentBounds.passDefault, questions: [blankQuestion()] } }));
+    } else setContent((c) => ({ ...c, quiz: null }));
+  };
   const personaList = personas.data ?? [];
   // The admin's pick, else the default team lead, else the first persona; null lets the server decide.
   const personaId = personaPick ?? (personaList.some((p) => p.id === DEFAULT_PERSONA_ID) ? DEFAULT_PERSONA_ID : (personaList[0]?.id ?? null));
@@ -81,6 +92,7 @@ export function AssignTaskForm({ student, onAssigned }: { student: Student; onAs
   const submit = async () => {
     const schedule = validateSchedule(new Date(), start, due);
     const next: Errors = {
+      ...validateContent(content, type),
       title: validateTitle(title) ?? undefined,
       brief: validateBrief(brief) ?? undefined,
       scheduled_for: later && !start ? "Pick a start time." : (schedule.scheduled_for ?? undefined),
@@ -99,9 +111,11 @@ export function AssignTaskForm({ student, onAssigned }: { student: Student; onAs
         brief: brief.trim(),
         scheduled_for: start,
         due_at: due,
+        content: cleanContent(content),
       });
       setTitle("");
       setBrief("");
+      setContent({ resources: [], quiz: type === "quiz" ? { pass_percent: ContentBounds.passDefault, questions: [blankQuestion()] } : null });
       onAssigned(task);
     } catch (e) {
       if (e instanceof ApiError && e.code === "validation_failed" && Object.keys(e.fields).length) setErrors(e.fields as Errors);
@@ -138,7 +152,13 @@ export function AssignTaskForm({ student, onAssigned }: { student: Student; onAs
       <FieldGroup>
         <Field data-invalid={!!errors.type}>
           <FieldLabel htmlFor="task-type">Type</FieldLabel>
-          <Select value={type} onValueChange={(v) => setType(v as TaskType)}>
+          <Select
+            value={type}
+            onValueChange={(v) => {
+              const t = TASK_TYPES.find((x) => x === v);
+              if (t) changeType(t);
+            }}
+          >
             <SelectTrigger id="task-type" className="w-full">
               <SelectValue />
             </SelectTrigger>
@@ -192,6 +212,7 @@ export function AssignTaskForm({ student, onAssigned }: { student: Student; onAs
               if (v === "manual" || v === "self") setReviewMode(v);
             }}
             className="justify-start"
+            disabled={type === "quiz"}
           >
             <ToggleGroupItem value="manual" className={choiceItem}>
               {REVIEW_LABEL.manual}
@@ -200,7 +221,11 @@ export function AssignTaskForm({ student, onAssigned }: { student: Student; onAs
               {REVIEW_LABEL.self}
             </ToggleGroupItem>
           </ToggleGroup>
-          {errors.review_mode ? <FieldError>{errors.review_mode}</FieldError> : <FieldDescription>{REVIEW_HINT[reviewMode]}</FieldDescription>}
+          {errors.review_mode ? (
+            <FieldError>{errors.review_mode}</FieldError>
+          ) : (
+            <FieldDescription>{type === "quiz" ? "Quizzes grade themselves against your answer key." : REVIEW_HINT[reviewMode]}</FieldDescription>
+          )}
         </Field>
         <Field data-invalid={!!errors.title}>
           <div className="flex items-baseline justify-between">
@@ -241,6 +266,10 @@ export function AssignTaskForm({ student, onAssigned }: { student: Student; onAs
             <FieldDescription>Optional · up to {Bounds.briefMax.toLocaleString()} characters</FieldDescription>
           )}
         </Field>
+        {content.quiz ? (
+          <QuizEditor value={content.quiz} onChange={(quiz) => setContent((c) => ({ ...c, quiz }))} errors={errors} idPrefix="assign-quiz" />
+        ) : null}
+        <ResourcesEditor value={content.resources} onChange={(resources) => setContent((c) => ({ ...c, resources }))} errors={errors} idPrefix="assign-links" />
         <Field data-invalid={!!errors.scheduled_for}>
           <FieldLabel>Shows up</FieldLabel>
           <ToggleGroup
