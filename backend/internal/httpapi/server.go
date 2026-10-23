@@ -129,6 +129,8 @@ func (s *Server) Handler() http.Handler {
 
 	admin := authed.Group("/admin", s.requireStaff)
 	admin.GET("/students", s.students)
+	admin.GET("/overview", s.overview)
+	admin.GET("/overview/export", s.overviewCSV)
 	admin.GET("/enrollments/:id/tasks", s.enrollmentTasks)
 	admin.POST("/enrollments/:id/tasks", s.createTask)
 	admin.PUT("/enrollments/:id/flow", s.assignEnrollmentFlow)

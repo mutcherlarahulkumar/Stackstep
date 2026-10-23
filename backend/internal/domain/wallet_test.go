@@ -95,3 +95,30 @@ func TestNormalizeCertificateCode(t *testing.T) {
 		}
 	}
 }
+
+func TestInactive(t *testing.T) {
+	start := time.Date(2026, 11, 2, 0, 0, 0, 0, time.UTC)
+	e := Enrollment{Status: EnrollmentActive, Timezone: "UTC", StartDate: start, EndDate: start.AddDate(0, 0, 29), Program: Program{Days: 30}}
+	day := func(d, h int) time.Time { return start.AddDate(0, 0, d).Add(time.Duration(h) * time.Hour) }
+	last := day(3, 9)
+	cases := []struct {
+		name string
+		e    Enrollment
+		last *time.Time
+		now  time.Time
+		want bool
+	}{
+		{"before start", e, nil, start.Add(-time.Hour), false},
+		{"first day, no activity yet", e, nil, day(1, 0), false},
+		{"two days in, never active", e, nil, day(2, 1), true},
+		{"active recently", e, &last, day(4, 0), false},
+		{"quiet for two days", e, &last, day(5, 9), true},
+		{"after the end", e, nil, day(31, 0), false},
+		{"paused", Enrollment{Status: EnrollmentPaused, Timezone: "UTC", StartDate: start, EndDate: start.AddDate(0, 0, 29)}, nil, day(10, 0), false},
+	}
+	for _, c := range cases {
+		if got := Inactive(c.e, c.last, c.now); got != c.want {
+			t.Errorf("%s: Inactive = %v, want %v", c.name, got, c.want)
+		}
+	}
+}

@@ -69,4 +69,8 @@ await shoot("30-verify-dark", null, `/verify/${code}`, { dark: true });
 await shoot("31-verify-unknown", null, "/verify/ABCDEFGHJK23", { width: 390, height: 844, dark: true });
 await shoot("32-verify-lookup", null, "/verify", { width: 390, height: 844 });
 await shoot("33-progress-phone", "asha-dev", "/workspace", { width: 390, height: 844, dark: true, before: async (p) => { await p.getByTestId("open-progress").click(); await p.waitForTimeout(500); } });
+await shoot("34-overview", "admin-demo", "/admin/overview");
+await shoot("35-overview-dark", "admin-demo", "/admin/overview", { dark: true });
+await shoot("36-overview-student", "admin-demo", "/admin/overview", { before: async (p) => { await p.getByTestId("overview-row-asha-dev").getByRole("button").click(); await p.waitForTimeout(600); } });
+await shoot("37-nudge", "admin-demo", "/admin/overview", { before: async (p) => { await p.getByTestId("open-nudge").click(); await p.waitForTimeout(500); } });
 await browser.close();

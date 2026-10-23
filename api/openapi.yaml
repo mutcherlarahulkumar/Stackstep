@@ -1,7 +1,7 @@
 openapi: 3.1.0
 info:
   title: Stackstep API
-  version: 0.5.0
+  version: 0.6.0
   description: |
     Workspace core (feature 01). All timestamps are RFC 3339 UTC. All errors use the
     `Error` envelope; clients switch on `error.code`, never on `message`.
@@ -504,6 +504,30 @@ paths:
                 properties:
                   items: { type: array, items: { $ref: "#/components/schemas/Student" } }
                   next_cursor: { type: [string, "null"] }
+        "403": { $ref: "#/components/responses/Error" }
+        "422": { $ref: "#/components/responses/Error" }
+  /v1/admin/overview:
+    get:
+      tags: [admin]
+      operationId: placementOverview
+      summary: Cohort table with placement numbers (college admins see their college)
+      parameters:
+        - { name: q, in: query, schema: { type: string, maxLength: 100 } }
+      responses:
+        "200": { description: Every managed student (at most 1000), content: { application/json: { schema: { $ref: "#/components/schemas/Overview" } } } }
+        "403": { $ref: "#/components/responses/Error" }
+        "422": { $ref: "#/components/responses/Error" }
+  /v1/admin/overview/export:
+    get:
+      tags: [admin]
+      operationId: exportOverview
+      summary: The overview as CSV (formula-like cells are quoted)
+      parameters:
+        - { name: q, in: query, schema: { type: string, maxLength: 100 } }
+      responses:
+        "200":
+          description: "Columns: name, github_login, email, program, status, day, flow, released, done, in_review, overdue, completion_percent, points, credits, last_active_at, inactive, certificate_code, certificate_status"
+          content: { text/csv: { schema: { type: string } } }
         "403": { $ref: "#/components/responses/Error" }
         "422": { $ref: "#/components/responses/Error" }
   /v1/admin/enrollments/{id}/tasks:
@@ -1136,6 +1160,46 @@ components:
         status: { $ref: "#/components/schemas/CertificateStatus" }
         revoked_at: { type: [string, "null"], format: date-time }
         revoke_reason: { type: [string, "null"] }
+    OverviewRow:
+      type: object
+      required: [student, released, done, in_review, overdue, completion_percent, points, credits, last_active_at, inactive, certificate]
+      properties:
+        student: { $ref: "#/components/schemas/Student" }
+        released: { type: integer, minimum: 0 }
+        done: { type: integer, minimum: 0 }
+        in_review: { type: integer, minimum: 0 }
+        overdue: { type: integer, minimum: 0 }
+        completion_percent: { type: integer, minimum: 0, maximum: 100 }
+        points: { type: integer, minimum: 0 }
+        credits: { type: integer, minimum: 0 }
+        last_active_at: { type: [string, "null"], format: date-time, description: "Latest chat message, task move or AI question by the student" }
+        inactive: { type: boolean, description: "Active internship and quiet for inactive_after_hours" }
+        certificate:
+          oneOf:
+            - type: object
+              required: [code, status]
+              properties:
+                code: { type: string }
+                status: { $ref: "#/components/schemas/CertificateStatus" }
+            - type: "null"
+    Overview:
+      type: object
+      required: [items, summary, truncated, inactive_after_hours, generated_at]
+      properties:
+        items: { type: array, items: { $ref: "#/components/schemas/OverviewRow" } }
+        summary:
+          type: object
+          required: [students, active, inactive, certificates, overdue_tasks, avg_completion]
+          properties:
+            students: { type: integer, minimum: 0 }
+            active: { type: integer, minimum: 0 }
+            inactive: { type: integer, minimum: 0 }
+            certificates: { type: integer, minimum: 0 }
+            overdue_tasks: { type: integer, minimum: 0 }
+            avg_completion: { type: integer, minimum: 0, maximum: 100 }
+        truncated: { type: boolean, description: More than 1000 students matched; narrow with q }
+        inactive_after_hours: { type: integer }
+        generated_at: { type: string, format: date-time }
     Progress:
       type: object
       required: [released, done, in_review, overdue, on_time, points, day_number, days, completion_percent, bar_percent, meets_bar, certificate]

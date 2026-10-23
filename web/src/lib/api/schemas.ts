@@ -399,3 +399,34 @@ export const Progress = z.object({
   certificate: Certificate.nullable(),
 });
 export type Progress = z.output<typeof Progress>;
+
+export const OverviewRow = z.object({
+  student: Student,
+  released: z.int().min(0),
+  done: z.int().min(0),
+  in_review: z.int().min(0),
+  overdue: z.int().min(0),
+  completion_percent: z.int().min(0).max(100),
+  points: z.int().min(0),
+  credits: z.int().min(0),
+  last_active_at: timestamp.nullable(),
+  inactive: z.boolean(),
+  certificate: z.object({ code: z.string(), status: CertificateStatus }).nullable(),
+});
+export type OverviewRow = z.output<typeof OverviewRow>;
+
+export const Overview = z.object({
+  items: z.array(OverviewRow),
+  summary: z.object({
+    students: z.int().min(0),
+    active: z.int().min(0),
+    inactive: z.int().min(0),
+    certificates: z.int().min(0),
+    overdue_tasks: z.int().min(0),
+    avg_completion: z.int().min(0).max(100),
+  }),
+  truncated: z.boolean(),
+  inactive_after_hours: z.int(),
+  generated_at: timestamp,
+});
+export type Overview = z.output<typeof Overview>;

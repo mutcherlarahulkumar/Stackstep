@@ -194,6 +194,19 @@ export class ApiClient {
     return this.send("GET", `/v1/certificates/${seg(code)}`, S.Certificate, { auth: false });
   }
 
+  // ---- Placement overview ----
+
+  overview(q: string) {
+    return this.send("GET", "/v1/admin/overview", S.Overview, { query: { q: q || null } });
+  }
+
+  /** The overview as a CSV file (auth header, so it can't be a plain link). */
+  async exportOverview(q: string): Promise<{ blob: Blob; filename: string }> {
+    const res = await this.raw("GET", "/v1/admin/overview/export", { q: q || null });
+    const name = /filename="([^"]+)"/.exec(res.headers.get("Content-Disposition") ?? "")?.[1] ?? "stackstep-cohort.csv";
+    return { blob: await res.blob(), filename: name };
+  }
+
   // ---- Admin ----
 
   students(q = "", cursor: string | null = null, limit = 30) {
@@ -359,6 +372,37 @@ export class ApiClient {
       }
       throw e;
     }
+  }
+
+  /** An authenticated request whose body isn't JSON (downloads). Throws like send(). */
+  private async raw(method: Method, path: string, query: Record<string, string | null> = {}, retried = false): Promise<Response> {
+    if (!(await this.ensureFresh())) {
+      this.onSessionExpired?.();
+      throw new ApiError(401, "unauthenticated", "Please sign in again.");
+    }
+    const qs = new URLSearchParams();
+    for (const [k, v] of Object.entries(query)) if (v !== null) qs.set(k, v);
+    const headers: Record<string, string> = { "X-Client": "web" };
+    if (this.access) headers.Authorization = `Bearer ${this.access}`;
+    let res: Response;
+    try {
+      res = await this.doFetch(`${this.base}${path}${qs.size ? `?${qs.toString()}` : ""}`, {
+        method,
+        headers,
+        credentials: "same-origin",
+        cache: "no-store",
+        signal: AbortSignal.timeout(this.timeoutMs),
+      });
+    } catch (e) {
+      throw new NetworkError(e instanceof Error ? e.message : "fetch failed");
+    }
+    if (res.status === 401 && !retried) {
+      this.access = null;
+      if (await this.refresh()) return this.raw(method, path, query, true);
+      this.onSessionExpired?.();
+    }
+    if (!res.ok) throw await toApiError(res);
+    return res;
   }
 
   private async send<T extends z.ZodType>(method: Method, path: string, schema: T, opts?: SendOpts): Promise<z.output<T>>;

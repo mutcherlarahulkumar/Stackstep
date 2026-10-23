@@ -8,6 +8,26 @@ import { ApiError, NetworkError } from "./errors";
 const path = (input: RequestInfo | URL) => new URL(String(input), "http://web.test").pathname;
 
 describe("ApiClient", () => {
+  it("downloads the overview CSV with auth and the server's filename; errors map like JSON calls", async () => {
+    const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+      if (path(input) === "/api/v1/auth/refresh") return json(tokens());
+      expect(new Headers(init?.headers).get("Authorization")).toBe("Bearer access-1");
+      expect(new URL(String(input), "http://web.test").searchParams.get("q")).toBe("asha");
+      return new Response("name\nAsha\n", { headers: { "Content-Type": "text/csv", "Content-Disposition": 'attachment; filename="stackstep-cohort-2026-11-05.csv"' } });
+    });
+    const api = new ApiClient({ fetch: fetchMock });
+    const { blob, filename } = await api.exportOverview("asha");
+    expect(filename).toBe("stackstep-cohort-2026-11-05.csv");
+    expect(await blob.text()).toBe("name\nAsha\n");
+
+    const denied = new ApiClient({
+      fetch: vi.fn(async (input: RequestInfo | URL) =>
+        path(input) === "/api/v1/auth/refresh" ? json(tokens()) : json({ error: { code: "forbidden", message: "x" } }, 403),
+      ),
+    });
+    await expect(denied.exportOverview("")).rejects.toMatchObject({ code: "forbidden" });
+  });
+
   it("shares one refresh between concurrent calls", async () => {
     let refreshes = 0;
     let release: () => void = () => {};

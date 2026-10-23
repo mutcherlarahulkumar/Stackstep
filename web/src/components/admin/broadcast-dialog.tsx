@@ -32,12 +32,21 @@ type Errors = Partial<Record<"persona_id" | "enrollment_ids" | "body", string>>;
  * One message, as a persona, to many students. Each student gets it in their own chat with
  * that persona, so replies stay one-to-one.
  */
-export function BroadcastDialog({ open, onOpenChange }: { open: boolean; onOpenChange: (o: boolean) => void }) {
+export function BroadcastDialog({
+  open,
+  onOpenChange,
+  preset,
+}: {
+  open: boolean;
+  onOpenChange: (o: boolean) => void;
+  /** Pre-picked recipients and a draft (e.g. a nudge to inactive students). Remount with a new key to change it. */
+  preset?: { title: string; students: Student[]; body: string };
+}) {
   const { api } = useSession();
   const personas = usePersonas();
   const [personaPick, setPersonaPick] = useState<string | null>(null);
-  const [selected, setSelected] = useState<Map<string, Student>>(new Map());
-  const [body, setBody] = useState("");
+  const [selected, setSelected] = useState<Map<string, Student>>(() => new Map((preset?.students ?? []).slice(0, Bounds.broadcastMax).map((s) => [s.enrollment.id, s])));
+  const [body, setBody] = useState(preset?.body ?? "");
   const [raw, setRaw] = useState("");
   const query = useDeferredValue(normalizeLineSafe(raw));
   const students = useStudents(query);
@@ -104,7 +113,7 @@ export function BroadcastDialog({ open, onOpenChange }: { open: boolean; onOpenC
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="flex max-h-[92dvh] flex-col sm:max-w-xl">
         <DialogHeader>
-          <DialogTitle>Message students</DialogTitle>
+          <DialogTitle>{preset?.title ?? "Message students"}</DialogTitle>
           <DialogDescription>Each student gets it in their chat with the persona you pick. Replies come back to your inbox.</DialogDescription>
         </DialogHeader>
         <form

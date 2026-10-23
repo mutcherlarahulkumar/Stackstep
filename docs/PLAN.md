@@ -91,15 +91,19 @@ Each slice goes **backend → mobile app → web**, with E2E before it is called
 
 | # | Feature | Status |
 |---|---|---|
-| 1 | **Workspace core: sign-in, task allocation, task board, chat with the team lead** | ✅ built — see `docs/features/01-workspace.md` |
-| 2 | **Flows, task library, manager personas, team inbox** (flows schedule tasks day by day; manual admin review) | ✅ built — see `docs/features/02-flows-personas.md` |
-| 2b | Surprise items in working hours, per-student pacing | next |
-| 3 | GitHub App ingest + PR pipeline (webhooks, runner, hidden tests, AI review) | |
-| 4 | LLM-backed team lead (two model tiers behind the `lead.Agent` interface) | |
-| 5 | DSA tab on the judge, quizzes, doc-reading tasks | |
-| 6 | Razorpay payments, entitlements, group and college seats, bulk import | |
-| 7 | Scoring, completion, certificates (Orshot-rendered), verify page | |
-| 8 | Placement dashboard, nudges, exports | |
+| 1 | **Workspace core: sign-in, task allocation, task board, chat with the team lead** | ✅ built — `docs/features/01-workspace.md` |
+| 2 | **Flows, task library, manager personas, team inbox** (flows schedule tasks day by day; manual admin review) | ✅ built — `docs/features/02-flows-personas.md` |
+| 3 | **Task work:** hand-in links, auto-graded quizzes, reading links, surprise release windows | ✅ built — `docs/features/03-task-work.md` |
+| 4 | **Points, credits and the AI study helper** (Groq; students only, rate limited, hints not answers) | ✅ built — `docs/features/04-points-credits-ai.md` |
+| 5 | **Progress, hand-issued certificates, public verify and printable certificate** | ✅ built — `docs/features/05-progress-certificates.md` |
+| 6 | **Placement overview, CSV export, nudges** | ✅ built — `docs/features/06-placement-overview.md` |
+| — | GitHub App ingest + PR checks (webhooks, runner, hidden tests) | coming soon — needs a GitHub App |
+| — | AI review suggestions and an LLM team lead | coming soon — reviews and replies are manual for now |
+| — | Razorpay payments, entitlements, college seats, bulk import | coming soon — needs Razorpay keys |
+| — | Certificate artwork via Orshot | coming soon — the printable certificate works today |
+| — | DSA judge | later |
+
+Setup and every environment variable: `docs/SETUP.md`.
 
 ## 6. Releases
 
