@@ -113,7 +113,17 @@ export type Quiz = z.output<typeof Quiz>;
 export const TaskContent = z.object({ resources: z.array(Resource).max(5), quiz: Quiz.nullable() });
 export type TaskContent = z.output<typeof TaskContent>;
 
-export const Submission = z.object({ attempt: z.int().min(1), url: z.string().nullable(), note: z.string(), submitted_at: timestamp });
+export const HAND_IN_CHECK_CODES = ["foreign_repo", "reused_link"] as const;
+export const HandInCheckCode = z.enum(HAND_IN_CHECK_CODES);
+export const HandInCheck = z.object({ code: HandInCheckCode, message: z.string() });
+export type HandInCheck = z.output<typeof HandInCheck>;
+export const Submission = z.object({
+  attempt: z.int().min(1),
+  url: z.string().nullable(),
+  note: z.string(),
+  submitted_at: timestamp,
+  checks: z.array(HandInCheck),
+});
 export type Submission = z.output<typeof Submission>;
 
 export const QuizStats = z.object({
@@ -475,3 +485,11 @@ export type ImportResult = z.output<typeof ImportResult>;
 export const StaffMember = z.object({ user: User, college_name: z.string().nullable(), signed_in: z.boolean() });
 export type StaffMember = z.output<typeof StaffMember>;
 export const StaffList = z.object({ items: z.array(StaffMember) });
+
+export const ReviewQueue = z.object({
+  items: z.array(z.object({ task: Task, student: User, waiting_hours: z.int().min(0), overdue: z.boolean() })),
+  overdue: z.int().min(0),
+  sla_hours: z.int(),
+});
+export type ReviewQueue = z.output<typeof ReviewQueue>;
+export type ReviewItem = ReviewQueue["items"][number];

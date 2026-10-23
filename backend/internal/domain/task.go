@@ -134,6 +134,7 @@ type SubmissionRecord struct {
 	Note             string
 	SubmittedAt      time.Time
 	FirstSubmittedAt time.Time
+	Checks           []HandInCheck // reviewer warnings; filled for staff views only
 }
 
 // QuizStats summarizes a student's attempts at a quiz task.

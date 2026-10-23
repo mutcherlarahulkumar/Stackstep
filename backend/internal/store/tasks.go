@@ -13,12 +13,24 @@ import (
 
 const taskCols = "id, enrollment_id, type, title, brief, status, scheduled_for, due_at, created_by, version, created_at, updated_at, review_mode, persona_id, flow_item_id, content"
 
-func scanTask(row pgx.Row) (domain.Task, error) {
+func scanTask(row pgx.Row) (domain.Task, error) { return scanTaskPlus(row) }
+
+// scanTaskWithUser reads taskCols followed by userCols (as in the review queue).
+func scanTaskWithUser(row pgx.Row, u *domain.User) (domain.Task, error) {
+	var role string
+	t, err := scanTaskPlus(row, &u.ID, &u.GitHubID, &u.GitHubLogin, &u.Name, &u.Email, &u.AvatarURL, &role, &u.CollegeID)
+	u.Role = domain.Role(role)
+	return t, err
+}
+
+// scanTaskPlus reads taskCols and then any extra columns into extra.
+func scanTaskPlus(row pgx.Row, extra ...any) (domain.Task, error) {
 	var t domain.Task
 	var typ, status, review string
 	var content []byte
-	if err := row.Scan(&t.ID, &t.EnrollmentID, &typ, &t.Title, &t.Brief, &status, &t.ScheduledFor, &t.DueAt,
-		&t.CreatedBy, &t.Version, &t.CreatedAt, &t.UpdatedAt, &review, &t.PersonaID, &t.FlowItemID, &content); err != nil {
+	dest := append([]any{&t.ID, &t.EnrollmentID, &typ, &t.Title, &t.Brief, &status, &t.ScheduledFor, &t.DueAt,
+		&t.CreatedBy, &t.Version, &t.CreatedAt, &t.UpdatedAt, &review, &t.PersonaID, &t.FlowItemID, &content}, extra...)
+	if err := row.Scan(dest...); err != nil {
 		return domain.Task{}, notFound(err)
 	}
 	var err error

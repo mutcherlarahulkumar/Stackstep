@@ -153,10 +153,16 @@ func (c contentDTO) input() domain.TaskContent {
 }
 
 type submissionDTO struct {
-	Attempt     int       `json:"attempt"`
-	URL         *string   `json:"url"`
-	Note        string    `json:"note"`
-	SubmittedAt time.Time `json:"submitted_at"`
+	Attempt     int              `json:"attempt"`
+	URL         *string          `json:"url"`
+	Note        string           `json:"note"`
+	SubmittedAt time.Time        `json:"submitted_at"`
+	Checks      []handInCheckDTO `json:"checks"` // reviewer warnings; always empty for students
+}
+
+type handInCheckDTO struct {
+	Code    domain.HandInCheckCode `json:"code"`
+	Message string                 `json:"message"`
 }
 
 type quizStatsDTO struct {
@@ -174,7 +180,12 @@ func toTask(t domain.Task, staff bool) taskDTO {
 		ScheduledFor: t.ScheduledFor.UTC(), DueAt: t.DueAt.UTC(), Version: t.Version, CreatedAt: t.CreatedAt.UTC(), UpdatedAt: t.UpdatedAt.UTC(),
 		ReviewMode: t.ReviewMode, PersonaID: t.PersonaID, FromFlow: t.FlowItemID != nil, Content: toContent(t.Content, staff || finished)}
 	if s := t.Submission; s != nil {
-		dto.Submission = &submissionDTO{Attempt: s.Attempt, Note: s.Note, SubmittedAt: s.SubmittedAt.UTC()}
+		dto.Submission = &submissionDTO{Attempt: s.Attempt, Note: s.Note, SubmittedAt: s.SubmittedAt.UTC(), Checks: []handInCheckDTO{}}
+		if staff {
+			for _, c := range s.Checks {
+				dto.Submission.Checks = append(dto.Submission.Checks, handInCheckDTO{Code: c.Code, Message: c.Message})
+			}
+		}
 		if s.URL != "" {
 			u := s.URL
 			dto.Submission.URL = &u

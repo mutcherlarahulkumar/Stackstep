@@ -916,3 +916,12 @@ enum CohortKind {
   CohortKind(this.wire);
   final String wire;
 }
+
+/// Reviewer warnings on a hand-in (staff views; students always get none).
+enum HandInCheckCode {
+  foreignRepo('foreign_repo'),
+  reusedLink('reused_link');
+
+  HandInCheckCode(this.wire);
+  final String wire;
+}

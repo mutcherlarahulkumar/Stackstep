@@ -1,7 +1,7 @@
 "use client";
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Ban, Check, ClipboardList, MessageSquareWarning, Plus, Route } from "lucide-react";
+import { Ban, Check, ClipboardList, MessageSquareWarning, Plus, Route, TriangleAlert } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
 
@@ -205,9 +205,19 @@ export function StudentDetail({ student }: { student: Student }) {
 }
 
 /** The latest hand-in, compact: the link, then the note behind a disclosure. */
-function HandIn({ submission }: { submission: NonNullable<Task["submission"]> }) {
+export function HandIn({ submission }: { submission: NonNullable<Task["submission"]> }) {
   return (
     <div className="flex flex-col gap-1 text-xs" data-testid="hand-in">
+      {submission.checks.length > 0 ? (
+        <ul className="flex flex-col gap-1" aria-label="Things to check">
+          {submission.checks.map((c) => (
+            <li key={c.code} className="text-foreground bg-warning/12 flex items-start gap-1.5 rounded-md px-2 py-1" data-testid={`check-${c.code}`}>
+              <TriangleAlert className="text-warning mt-px size-3.5 shrink-0" aria-hidden />
+              <span>{c.message}</span>
+            </li>
+          ))}
+        </ul>
+      ) : null}
       {submission.url ? (
         <a href={submission.url} target="_blank" rel="noopener noreferrer" className="text-primary truncate font-medium underline-offset-4 hover:underline">
           {submission.url.replace(/^https?:\/\//, "")}
@@ -227,7 +237,7 @@ function HandIn({ submission }: { submission: NonNullable<Task["submission"]> })
   );
 }
 
-function PersonaTag({ persona }: { persona: Persona | undefined }) {
+export function PersonaTag({ persona }: { persona: Persona | undefined }) {
   if (!persona) return null;
   return (
     <span className="inline-flex items-center gap-1">
@@ -346,7 +356,7 @@ function ReviewButton({ to, onClick, busy }: { to: TaskStatus; onClick: () => vo
   }
 }
 
-function NoteDialog({
+export function NoteDialog({
   target,
   busy,
   onCancel,

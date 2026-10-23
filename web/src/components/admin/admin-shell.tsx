@@ -1,6 +1,6 @@
 "use client";
 
-import { BookCopy, ChartColumn, Inbox, UserPlus, Route, Send, UserRoundCog, Users, type LucideIcon } from "lucide-react";
+import { BookCopy, ChartColumn, ClipboardCheck, Inbox, UserPlus, Route, Send, UserRoundCog, Users, type LucideIcon } from "lucide-react";
 import Link from "next/link";
 import { type ReactNode } from "react";
 
@@ -16,10 +16,11 @@ import { RequireSession } from "../app/guard";
 import { DesktopGate } from "./desktop-gate";
 import { useIsDesktop } from "@/lib/use-desktop";
 
-export type Section = "overview" | "people" | "students" | "inbox" | "flows" | "library" | "personas" | "assign";
+export type Section = "overview" | "people" | "reviews" | "students" | "inbox" | "flows" | "library" | "personas" | "assign";
 
 const DESKTOP_NAV: { id: Section; href: string; label: string; icon: LucideIcon }[] = [
   { id: "students", href: "/admin", label: "Students", icon: Users },
+  { id: "reviews", href: "/admin/reviews", label: "Reviews", icon: ClipboardCheck },
   { id: "overview", href: "/admin/overview", label: "Overview", icon: ChartColumn },
   { id: "people", href: "/admin/people", label: "People", icon: UserPlus },
   { id: "inbox", href: "/admin/inbox", label: "Inbox", icon: Inbox },

@@ -265,7 +265,7 @@ String _nextStepHint(Task task) => switch (task.status) {
   TaskStatus.inProgress when task.reviewMode == ReviewMode.self => 'No review needed. Mark it done once you’ve finished.',
   TaskStatus.todo => 'Create a branch for this ticket, then tap Start working.',
   TaskStatus.inProgress => 'Push your branch and open a PR, then submit it for review.',
-  TaskStatus.inReview => 'Your lead is reviewing. Pick up a smaller task while you wait.',
+  TaskStatus.inReview => "Reviews usually come back within a day, in this task's chat. Pick up a smaller task while you wait.",
   TaskStatus.changesRequested => 'Read the review in chat, push fixes to the same branch, then resubmit.',
   TaskStatus.done => 'Approved. Merge your PR if you haven’t yet.',
   TaskStatus.cancelled => 'This task was cancelled. No action needed.',

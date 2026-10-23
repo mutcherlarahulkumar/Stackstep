@@ -207,6 +207,12 @@ export class ApiClient {
     return this.send("GET", `/v1/certificates/${seg(code)}`, S.Certificate, { auth: false });
   }
 
+  // ---- Review queue ----
+
+  reviews(personaId: string | null) {
+    return this.send("GET", "/v1/admin/reviews", S.ReviewQueue, { query: { persona_id: personaId } });
+  }
+
   // ---- People ----
 
   async colleges() {

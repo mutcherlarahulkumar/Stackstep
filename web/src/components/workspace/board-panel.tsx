@@ -54,7 +54,7 @@ function nextStep(t: Task): string {
 const NEXT_STEP: Record<TaskStatus, string> = {
   todo: "Create a branch for this ticket, then start working.",
   in_progress: "Push your branch and open a PR, then submit it for review.",
-  in_review: "Your lead is reviewing. Pick up a smaller task while you wait.",
+  in_review: "Reviews usually come back within a day, in this task's chat. Pick up a smaller task while you wait.",
   changes_requested: "Read the review in chat, push fixes to the same branch, then resubmit.",
   done: "Approved. Merge your PR if you haven't yet.",
   cancelled: "This task was cancelled. No action needed.",
