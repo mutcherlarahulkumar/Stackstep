@@ -480,7 +480,7 @@ func (w *Workspace) Students(ctx context.Context, u domain.User, search string, 
 		}
 		college = u.CollegeID
 	}
-	rows, err := store.ListStudents(ctx, w.Store.Pool, college, search, after, limit+1)
+	rows, err := store.ListStudents(ctx, w.Store.Pool, college, search, after, limit+1, w.Clock.Now())
 	if err != nil {
 		return nil, "", err
 	}

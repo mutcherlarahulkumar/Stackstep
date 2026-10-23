@@ -52,7 +52,9 @@ func (w *Workspace) Overview(ctx context.Context, u domain.User, search string) 
 		st := stats[s.Enrollment.ID]
 		p := domain.Progress{Released: st.Released, Done: st.Done, InReview: st.InReview, Overdue: st.Overdue, Points: st.Points,
 			DayNumber: s.Enrollment.DayNumber(now), Days: s.Enrollment.Program.Days}
-		row := OverviewRow{Student: s, Stats: st, Progress: p, Inactive: domain.Inactive(s.Enrollment, st.LastActiveAt, now)}
+		// Certified students have finished; never flag them for a nudge.
+		certified := st.CertificateCode != nil && !st.CertificateRevoked
+		row := OverviewRow{Student: s, Stats: st, Progress: p, Inactive: !certified && domain.Inactive(s.Enrollment, st.LastActiveAt, now)}
 		out.Rows[i] = row
 		out.Summary.Students++
 		if s.Enrollment.Status == domain.EnrollmentActive {

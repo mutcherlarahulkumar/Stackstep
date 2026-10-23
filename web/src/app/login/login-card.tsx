@@ -8,7 +8,6 @@ import { BrandMark, GitHubMark } from "@/components/app/brand";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
-import { Separator } from "@/components/ui/separator";
 import { Spinner } from "@/components/ui/spinner";
 import { ApiError, messageFor, toErrorCode } from "@/lib/api/errors";
 import { homeFor, useSession } from "@/lib/session";
@@ -75,7 +74,6 @@ export function LoginCard() {
       </CardContent>
       {config?.devLogin ? (
         <CardFooter className="flex-col items-stretch gap-3">
-          <Separator />
           <p className="text-muted-foreground flex items-center gap-1.5 text-xs">
             <FlaskConical className="size-3.5" aria-hidden /> Developer sign-in
           </p>

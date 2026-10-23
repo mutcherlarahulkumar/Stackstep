@@ -195,7 +195,7 @@ class TaskCard extends ConsumerWidget {
     return Semantics(
       button: true,
       label:
-          '${task.type.label}: ${task.title}. ${task.status.label}. ${dueLabel(task.dueAt, now)}${persona == null ? '' : '. From ${persona.name}'}',
+          '${task.type.label}: ${task.title}. ${task.status.label}. ${taskTimeLabel(task, now)}${persona == null ? '' : '. From ${persona.name}'}',
       child: ShadCard(
         padding: EdgeInsets.zero,
         child: InkWell(
@@ -219,7 +219,7 @@ class TaskCard extends ConsumerWidget {
                     ),
                     const SizedBox(width: 6),
                     Text(
-                      dueLabel(task.dueAt, now),
+                      taskTimeLabel(task, now),
                       style: t.textTheme.small.copyWith(
                         color: overdue ? t.colorScheme.destructive : t.colorScheme.mutedForeground,
                         fontWeight: overdue ? FontWeight.w600 : FontWeight.w400,
@@ -350,7 +350,12 @@ class _TaskSheetState extends ConsumerState<TaskSheet> {
             children: [
               Icon(LucideIcons.calendarClock, size: 14, color: t.colorScheme.mutedForeground),
               const SizedBox(width: 6),
-              Text('${dueLabel(task.dueAt, now)} · ${dateTimeLabel(task.dueAt)}', style: t.textTheme.muted),
+              Text(
+                task.status == TaskStatus.done || task.status == TaskStatus.cancelled
+                    ? taskTimeLabel(task, now)
+                    : '${dueLabel(task.dueAt, now)} · ${dateTimeLabel(task.dueAt)}',
+                style: t.textTheme.muted,
+              ),
             ],
           ),
           const SizedBox(height: Space.lg),

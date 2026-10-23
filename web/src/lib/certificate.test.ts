@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { dateOnlyLabel, formatCode, isCode, normalizeCode, programLabel, verifyPath } from "./certificate";
+import { dateOnlyLabel, formatCode, isCode, normalizeCode, periodEnd, programLabel, verifyPath } from "./certificate";
 
 describe("certificate codes", () => {
   it("normalizes what people type", () => {
@@ -28,5 +28,12 @@ describe("certificate codes", () => {
   it("names the program", () => {
     expect(programLabel({ program_days: 30, program_slug: "frontend-30" })).toBe("30-day Frontend Engineering Internship");
     expect(programLabel({ program_days: 60, program_slug: "fullstack-60" })).toBe("60-day Full-stack Engineering Internship");
+  });
+});
+
+describe("certificate period", () => {
+  it("never claims days after the issue date", () => {
+    expect(periodEnd({ end_date: "2026-11-19", issued_at: new Date("2026-10-23T10:00:00Z") })).toBe("2026-10-23");
+    expect(periodEnd({ end_date: "2026-11-19", issued_at: new Date("2026-11-25T10:00:00Z") })).toBe("2026-11-19");
   });
 });

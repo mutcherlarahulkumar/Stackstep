@@ -202,10 +202,15 @@ class _ThreadTile extends ConsumerWidget {
   }
 }
 
-String _preview(Message? m, {required bool staff}) {
+/// The last message, prefixed with who said it. Staff see the persona's name, since persona
+/// messages may be automatic (the lead's scripted replies), not their own.
+String _preview(Message? m, {required bool staff, String? personaName}) {
   if (m == null) return 'No messages yet';
-  final mine = staff ? m.author == Author.persona : m.author == Author.student;
-  return '${mine ? 'You: ' : ''}${previewLine(m.body)}';
+  if (staff) {
+    final who = m.author == Author.persona ? '${(personaName ?? 'Persona').split(' ').first}: ' : '';
+    return '$who${previewLine(m.body)}';
+  }
+  return '${m.author == Author.student ? 'You: ' : ''}${previewLine(m.body)}';
 }
 
 /// The pinned AI helper row at the top of the student's chats.
@@ -389,7 +394,7 @@ class StaffInboxScreen extends ConsumerWidget {
                           ),
                         ],
                       ),
-                      preview: _preview(th.lastMessage, staff: true),
+                      preview: _preview(th.lastMessage, staff: true, personaName: th.persona.name),
                       at: th.lastMessage?.sentAt,
                       unread: th.unread,
                       onTap: () => openStaffThread(context, th),

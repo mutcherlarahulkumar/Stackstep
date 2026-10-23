@@ -47,6 +47,13 @@ function dayCaption(e: Enrollment): string {
   return `Day ${e.day_number} of ${e.program.days}`;
 }
 
+/** "Day 4/30" for narrow phone headers. */
+function shortDayCaption(e: Enrollment): string {
+  if (e.status === "paused") return "Paused";
+  if (e.day_number === 0) return "Soon";
+  return `Day ${e.day_number}/${e.program.days}`;
+}
+
 function Workspace({ me, enrollment }: { me: Me; enrollment: Enrollment }) {
   const ws = useWorkspace();
   const threads = useStudentThreads();
@@ -76,6 +83,9 @@ function Workspace({ me, enrollment }: { me: Me; enrollment: Enrollment }) {
       <AppHeader user={me.user}>
         <div className="flex min-w-0 items-center gap-3">
           <span className="bg-border hidden h-5 w-px sm:block" aria-hidden />
+          <span className="text-muted-foreground truncate text-sm whitespace-nowrap min-[420px]:hidden">
+            {shortDayCaption(enrollment)}
+          </span>
           <span className="text-muted-foreground hidden truncate text-sm whitespace-nowrap min-[420px]:inline">
             {dayCaption(enrollment)}
             {enrollment.flow ? <span className="hidden md:inline"> · {enrollment.flow.name}</span> : null}
@@ -88,6 +98,7 @@ function Workspace({ me, enrollment }: { me: Me; enrollment: Enrollment }) {
       </AppHeader>
       <ConnectionBanner status={socket} />
       <main id="main" className="min-h-0 flex-1">
+        <h1 className="sr-only">Your internship workspace</h1>
         {desktop === null ? null : desktop ? (
           /* Desktop: chats, the open conversation and the board side by side. */
           <div className="grid h-full grid-cols-[17rem_minmax(0,3fr)_minmax(22rem,2fr)]">

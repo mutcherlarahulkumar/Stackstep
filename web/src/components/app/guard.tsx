@@ -17,12 +17,12 @@ export function FullPageLoader() {
         <BrandMark />
         <Skeleton className="h-4 w-28" />
       </div>
-      <div className="relative grid flex-1 gap-4 p-6 lg:grid-cols-[3fr_2fr]">
-        <Skeleton className="h-full min-h-64" />
-        <Skeleton className="hidden h-full lg:block" />
-        <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 p-6">
-          <BrandMark className="size-10 animate-pulse" />
-          <Quip />
+      <div className="flex flex-1 flex-col items-center justify-center gap-4 p-6">
+        <BrandMark className="size-12 animate-pulse" />
+        <Quip />
+        <div className="flex w-full max-w-sm flex-col gap-2" aria-hidden>
+          <Skeleton className="h-2.5 w-full" />
+          <Skeleton className="mx-auto h-2.5 w-2/3" />
         </div>
       </div>
     </div>

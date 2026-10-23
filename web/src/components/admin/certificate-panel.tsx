@@ -57,9 +57,23 @@ export function CertificatePanel({ student }: { student: Student }) {
           ) : null}
         </>
       ) : (
-        <Button size="sm" variant="outline" onClick={() => setIssuing(true)} disabled={student.enrollment.status === "cancelled"} data-testid="open-issue">
-          <FileBadge data-icon="inline-start" aria-hidden /> Issue certificate
-        </Button>
+        <>
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={() => setIssuing(true)}
+            disabled={student.enrollment.status === "cancelled" || p.done === 0}
+            aria-describedby={p.done === 0 ? "issue-hint" : undefined}
+            data-testid="open-issue"
+          >
+            <FileBadge data-icon="inline-start" aria-hidden /> Issue certificate
+          </Button>
+          {p.done === 0 ? (
+            <span id="issue-hint" className="text-muted-foreground text-xs">
+              Available once they finish a task
+            </span>
+          ) : null}
+        </>
       )}
       <IssueDialog open={issuing} student={student} progress={p} onClose={() => setIssuing(false)} />
       <RevokeDialog key={revoking?.code ?? "none"} cert={revoking} student={student} onClose={() => setRevoking(null)} />
@@ -102,8 +116,8 @@ function IssueDialog({ open, student, progress: p, onClose }: { open: boolean; s
             </AlertDescription>
           </Alert>
         ) : (
-          <Alert variant="destructive" data-testid="below-bar">
-            <TriangleAlert aria-hidden />
+          <Alert data-testid="below-bar" className="border-warning/50 bg-warning/10">
+            <TriangleAlert className="text-warning" aria-hidden />
             <AlertTitle>Below the suggested bar</AlertTitle>
             <AlertDescription>
               Only {p.completion_percent}% of released tasks are done; we suggest {p.bar_percent}%. You can still issue it if you&apos;ve checked their work.

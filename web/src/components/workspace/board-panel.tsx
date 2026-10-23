@@ -13,7 +13,7 @@ import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { type SubmissionInput } from "@/lib/api/client";
 import { type Persona, type Task, type TaskStatus } from "@/lib/api/schemas";
 import { COLUMN_LABEL, COLUMNS, columnOf, groupBoard, STATUS_LABEL, type Column } from "@/lib/board";
-import { dateTimeLabel, dueLabel, isOverdue } from "@/lib/format";
+import { dateTimeLabel, dueLabel, isOverdue, taskTimeLabel } from "@/lib/format";
 import { cn } from "@/lib/utils";
 import { studentMoves } from "@/lib/validation";
 
@@ -160,7 +160,7 @@ function TaskCard({ task, persona, onOpen }: { task: Task; persona: Persona | un
         <div className="flex items-center justify-between gap-2">
           <p className={cn("flex items-center gap-1.5 text-sm", overdue ? "text-destructive font-medium" : "text-muted-foreground")}>
             {overdue ? <AlarmClock className="size-3.5" aria-hidden /> : <Clock className="size-3.5" aria-hidden />}
-            {dueLabel(task.due_at, now)}
+            {taskTimeLabel(task, now)}
           </p>
           {persona ? (
             <span className="text-muted-foreground flex min-w-0 items-center gap-1.5 text-xs">
@@ -218,7 +218,7 @@ function TaskSheet({
               <SheetTitle className="text-xl leading-snug">{task.title}</SheetTitle>
               <SheetDescription className="flex items-center gap-1.5">
                 <CalendarClock className="size-4" aria-hidden />
-                {dueLabel(task.due_at, new Date())} · {dateTimeLabel(task.due_at)}
+                {task.status === "done" || task.status === "cancelled" ? taskTimeLabel(task, new Date()) : `${dueLabel(task.due_at, new Date())} · ${dateTimeLabel(task.due_at)}`}
               </SheetDescription>
               {persona ? (
                 <p className="text-muted-foreground flex items-center gap-2 text-sm">

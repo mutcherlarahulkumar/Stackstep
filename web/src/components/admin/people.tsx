@@ -479,7 +479,7 @@ function StaffPanel({ me }: { me: Me }) {
                 <TableHead>Person</TableHead>
                 <TableHead>Role</TableHead>
                 <TableHead>College</TableHead>
-                <TableHead>Signed in</TableHead>
+                <TableHead>GitHub linked</TableHead>
                 <TableHead className="text-right">Actions</TableHead>
               </TableRow>
             </TableHeader>

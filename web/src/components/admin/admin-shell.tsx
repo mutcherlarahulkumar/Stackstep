@@ -29,6 +29,8 @@ const DESKTOP_NAV: { id: Section; href: string; label: string; icon: LucideIcon 
   { id: "personas", href: "/admin/personas", label: "Personas", icon: UserRoundCog },
 ];
 
+const SR_TITLE: Partial<Record<Section, string>> = { students: "Students", inbox: "Inbox" };
+
 /** What phones get: allocation and the inbox. Everything else is desktop only. */
 const PHONE_NAV: typeof DESKTOP_NAV = [
   { id: "assign", href: "/admin/assign", label: "Assign", icon: Send },
@@ -72,7 +74,7 @@ function Frame({ me, section, phone, children }: { me: Me; section: Section; pho
                   href={n.href}
                   aria-current={active ? "page" : undefined}
                   className={cn(
-                    "text-muted-foreground hover:text-foreground focus-visible:ring-ring flex shrink-0 items-center gap-2 border-b-2 border-transparent px-2.5 text-sm font-medium outline-none focus-visible:ring-2",
+                    "text-muted-foreground hover:text-foreground focus-visible:ring-ring flex shrink-0 items-center gap-2 border-b-2 border-transparent px-2.5 text-sm font-medium outline-none focus-visible:ring-2 focus-visible:ring-inset",
                     active && "border-primary text-foreground",
                   )}
                 >
@@ -91,6 +93,8 @@ function Frame({ me, section, phone, children }: { me: Me; section: Section; pho
       </AppHeader>
       <ConnectionBanner status={socket} />
       <main id="main" className="animate-enter flex min-h-0 flex-1 flex-col">
+        {/* Pages with a visible title render their own h1; the rest get a screen-reader one. */}
+        {SR_TITLE[section] ? <h1 className="sr-only">{SR_TITLE[section]}</h1> : null}
         {desktop === null ? null : !desktop && phone === "gate" ? <DesktopGate /> : children(me, desktop)}
       </main>
     </div>

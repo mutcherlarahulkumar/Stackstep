@@ -57,3 +57,10 @@ export function fromLocalInput(v: string): Date | null {
   const d = new Date(v);
   return Number.isNaN(d.getTime()) ? null : d;
 }
+
+/** What a task card says about time: finished/cancelled tasks never show a due countdown. */
+export function taskTimeLabel(t: { status: string; due_at: Date; updated_at: Date }, now: Date): string {
+  if (t.status === "done") return `Finished ${dateTimeLabel(t.updated_at)}`;
+  if (t.status === "cancelled") return "Cancelled";
+  return dueLabel(t.due_at, now);
+}

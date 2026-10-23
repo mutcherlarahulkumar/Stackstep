@@ -114,10 +114,10 @@ IconData taskTypeIcon(TaskType t) => switch (t) {
 Color personaColor(PersonaColor c) => switch (c) {
   PersonaColor.violet => const Color(0xFF7C3AED),
   PersonaColor.blue => const Color(0xFF2563EB),
-  PersonaColor.emerald => const Color(0xFF059669),
-  PersonaColor.amber => const Color(0xFFD97706),
+  PersonaColor.emerald => const Color(0xFF047857),
+  PersonaColor.amber => const Color(0xFFB45309),
   PersonaColor.rose => const Color(0xFFE11D48),
-  PersonaColor.cyan => const Color(0xFF0891B2),
+  PersonaColor.cyan => const Color(0xFF0E7490),
   PersonaColor.slate => const Color(0xFF475569),
 };
 

@@ -8,7 +8,6 @@ import { useState, type ReactNode } from "react";
 import { toast } from "sonner";
 
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Field, FieldDescription, FieldError, FieldLabel } from "@/components/ui/field";
@@ -16,7 +15,7 @@ import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ApiError, messageFor } from "@/lib/api/errors";
 import { type Certificate } from "@/lib/api/schemas";
-import { certificatePath, dateOnlyLabel, formatCode, isCode, normalizeCode, programLabel, verifyPath } from "@/lib/certificate";
+import { certificatePath, dateOnlyLabel, periodEnd, formatCode, isCode, normalizeCode, programLabel, verifyPath } from "@/lib/certificate";
 import { dateTimeLabel } from "@/lib/format";
 import { useSession } from "@/lib/session";
 
@@ -259,10 +258,7 @@ export function CertificateScreen({ code }: { code: string }) {
         )
       ) : (
         <div className="flex w-full max-w-4xl flex-col gap-4">
-          <div className="flex flex-wrap items-center justify-between gap-2 print:hidden">
-            <span className="text-muted-foreground inline-flex items-center gap-1.5 text-xs">
-              Designed artwork <Badge variant="outline">Coming soon</Badge>
-            </span>
+          <div className="flex flex-wrap items-center justify-end gap-2 print:hidden">
             <div className="flex gap-2">
               <Button variant="outline" asChild>
                 <Link href={verifyPath(q.data.code)}>Verification page</Link>
@@ -302,8 +298,14 @@ function CertificateDocument({ cert }: { cert: Certificate }) {
         <p className="text-sm text-zinc-500">@{cert.github_login}</p>
         <p className="max-w-xl text-base text-balance text-zinc-700 sm:text-lg">
           completed the <span className="font-semibold">{programLabel(cert)}</span>
-          {cert.flow_name ? <> on the {cert.flow_name} track</> : null}, from {dateOnlyLabel(cert.start_date)} to {dateOnlyLabel(cert.end_date)}, finishing{" "}
-          {cert.tasks_done} of {cert.tasks_total} tasks and earning {cert.points} points.
+          {cert.flow_name ? <> on the {cert.flow_name} track</> : null}, from {dateOnlyLabel(cert.start_date)} to {dateOnlyLabel(periodEnd(cert))}
+          {cert.tasks_total > 0 ? (
+            <>
+              , finishing {cert.tasks_done} of {cert.tasks_total} tasks and earning {cert.points} points.
+            </>
+          ) : (
+            "."
+          )}
         </p>
         <div className="mt-2 grid w-full max-w-xl grid-cols-1 gap-4 border-t border-zinc-200 pt-6 text-left text-xs text-zinc-500 sm:grid-cols-2">
           <div>
@@ -312,9 +314,10 @@ function CertificateDocument({ cert }: { cert: Certificate }) {
           </div>
           <div className="sm:text-right">
             <p>Verify at</p>
-            <p className="font-mono text-sm break-all text-zinc-800">
-              {host}
-              {verifyPath(cert.code)}
+            <p className="font-mono text-sm text-zinc-800">
+              <span className="whitespace-nowrap">{host}</span>
+              <wbr />
+              <span className="whitespace-nowrap">{verifyPath(cert.code)}</span>
             </p>
           </div>
         </div>

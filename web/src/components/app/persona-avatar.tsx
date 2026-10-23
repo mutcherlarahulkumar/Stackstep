@@ -7,10 +7,10 @@ import { cn } from "@/lib/utils";
 export const PERSONA_BG: Record<PersonaColor, string> = {
   violet: "bg-violet-600",
   blue: "bg-blue-600",
-  emerald: "bg-emerald-600",
-  amber: "bg-amber-600",
+  emerald: "bg-emerald-700",
+  amber: "bg-amber-700",
   rose: "bg-rose-600",
-  cyan: "bg-cyan-600",
+  cyan: "bg-cyan-700",
   slate: "bg-slate-600",
 };
 

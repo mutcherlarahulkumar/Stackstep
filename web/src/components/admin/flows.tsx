@@ -33,7 +33,7 @@ export function FlowStatus({ flow }: { flow: Pick<FlowSummary, "published_versio
   if (flow.published_version === null) return <Badge variant="outline">Draft · not published</Badge>;
   return (
     <span className="flex flex-wrap items-center gap-1.5">
-      <Badge className="bg-success/14 text-success" variant="secondary">
+      <Badge className="bg-success/14 text-success-strong" variant="secondary">
         Published v{flow.published_version}
       </Badge>
       {flow.has_draft ? <Badge variant="outline">Unpublished changes</Badge> : null}

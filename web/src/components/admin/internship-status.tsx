@@ -15,7 +15,6 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Spinner } from "@/components/ui/spinner";
@@ -61,7 +60,8 @@ export function InternshipStatus({ student, enrollment }: { student: Student; en
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
           <Button variant="outline" disabled={moves.length === 0} data-testid="internship-status">
-            <Badge variant={status === "active" ? "secondary" : "outline"}>{STATUS_LABEL[status]}</Badge>
+            <span className={status === "active" ? "bg-success size-2 rounded-full" : "bg-muted-foreground size-2 rounded-full"} aria-hidden />
+            Status: {STATUS_LABEL[status]}
             {moves.length > 0 ? <ChevronDown data-icon="inline-end" aria-hidden /> : null}
           </Button>
         </DropdownMenuTrigger>

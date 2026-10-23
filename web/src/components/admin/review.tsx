@@ -160,8 +160,8 @@ export function StudentDetail({ student }: { student: Student }) {
       </div>
 
       <Sheet open={assignOpen} onOpenChange={setAssignOpen}>
-        <SheetContent className="w-full overflow-y-auto sm:max-w-md">
-          <SheetHeader>
+        <SheetContent className="w-full overflow-y-auto sm:max-w-lg">
+          <SheetHeader className="bg-popover sticky top-0 z-10 border-b">
             <SheetTitle>Assign a task</SheetTitle>
             <SheetDescription>To {student.user.name}. It appears on their board and the persona you pick announces it in chat.</SheetDescription>
           </SheetHeader>

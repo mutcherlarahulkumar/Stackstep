@@ -93,7 +93,7 @@ func Run(ctx context.Context, q store.Q, now time.Time) error {
 			VALUES ($1, $2, $3, $4, $5, $6) RETURNING id`, ids[login], programID, cohort, start, start.AddDate(0, 0, 29), status).Scan(&id)
 		return id, err
 	}
-	asha, err := enroll(StudentLogin, &cohortID, "active")
+	_, err := enroll(StudentLogin, &cohortID, "active")
 	if err != nil {
 		return fmt.Errorf("enroll asha: %w", err)
 	}
@@ -120,20 +120,25 @@ func Run(ctx context.Context, q store.Q, now time.Time) error {
 		}
 	}
 
-	var hasMessages bool
-	if err := q.QueryRow(ctx, `SELECT EXISTS (SELECT 1 FROM chat_messages WHERE enrollment_id = $1)`, asha).Scan(&hasMessages); err != nil {
-		return err
-	}
-	if !hasMessages {
-		if _, err := q.Exec(ctx, `INSERT INTO chat_threads (enrollment_id, persona_id) VALUES ($1, $2) ON CONFLICT DO NOTHING`,
-			asha, domain.DefaultPersonaID); err != nil {
+	// The team lead welcomes every seeded student, as real enrollments do.
+	welcome := map[string]string{StudentLogin: "Asha", Student2Login: "Ravi", IndieStudentLogin: "Meera", PausedLogin: "Kiran"}
+	for login, first := range welcome {
+		e, err := store.OpenEnrollmentForUser(ctx, q, ids[login])
+		if err != nil {
+			return fmt.Errorf("load %s: %w", login, err)
+		}
+		var has bool
+		if err := q.QueryRow(ctx, `SELECT EXISTS (SELECT 1 FROM chat_messages WHERE enrollment_id = $1 AND persona_id = $2)`, e.ID, domain.DefaultPersonaID).Scan(&has); err != nil {
 			return err
 		}
-		if _, err := q.Exec(ctx, `INSERT INTO chat_messages (enrollment_id, persona_id, author, body, created_at, deliver_at, delivered_at)
-			VALUES ($1, $4, 'persona', $2, $3, $3, $3)`, asha,
-			"Welcome to Stackstep, Asha. I'm your team lead for the next 30 days. Each morning I'll post a standup and drop tickets on your board. Ask me anything here.",
-			now.Add(-time.Hour), domain.DefaultPersonaID); err != nil {
-			return fmt.Errorf("welcome message: %w", err)
+		if has {
+			continue
+		}
+		if _, _, err := store.InsertMessage(ctx, q, store.NewMessage{
+			EnrollmentID: e.ID, PersonaID: domain.DefaultPersonaID, Author: domain.AuthorPersona, DeliverAt: now.Add(-time.Hour),
+			Body: fmt.Sprintf("Welcome to Stackstep, %s. I'm your team lead for the next 30 days. Each morning I'll post a standup and drop tickets on your board. Ask me anything here.", first),
+		}, now.Add(-time.Hour)); err != nil {
+			return fmt.Errorf("welcome %s: %w", login, err)
 		}
 	}
 	return nil

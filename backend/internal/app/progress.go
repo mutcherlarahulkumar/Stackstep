@@ -73,6 +73,9 @@ func (w *Workspace) IssueCertificate(ctx context.Context, u domain.User, enrollm
 		if err != nil {
 			return err
 		}
+		if p.Done == 0 {
+			return apperr.New(apperr.CodeInvalidTransition, "Nothing has been finished yet, so there's nothing to certify.")
+		}
 		c := domain.Certificate{
 			EnrollmentID: e.ID, StudentName: student.Name, GitHubLogin: student.GitHubLogin, ProgramSlug: e.Program.Slug, ProgramDays: e.Program.Days,
 			StartDate: e.StartDate, EndDate: e.EndDate, Points: p.Points, TasksDone: p.Done, TasksTotal: p.Released, IssuedAt: now,

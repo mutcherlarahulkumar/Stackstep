@@ -1,8 +1,22 @@
 import { expect, test } from "@playwright/test";
 
-import { expectToast, signIn } from "./helpers";
+import { api, apiToken, expectToast, signIn } from "./helpers";
 
-test("certificates: issued by hand, verified publicly without signing in, revoked with a reason (CE1–CE4)", async ({ browser }) => {
+test("certificates: issued by hand, verified publicly without signing in, revoked with a reason (CE1–CE4)", async ({ browser, request }) => {
+  // Meera finishes one self-check task first: certificates need finished work (CE0).
+  const adminToken = await apiToken(request, "admin-demo");
+  const found = await api<{ items: { enrollment: { id: string } }[] }>(request, adminToken, "GET", "/v1/admin/students?q=meera");
+  const t = await api<{ id: string; version: number }>(request, adminToken, "POST", `/v1/admin/enrollments/${found.items[0]?.enrollment.id ?? ""}/tasks`, {
+    type: "standup",
+    title: "Post your day-one standup",
+    brief: "What you did, what's next, anything blocking.",
+    review_mode: "self",
+    due_at: new Date(Date.now() + 4 * 3600_000).toISOString(),
+  });
+  const meeraToken = await apiToken(request, "meera-dev");
+  await api(request, meeraToken, "POST", `/v1/tasks/${t.id}/transitions`, { to: "in_progress", expected_version: t.version, note: "" });
+  await api(request, meeraToken, "POST", `/v1/tasks/${t.id}/transitions`, { to: "done", expected_version: t.version + 1, note: "" });
+
   // The student sees how far they are and who issues the certificate.
   const student = await (await browser.newContext({ viewport: { width: 1440, height: 900 } })).newPage();
   await signIn(student, "meera-dev");

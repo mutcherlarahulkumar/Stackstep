@@ -240,7 +240,7 @@ export function SpecFields({
         <Field data-invalid={!!errors.release_window}>
           <FieldLabel htmlFor={id("window")}>Surprise</FieldLabel>
           <Select value={String(value.release_window)} onValueChange={(v) => set("release_window", Number(v))}>
-            <SelectTrigger id={id("window")} className="w-full sm:w-72">
+            <SelectTrigger id={id("window")} className="w-full">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
