@@ -1,0 +1,10 @@
+extends:
+  - recommended
+apis:
+  stackstep:
+    root: api/openapi.yaml
+rules:
+  no-server-example.com: off        # servers list local dev URLs on purpose
+  operation-2xx-response: off       # OAuth redirects (302) and the WebSocket upgrade (101)
+  operation-4xx-response: off
+  no-unused-components: off         # Frame documents WebSocket payloads
