@@ -115,25 +115,23 @@ func (w *Workspace) CreateTask(ctx context.Context, u domain.User, enrollmentID 
 		return domain.Task{}, apperr.New(apperr.CodeEnrollmentNotActive, "This internship is "+string(e.Status)+", so tasks can't be assigned.")
 	}
 	now := w.Clock.Now()
+	if in.PersonaID == uuid.Nil {
+		in.PersonaID = domain.DefaultPersonaID
+	}
 	v, fields := domain.ValidateNewTask(in, e, now)
+	if active, err := store.ActivePersonaIDs(ctx, w.Store.Pool, []uuid.UUID{in.PersonaID}); err != nil {
+		return domain.Task{}, err
+	} else if !active[in.PersonaID] {
+		fields["persona_id"] = "Choose an active persona."
+	}
 	if len(fields) > 0 {
 		return domain.Task{}, apperr.Validation(fields)
 	}
 	var task domain.Task
 	err = w.Store.Tx(ctx, func(q store.Q) error {
 		var err error
-		if task, err = store.InsertTask(ctx, q, e.ID, u.ID, v, now); err != nil {
-			return fmt.Errorf("insert task: %w", err)
-		}
-		if err := store.InsertTaskCreatedEvent(ctx, q, task); err != nil {
+		if task, err = insertAnnouncedTask(ctx, q, e, u.ID, v, now); err != nil {
 			return err
-		}
-		taskID := task.ID
-		if _, _, err := store.InsertMessage(ctx, q, store.NewMessage{
-			EnrollmentID: e.ID, Author: domain.AuthorLead, Body: lead.AnnounceTask(task, e.Location()),
-			TaskID: &taskID, DeliverAt: task.ScheduledFor,
-		}, now); err != nil {
-			return fmt.Errorf("announce task: %w", err)
 		}
 		if task.ScheduledFor.After(now) {
 			return nil // the student sees it when it is due; the announcement's delivery carries the signal
@@ -141,6 +139,25 @@ func (w *Workspace) CreateTask(ctx context.Context, u domain.User, enrollmentID 
 		return store.Notify(ctx, q, store.Event{Kind: store.EventTask, ID: task.ID, EnrollmentID: e.ID})
 	})
 	return task, err
+}
+
+// insertAnnouncedTask stores a task and schedules its persona's announcement for when it releases.
+func insertAnnouncedTask(ctx context.Context, q store.Q, e domain.Enrollment, by uuid.UUID, v domain.ValidatedTask, now time.Time) (domain.Task, error) {
+	task, err := store.InsertTask(ctx, q, e.ID, by, v, now)
+	if err != nil {
+		return domain.Task{}, fmt.Errorf("insert task: %w", err)
+	}
+	if err := store.InsertTaskCreatedEvent(ctx, q, task); err != nil {
+		return domain.Task{}, err
+	}
+	taskID := task.ID
+	if _, _, err := store.InsertMessage(ctx, q, store.NewMessage{
+		EnrollmentID: e.ID, PersonaID: task.PersonaID, Author: domain.AuthorPersona, Body: lead.AnnounceTask(task, e.Location()),
+		TaskID: &taskID, DeliverAt: task.ScheduledFor,
+	}, now); err != nil {
+		return domain.Task{}, fmt.Errorf("announce task: %w", err)
+	}
+	return task, nil
 }
 
 // TransitionInput is a request to move a task.
@@ -204,7 +221,7 @@ func (w *Workspace) Transition(ctx context.Context, u domain.User, taskID uuid.U
 		if t.Version != in.ExpectedVersion {
 			return apperr.New(apperr.CodeVersionConflict, "This task changed since you loaded it.")
 		}
-		if !domain.CanTransition(t.Status, in.To, actor) {
+		if !domain.CanTransition(t.Status, in.To, actor, t.ReviewMode) {
 			return apperr.New(apperr.CodeInvalidTransition, fmt.Sprintf("A task can't move from %s to %s.", t.Status, in.To))
 		}
 		if out, err = store.SetTaskStatus(ctx, q, t, in.To, u.ID, note, now); err != nil {
@@ -212,8 +229,9 @@ func (w *Workspace) Transition(ctx context.Context, u domain.User, taskID uuid.U
 		}
 		if msg := lead.AnnounceTransition(out, in.To, note); actor == domain.ActorStaff && msg != "" {
 			id := out.ID
+			by := u.ID
 			if _, _, err := store.InsertMessage(ctx, q, store.NewMessage{
-				EnrollmentID: e.ID, Author: domain.AuthorLead, Body: msg, TaskID: &id, DeliverAt: now,
+				EnrollmentID: e.ID, PersonaID: out.PersonaID, SentBy: &by, Author: domain.AuthorPersona, Body: msg, TaskID: &id, DeliverAt: now,
 			}, now); err != nil {
 				return fmt.Errorf("announce transition: %w", err)
 			}
@@ -242,18 +260,45 @@ func ValidatePage(limit int, cursor string) (*store.Cursor, map[string]string) {
 	return c, fields
 }
 
-// Messages returns one page of the student's chat, newest first.
-func (w *Workspace) Messages(ctx context.Context, u domain.User, before *store.Cursor, limit int) ([]domain.Message, string, error) {
+// Threads lists the student's conversations, one per persona, newest first.
+func (w *Workspace) Threads(ctx context.Context, u domain.User) ([]store.Thread, error) {
+	e, err := w.requireEnrollment(ctx, u)
+	if err != nil {
+		return nil, err
+	}
+	return store.StudentThreads(ctx, w.Store.Pool, e.ID, w.Clock.Now())
+}
+
+// activePersona returns a persona the student may write to.
+func (w *Workspace) activePersona(ctx context.Context, id uuid.UUID) (domain.Persona, error) {
+	p, err := store.GetPersona(ctx, w.Store.Pool, id)
+	if errors.Is(err, store.ErrNotFound) || err == nil && p.ArchivedAt != nil {
+		return domain.Persona{}, errNotFound
+	}
+	return p, err
+}
+
+// Messages returns one page of a conversation, newest first.
+func (w *Workspace) Messages(ctx context.Context, u domain.User, personaID uuid.UUID, before *store.Cursor, limit int) ([]domain.Message, string, error) {
 	e, err := w.requireEnrollment(ctx, u)
 	if err != nil {
 		return nil, "", err
 	}
+	if _, err := store.GetPersona(ctx, w.Store.Pool, personaID); errors.Is(err, store.ErrNotFound) {
+		return nil, "", errNotFound
+	} else if err != nil {
+		return nil, "", err
+	}
+	return pageMessages(ctx, w.Store.Pool, e.ID, personaID, w.Clock.Now(), before, limit)
+}
+
+func pageMessages(ctx context.Context, q store.Q, enrollmentID, personaID uuid.UUID, now time.Time, before *store.Cursor, limit int) ([]domain.Message, string, error) {
 	if before != nil {
 		if _, err := before.Time(); err != nil {
 			return nil, "", apperr.Validation(map[string]string{"cursor": "Invalid cursor."})
 		}
 	}
-	msgs, err := store.ListMessages(ctx, w.Store.Pool, e.ID, w.Clock.Now(), before, limit+1)
+	msgs, err := store.ListMessages(ctx, q, enrollmentID, personaID, now, before, limit+1)
 	if err != nil {
 		return nil, "", err
 	}
@@ -266,16 +311,29 @@ func (w *Workspace) Messages(ctx context.Context, u domain.User, before *store.C
 	return msgs, next, nil
 }
 
+// MarkRead records that the student read a conversation.
+func (w *Workspace) MarkRead(ctx context.Context, u domain.User, personaID uuid.UUID) error {
+	e, err := w.requireEnrollment(ctx, u)
+	if err != nil {
+		return err
+	}
+	return store.MarkThreadRead(ctx, w.Store.Pool, e.ID, personaID, true, w.Clock.Now())
+}
+
 // SendResult is the outcome of sending a message.
 type SendResult struct {
 	Message domain.Message
 	Created bool
 }
 
-// SendMessage stores a student message and schedules the lead's reply. Retries with the
-// same client id return the original message without a second reply.
-func (w *Workspace) SendMessage(ctx context.Context, u domain.User, clientID uuid.UUID, body string) (SendResult, error) {
+// SendMessage stores a student message to a persona. Auto-reply personas answer after their
+// delay; others are answered by an admin. Retries with the same client id return the original.
+func (w *Workspace) SendMessage(ctx context.Context, u domain.User, personaID, clientID uuid.UUID, body string) (SendResult, error) {
 	e, err := w.requireEnrollment(ctx, u)
+	if err != nil {
+		return SendResult{}, err
+	}
+	persona, err := w.activePersona(ctx, personaID)
 	if err != nil {
 		return SendResult{}, err
 	}
@@ -311,19 +369,25 @@ func (w *Workspace) SendMessage(ctx context.Context, u domain.User, clientID uui
 		if err != nil {
 			return err
 		}
-		cid := clientID
 		if count >= domain.MaxStudentMsgsPerDay {
 			return &apperr.Error{Code: apperr.CodeRateLimited, Message: "You've hit today's message limit.",
 				RetryAfterSeconds: int(dayStart.Add(24*time.Hour).Sub(now).Seconds()) + 1}
 		}
+		cid := clientID
 		msg, created, err := store.InsertMessage(ctx, q, store.NewMessage{
-			EnrollmentID: e.ID, Author: domain.AuthorStudent, Body: clean, ClientID: &cid, DeliverAt: now,
+			EnrollmentID: e.ID, PersonaID: persona.ID, Author: domain.AuthorStudent, Body: clean, ClientID: &cid, DeliverAt: now,
 		}, now)
 		if err != nil {
 			return fmt.Errorf("insert message: %w", err)
 		}
 		res = SendResult{Message: msg, Created: created}
 		if !created {
+			return nil
+		}
+		if err := store.MarkThreadRead(ctx, q, e.ID, persona.ID, true, now); err != nil {
+			return err
+		}
+		if !persona.AutoReply {
 			return nil
 		}
 		open, err := store.ListTasks(ctx, q, e.ID, store.TaskFilter{VisibleAt: &now})
@@ -339,11 +403,11 @@ func (w *Workspace) SendMessage(ctx context.Context, u domain.User, clientID uui
 		}
 		replyBody := strings.TrimSpace(reply.Body)
 		if replyBody == "" || utf8.RuneCountInString(replyBody) > domain.MessageMaxLen {
-			w.Log.WarnContext(ctx, "lead reply dropped: empty or too long", "enrollment", e.ID)
+			w.Log.WarnContext(ctx, "auto reply dropped: empty or too long", "enrollment", e.ID)
 			return nil
 		}
 		_, _, err = store.InsertMessage(ctx, q, store.NewMessage{
-			EnrollmentID: e.ID, Author: domain.AuthorLead, Body: replyBody, DeliverAt: now.Add(max(reply.Delay, 0)),
+			EnrollmentID: e.ID, PersonaID: persona.ID, Author: domain.AuthorPersona, Body: replyBody, DeliverAt: now.Add(max(reply.Delay, 0)),
 		}, now)
 		return err
 	})

@@ -14,6 +14,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
+	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
@@ -68,13 +69,18 @@ func Notify(ctx context.Context, q Q, ev Event) error {
 
 // Cursor is a keyset position: a timestamp-or-text key plus an id tiebreaker.
 type Cursor struct {
-	Key string
-	ID  uuid.UUID
+	Key   string
+	ID    uuid.UUID
+	Extra string // optional third key part
 }
 
 // EncodeCursor returns an opaque cursor string.
 func EncodeCursor(c Cursor) string {
-	return base64.RawURLEncoding.EncodeToString([]byte(c.Key + "\x1f" + c.ID.String()))
+	raw := c.Key + "\x1f" + c.ID.String()
+	if c.Extra != "" {
+		raw += "\x1f" + c.Extra
+	}
+	return base64.RawURLEncoding.EncodeToString([]byte(raw))
 }
 
 // DecodeCursor parses an opaque cursor; empty input means "from the start".
@@ -89,15 +95,19 @@ func DecodeCursor(raw string) (*Cursor, error) {
 	if err != nil {
 		return nil, errors.New("bad cursor encoding")
 	}
-	key, id, ok := strings.Cut(string(b), "\x1f")
-	if !ok {
+	parts := strings.Split(string(b), "\x1f")
+	if len(parts) < 2 || len(parts) > 3 {
 		return nil, errors.New("bad cursor shape")
 	}
-	u, err := uuid.Parse(id)
+	u, err := uuid.Parse(parts[1])
 	if err != nil {
 		return nil, errors.New("bad cursor id")
 	}
-	return &Cursor{Key: key, ID: u}, nil
+	c := &Cursor{Key: parts[0], ID: u}
+	if len(parts) == 3 {
+		c.Extra = parts[2]
+	}
+	return c, nil
 }
 
 // TimeCursor builds a cursor from a timestamp key.
@@ -119,4 +129,12 @@ func notFound(err error) error {
 		return ErrNotFound
 	}
 	return err
+}
+
+// pgTime is how pgx scans a Postgres `time` column.
+type pgTime = pgtype.Time
+
+func isUnique(err error) bool {
+	var pg *pgconn.PgError
+	return errors.As(err, &pg) && pg.Code == "23505"
 }

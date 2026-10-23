@@ -8,9 +8,9 @@ import (
 
 func TestHubCapacityAndSlowSubscribers(t *testing.T) {
 	h := NewHub()
-	id := uuid.New()
+	id := EnrollmentTopic(uuid.New())
 	var subs []*Subscriber
-	for range MaxSubscribersPerEnrollment {
+	for range MaxSubscribersPerTopic {
 		s, ok := h.Subscribe(id)
 		if !ok {
 			t.Fatal("subscribe under capacity failed")

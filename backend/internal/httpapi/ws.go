@@ -12,6 +12,8 @@ import (
 	"github.com/coder/websocket"
 	"github.com/gin-gonic/gin"
 
+	"github.com/mutcherlarahulkumar/stackstep/backend/internal/domain"
+	"github.com/mutcherlarahulkumar/stackstep/backend/internal/realtime"
 	"github.com/mutcherlarahulkumar/stackstep/backend/internal/store"
 )
 
@@ -65,17 +67,31 @@ func (s *Server) websocket(c *gin.Context) {
 		_ = conn.Close(wsCloseAuth, "unauthenticated")
 		return
 	}
-	e, err := s.workspace.OpenEnrollment(ctx, u)
-	if err != nil || e == nil {
-		_ = conn.Close(wsCloseNoEnroll, "no active enrollment")
-		return
+	var topic realtime.Topic
+	switch {
+	case u.Role.IsStaff():
+		college := u.CollegeID
+		if u.Role == domain.RoleAdmin {
+			college = nil
+		} else if college == nil {
+			_ = conn.Close(wsCloseNoEnroll, "no college")
+			return
+		}
+		topic = realtime.StaffTopic(college)
+	default:
+		e, err := s.workspace.OpenEnrollment(ctx, u)
+		if err != nil || e == nil {
+			_ = conn.Close(wsCloseNoEnroll, "no active enrollment")
+			return
+		}
+		topic = realtime.EnrollmentTopic(e.ID)
 	}
-	sub, ok := s.hub.Subscribe(e.ID)
+	sub, ok := s.hub.Subscribe(topic)
 	if !ok {
 		_ = conn.Close(wsCloseCapacity, "too many connections")
 		return
 	}
-	defer s.hub.Unsubscribe(e.ID, sub)
+	defer s.hub.Unsubscribe(topic, sub)
 
 	ctx = conn.CloseRead(ctx) // we never read client frames; this handles pings and close
 	write := func(b []byte) error {
@@ -112,9 +128,10 @@ func (s *Server) websocket(c *gin.Context) {
 	}
 }
 
-// EncodeEvent turns a NOTIFY event into a client frame. Messages not yet due and tasks not
-// yet visible are skipped; the deliverer and the announcement message carry them later.
-func (s *Server) EncodeEvent(ctx context.Context, ev store.Event) ([]byte, error) {
+// EncodeEvent turns a NOTIFY event into frames. Messages go to the student and to staff in
+// the student's scope; tasks only to the student. Messages not yet due and tasks not yet
+// visible are skipped; the deliverer and the announcement message carry them later.
+func (s *Server) EncodeEvent(ctx context.Context, ev store.Event) ([]realtime.Delivery, error) {
 	now := s.clock.Now()
 	switch ev.Kind {
 	case store.EventMessage:
@@ -126,7 +143,15 @@ func (s *Server) EncodeEvent(ctx context.Context, ev store.Event) ([]byte, error
 			return nil, err
 		}
 		dto := toMessage(m)
-		return json.Marshal(frame{Type: frameMessage, Message: &dto})
+		b, err := json.Marshal(frame{Type: frameMessage, Message: &dto})
+		if err != nil {
+			return nil, err
+		}
+		topics := []realtime.Topic{realtime.EnrollmentTopic(m.EnrollmentID), realtime.StaffTopic(nil)}
+		if e, err := store.GetEnrollment(ctx, s.store.Pool, m.EnrollmentID); err == nil && e.CollegeID != nil {
+			topics = append(topics, realtime.StaffTopic(e.CollegeID))
+		}
+		return []realtime.Delivery{{Frame: b, Topics: topics}}, nil
 	case store.EventTask:
 		t, err := store.GetTask(ctx, s.store.Pool, ev.ID)
 		if errors.Is(err, store.ErrNotFound) || err == nil && t.ScheduledFor.After(now) {
@@ -136,7 +161,11 @@ func (s *Server) EncodeEvent(ctx context.Context, ev store.Event) ([]byte, error
 			return nil, err
 		}
 		dto := toTask(t)
-		return json.Marshal(frame{Type: frameTask, Task: &dto})
+		b, err := json.Marshal(frame{Type: frameTask, Task: &dto})
+		if err != nil {
+			return nil, err
+		}
+		return []realtime.Delivery{{Frame: b, Topics: []realtime.Topic{realtime.EnrollmentTopic(t.EnrollmentID)}}}, nil
 	}
 	return nil, nil
 }

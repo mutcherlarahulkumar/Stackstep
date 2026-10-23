@@ -8,6 +8,8 @@ import (
 
 	"github.com/google/uuid"
 
+	"github.com/mutcherlarahulkumar/stackstep/backend/internal/app"
+	"github.com/mutcherlarahulkumar/stackstep/backend/internal/domain"
 	"github.com/mutcherlarahulkumar/stackstep/backend/internal/store"
 )
 
@@ -17,14 +19,15 @@ const (
 	CollegeAdminLogin = "anits-tpo"
 	StudentLogin      = "asha-dev"
 	Student2Login     = "ravi-dev"
-	IndieStudentLogin = "meera-dev"
+	IndieStudentLogin = "meera-dev" // follows the seeded React flow
 	PausedLogin       = "kiran-dev"
 	NoEnrollLogin     = "nora-dev"
 )
 
 // Reset deletes all workspace data. Never call this against production.
 func Reset(ctx context.Context, q store.Q) error {
-	_, err := q.Exec(ctx, `TRUNCATE task_events, chat_messages, tasks, enrollments, cohorts, login_codes, refresh_tokens, users, colleges RESTART IDENTITY CASCADE`)
+	_, err := q.Exec(ctx, `TRUNCATE task_events, chat_threads, chat_messages, tasks, enrollments, flow_items, flow_versions, flows,
+		task_templates, personas, cohorts, login_codes, refresh_tokens, users, colleges RESTART IDENTITY CASCADE`)
 	return err
 }
 
@@ -101,17 +104,108 @@ func Run(ctx context.Context, q store.Q, now time.Time) error {
 		return fmt.Errorf("enroll kiran: %w", err)
 	}
 
+	if err := seedCatalog(ctx, q, ids[AdminLogin], now); err != nil {
+		return fmt.Errorf("catalog: %w", err)
+	}
+	meera, err := store.OpenEnrollmentForUser(ctx, q, ids[IndieStudentLogin])
+	if err != nil {
+		return fmt.Errorf("load meera: %w", err)
+	}
+	if meera.Flow == nil {
+		if _, err := app.ApplyFlow(ctx, q, meera, ReactFlowID, ids[AdminLogin], now); err != nil {
+			return fmt.Errorf("assign flow: %w", err)
+		}
+	}
+
 	var hasMessages bool
 	if err := q.QueryRow(ctx, `SELECT EXISTS (SELECT 1 FROM chat_messages WHERE enrollment_id = $1)`, asha).Scan(&hasMessages); err != nil {
 		return err
 	}
 	if !hasMessages {
-		if _, err := q.Exec(ctx, `INSERT INTO chat_messages (enrollment_id, author, body, created_at, deliver_at, delivered_at)
-			VALUES ($1, 'lead', $2, $3, $3, $3)`, asha,
+		if _, err := q.Exec(ctx, `INSERT INTO chat_threads (enrollment_id, persona_id) VALUES ($1, $2) ON CONFLICT DO NOTHING`,
+			asha, domain.DefaultPersonaID); err != nil {
+			return err
+		}
+		if _, err := q.Exec(ctx, `INSERT INTO chat_messages (enrollment_id, persona_id, author, body, created_at, deliver_at, delivered_at)
+			VALUES ($1, $4, 'persona', $2, $3, $3, $3)`, asha,
 			"Welcome to Stackstep, Asha. I'm your team lead for the next 30 days. Each morning I'll post a standup and drop tickets on your board. Ask me anything here.",
-			now.Add(-time.Hour)); err != nil {
+			now.Add(-time.Hour), domain.DefaultPersonaID); err != nil {
 			return fmt.Errorf("welcome message: %w", err)
 		}
 	}
 	return nil
+}
+
+// Seeded catalog ids, fixed so tests and demos can refer to them.
+var (
+	EngineeringManagerID = uuid.MustParse("00000000-0000-4000-8000-0000000000a1")
+	DeliveryManagerID    = uuid.MustParse("00000000-0000-4000-8000-0000000000a2")
+	ContentLeadID        = uuid.MustParse("00000000-0000-4000-8000-0000000000a3")
+	ReactFlowID          = uuid.MustParse("00000000-0000-4000-8000-0000000000f1")
+)
+
+type seedTask struct {
+	day          int
+	typ          domain.TaskType
+	title, brief string
+	persona      uuid.UUID
+	review       domain.ReviewMode
+	release      string
+	dueMinutes   int
+}
+
+// seedCatalog creates the default personas, a small task library and a published
+// "React Frontend · 30 days" flow whose tasks come from three different managers.
+func seedCatalog(ctx context.Context, q store.Q, admin uuid.UUID, now time.Time) error {
+	if _, err := q.Exec(ctx, `INSERT INTO personas (id, name, title, color, auto_reply) VALUES
+		($1, 'Sam Rivera', 'Team Lead', 'violet', true),
+		($2, 'Priya Sharma', 'Engineering Manager', 'emerald', false),
+		($3, 'Arjun Mehta', 'Delivery Manager', 'blue', false),
+		($4, 'Neha Kapoor', 'Content Lead', 'rose', false)
+		ON CONFLICT (id) DO NOTHING`, domain.DefaultPersonaID, EngineeringManagerID, DeliveryManagerID, ContentLeadID); err != nil {
+		return err
+	}
+	var exists bool
+	if err := q.QueryRow(ctx, "SELECT EXISTS (SELECT 1 FROM flows WHERE id = $1)", ReactFlowID).Scan(&exists); err != nil || exists {
+		return err
+	}
+	tasks := []seedTask{
+		{1, domain.TaskStandup, "Introduce yourself to the team", "Post a short intro: your college, what you want to build, and one thing you want to learn.", domain.DefaultPersonaID, domain.ReviewSelf, "10:00", 240},
+		{1, domain.TaskGitChore, "Set up Git and open your first PR", "Clone the starter repo, add your name to README.md on branch `chore/intro`, and open a PR.", DeliveryManagerID, domain.ReviewManual, "11:00", 480},
+		{2, domain.TaskDSA, "Two Sum", "Solve Two Sum in O(n). Explain your approach in two sentences.", EngineeringManagerID, domain.ReviewManual, "10:30", 360},
+		{2, domain.TaskFeature, "Build the portfolio hero section", "Name, title, a short bio and links. Mobile first. Branch: `feat/hero`.", DeliveryManagerID, domain.ReviewManual, "11:00", 1440},
+		{3, domain.TaskDocReading, "Read MDN: Flexbox", "Read the MDN Flexbox guide and note three properties you will use this week.", DeliveryManagerID, domain.ReviewSelf, "09:30", 240},
+		{3, domain.TaskDSA, "Valid Anagram", "Use a frequency map. Mention the time and space complexity.", EngineeringManagerID, domain.ReviewManual, "12:00", 360},
+		{3, domain.TaskBlog, "Write: what I learned in week one", "300–500 words on your setup, your first PR and one mistake you fixed. Publish on Hashnode or dev.to.", ContentLeadID, domain.ReviewManual, "15:00", 2880},
+		{4, domain.TaskFeature, "Projects grid with filters", "Show your projects as cards with tag filters. Branch: `feat/projects`.", DeliveryManagerID, domain.ReviewManual, "10:00", 1440},
+		{4, domain.TaskDSA, "Best Time to Buy and Sell Stock", "One pass, constant space.", EngineeringManagerID, domain.ReviewManual, "12:00", 360},
+		{5, domain.TaskStandup, "Friday standup", "What shipped this week, what's blocked, what's next.", domain.DefaultPersonaID, domain.ReviewSelf, "17:00", 120},
+	}
+	if _, err := q.Exec(ctx, `INSERT INTO flows (id, name, stream, description, days, created_by, created_at, updated_at)
+		VALUES ($1, 'React Frontend · 30 days', 'React', 'Portfolio site, two React projects and a capstone, with daily DSA and writing.', 30, $2, $3, $3)`,
+		ReactFlowID, admin, now); err != nil {
+		return err
+	}
+	var versionID uuid.UUID
+	if err := q.QueryRow(ctx, `INSERT INTO flow_versions (flow_id, number, status, published_at, created_at)
+		VALUES ($1, 1, 'published', $2, $2) RETURNING id`, ReactFlowID, now).Scan(&versionID); err != nil {
+		return err
+	}
+	items := make([]domain.FlowItem, 0, len(tasks))
+	perDay := map[int]int{}
+	for _, t := range tasks {
+		release, ok := domain.ParseClockTime(t.release)
+		if !ok {
+			return fmt.Errorf("bad seed time %q", t.release)
+		}
+		spec := domain.TaskSpec{Type: t.typ, Title: t.title, Brief: t.brief, PersonaID: t.persona, ReviewMode: t.review, ReleaseTime: release, DueMinutes: t.dueMinutes}
+		tpl, err := store.InsertTemplate(ctx, q, spec, admin, now)
+		if err != nil {
+			return err
+		}
+		id := tpl.ID
+		items = append(items, domain.FlowItem{Day: t.day, Position: perDay[t.day], TemplateID: &id, Spec: spec})
+		perDay[t.day]++
+	}
+	return store.InsertFlowItems(ctx, q, versionID, items)
 }

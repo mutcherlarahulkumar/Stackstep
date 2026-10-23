@@ -98,7 +98,7 @@ func TestWebSocketDeliversMessagesAndTasks(t *testing.T) {
 
 	e.clock.Advance(31 * time.Second) // lead reply becomes due; the deliverer pushes it
 	f = readFrame(t, c)
-	if f.Type != frameMessage || f.Message.Author != "lead" {
+	if f.Type != frameMessage || f.Message.Author != "persona" {
 		t.Fatalf("lead frame = %+v", f)
 	}
 

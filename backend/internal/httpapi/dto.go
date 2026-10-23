@@ -6,6 +6,7 @@ import (
 	"github.com/google/uuid"
 
 	"github.com/mutcherlarahulkumar/stackstep/backend/internal/app"
+	"github.com/mutcherlarahulkumar/stackstep/backend/internal/apperr"
 	"github.com/mutcherlarahulkumar/stackstep/backend/internal/domain"
 	"github.com/mutcherlarahulkumar/stackstep/backend/internal/store"
 )
@@ -40,6 +41,14 @@ type enrollmentDTO struct {
 	Timezone  string                  `json:"timezone"`
 	Status    domain.EnrollmentStatus `json:"status"`
 	DayNumber int                     `json:"day_number"`
+	Flow      *enrollmentFlowDTO      `json:"flow"`
+}
+
+type enrollmentFlowDTO struct {
+	FlowID    uuid.UUID `json:"flow_id"`
+	VersionID uuid.UUID `json:"version_id"`
+	Name      string    `json:"name"`
+	Version   int       `json:"version"`
 }
 
 func toEnrollment(e domain.Enrollment, now time.Time) enrollmentDTO {
@@ -51,7 +60,15 @@ func toEnrollment(e domain.Enrollment, now time.Time) enrollmentDTO {
 		Timezone:  e.Timezone,
 		Status:    e.Status,
 		DayNumber: e.DayNumber(now),
+		Flow:      toEnrollmentFlow(e.Flow),
 	}
+}
+
+func toEnrollmentFlow(f *domain.EnrollmentFlow) *enrollmentFlowDTO {
+	if f == nil {
+		return nil
+	}
+	return &enrollmentFlowDTO{FlowID: f.FlowID, VersionID: f.VersionID, Name: f.Name, Version: f.Number}
 }
 
 type taskDTO struct {
@@ -66,11 +83,15 @@ type taskDTO struct {
 	Version      int               `json:"version"`
 	CreatedAt    time.Time         `json:"created_at"`
 	UpdatedAt    time.Time         `json:"updated_at"`
+	ReviewMode   domain.ReviewMode `json:"review_mode"`
+	PersonaID    uuid.UUID         `json:"persona_id"`
+	FromFlow     bool              `json:"from_flow"`
 }
 
 func toTask(t domain.Task) taskDTO {
 	return taskDTO{ID: t.ID, EnrollmentID: t.EnrollmentID, Type: t.Type, Title: t.Title, Brief: t.Brief, Status: t.Status,
-		ScheduledFor: t.ScheduledFor.UTC(), DueAt: t.DueAt.UTC(), Version: t.Version, CreatedAt: t.CreatedAt.UTC(), UpdatedAt: t.UpdatedAt.UTC()}
+		ScheduledFor: t.ScheduledFor.UTC(), DueAt: t.DueAt.UTC(), Version: t.Version, CreatedAt: t.CreatedAt.UTC(), UpdatedAt: t.UpdatedAt.UTC(),
+		ReviewMode: t.ReviewMode, PersonaID: t.PersonaID, FromFlow: t.FlowItemID != nil}
 }
 
 func toTasks(ts []domain.Task) []taskDTO {
@@ -82,16 +103,18 @@ func toTasks(ts []domain.Task) []taskDTO {
 }
 
 type messageDTO struct {
-	ID       uuid.UUID     `json:"id"`
-	Author   domain.Author `json:"author"`
-	Body     string        `json:"body"`
-	TaskID   *uuid.UUID    `json:"task_id"`
-	ClientID *uuid.UUID    `json:"client_id"`
-	SentAt   time.Time     `json:"sent_at"`
+	ID           uuid.UUID     `json:"id"`
+	EnrollmentID uuid.UUID     `json:"enrollment_id"`
+	PersonaID    uuid.UUID     `json:"persona_id"`
+	Author       domain.Author `json:"author"`
+	Body         string        `json:"body"`
+	TaskID       *uuid.UUID    `json:"task_id"`
+	ClientID     *uuid.UUID    `json:"client_id"`
+	SentAt       time.Time     `json:"sent_at"`
 }
 
 func toMessage(m domain.Message) messageDTO {
-	return messageDTO{ID: m.ID, Author: m.Author, Body: m.Body, TaskID: m.TaskID, ClientID: m.ClientID, SentAt: m.SentAt.UTC()}
+	return messageDTO{ID: m.ID, EnrollmentID: m.EnrollmentID, PersonaID: m.PersonaID, Author: m.Author, Body: m.Body, TaskID: m.TaskID, ClientID: m.ClientID, SentAt: m.SentAt.UTC()}
 }
 
 type meDTO struct {
@@ -137,11 +160,13 @@ type refreshReq struct {
 }
 
 type createTaskReq struct {
-	Type         domain.TaskType `json:"type"`
-	Title        string          `json:"title"`
-	Brief        string          `json:"brief"`
-	ScheduledFor *time.Time      `json:"scheduled_for"`
-	DueAt        time.Time       `json:"due_at"`
+	Type         domain.TaskType   `json:"type"`
+	PersonaID    *uuid.UUID        `json:"persona_id"`
+	ReviewMode   domain.ReviewMode `json:"review_mode"`
+	Title        string            `json:"title"`
+	Brief        string            `json:"brief"`
+	ScheduledFor *time.Time        `json:"scheduled_for"`
+	DueAt        time.Time         `json:"due_at"`
 }
 
 type transitionReq struct {
@@ -173,4 +198,254 @@ type frame struct {
 	Type    frameType   `json:"type"`
 	Message *messageDTO `json:"message,omitempty"`
 	Task    *taskDTO    `json:"task,omitempty"`
+}
+
+// ---- Feature 02 wire types ----
+
+type personaDTO struct {
+	ID        uuid.UUID           `json:"id"`
+	Name      string              `json:"name"`
+	Title     string              `json:"title"`
+	Color     domain.PersonaColor `json:"color"`
+	AutoReply bool                `json:"auto_reply"`
+	Archived  bool                `json:"archived"`
+	Version   int                 `json:"version"`
+}
+
+func toPersona(p domain.Persona) personaDTO {
+	return personaDTO{ID: p.ID, Name: p.Name, Title: p.Title, Color: p.Color, AutoReply: p.AutoReply, Archived: p.ArchivedAt != nil, Version: p.Version}
+}
+
+type personaReq struct {
+	Name            string              `json:"name"`
+	Title           string              `json:"title"`
+	Color           domain.PersonaColor `json:"color"`
+	AutoReply       bool                `json:"auto_reply"`
+	Archived        bool                `json:"archived"`
+	ExpectedVersion int                 `json:"expected_version"`
+}
+
+func (r personaReq) input() domain.PersonaInput {
+	return domain.PersonaInput{Name: r.Name, Title: r.Title, Color: r.Color, AutoReply: r.AutoReply}
+}
+
+type taskSpecDTO struct {
+	Type        domain.TaskType   `json:"type"`
+	Title       string            `json:"title"`
+	Brief       string            `json:"brief"`
+	PersonaID   uuid.UUID         `json:"persona_id"`
+	ReviewMode  domain.ReviewMode `json:"review_mode"`
+	ReleaseTime string            `json:"release_time"`
+	DueMinutes  int               `json:"due_minutes"`
+}
+
+func toSpec(s domain.TaskSpec) taskSpecDTO {
+	return taskSpecDTO{Type: s.Type, Title: s.Title, Brief: s.Brief, PersonaID: s.PersonaID, ReviewMode: s.ReviewMode,
+		ReleaseTime: s.ReleaseTime.String(), DueMinutes: s.DueMinutes}
+}
+
+func (s taskSpecDTO) input() domain.TaskSpecInput {
+	return domain.TaskSpecInput{Type: s.Type, Title: s.Title, Brief: s.Brief, PersonaID: s.PersonaID, ReviewMode: s.ReviewMode,
+		ReleaseTime: s.ReleaseTime, DueMinutes: s.DueMinutes}
+}
+
+type templateDTO struct {
+	ID uuid.UUID `json:"id"`
+	taskSpecDTO
+	Archived  bool      `json:"archived"`
+	Version   int       `json:"version"`
+	UpdatedAt time.Time `json:"updated_at"`
+}
+
+func toTemplate(t domain.Template) templateDTO {
+	return templateDTO{ID: t.ID, taskSpecDTO: toSpec(t.Spec), Archived: t.ArchivedAt != nil, Version: t.Version, UpdatedAt: t.UpdatedAt.UTC()}
+}
+
+type templateReq struct {
+	Type            domain.TaskType   `json:"type"`
+	Title           string            `json:"title"`
+	Brief           string            `json:"brief"`
+	PersonaID       uuid.UUID         `json:"persona_id"`
+	ReviewMode      domain.ReviewMode `json:"review_mode"`
+	ReleaseTime     string            `json:"release_time"`
+	DueMinutes      int               `json:"due_minutes"`
+	Archived        bool              `json:"archived"`
+	ExpectedVersion int               `json:"expected_version"`
+}
+
+func (r templateReq) spec() domain.TaskSpecInput {
+	return domain.TaskSpecInput{Type: r.Type, Title: r.Title, Brief: r.Brief, PersonaID: r.PersonaID, ReviewMode: r.ReviewMode,
+		ReleaseTime: r.ReleaseTime, DueMinutes: r.DueMinutes}
+}
+
+type flowDTO struct {
+	ID          uuid.UUID `json:"id"`
+	Name        string    `json:"name"`
+	Stream      string    `json:"stream"`
+	Description string    `json:"description"`
+	Days        int       `json:"days"`
+	Archived    bool      `json:"archived"`
+	Version     int       `json:"version"`
+	UpdatedAt   time.Time `json:"updated_at"`
+}
+
+func toFlow(f domain.Flow) flowDTO {
+	return flowDTO{ID: f.ID, Name: f.Name, Stream: f.Stream, Description: f.Description, Days: f.Days, Archived: f.ArchivedAt != nil,
+		Version: f.Version, UpdatedAt: f.UpdatedAt.UTC()}
+}
+
+type flowSummaryDTO struct {
+	flowDTO
+	PublishedVersion *int `json:"published_version"`
+	HasDraft         bool `json:"has_draft"`
+	TaskCount        int  `json:"task_count"`
+	ActiveStudents   int  `json:"active_students"`
+}
+
+type flowItemDTO struct {
+	ID         uuid.UUID  `json:"id"`
+	Day        int        `json:"day"`
+	Position   int        `json:"position"`
+	TemplateID *uuid.UUID `json:"template_id"`
+	taskSpecDTO
+}
+
+type flowVersionDTO struct {
+	ID          uuid.UUID                `json:"id"`
+	Number      int                      `json:"number"`
+	Status      domain.FlowVersionStatus `json:"status"`
+	Revision    int                      `json:"revision"`
+	PublishedAt *time.Time               `json:"published_at"`
+	Items       []flowItemDTO            `json:"items"`
+}
+
+func toVersion(v *domain.FlowVersion) *flowVersionDTO {
+	if v == nil {
+		return nil
+	}
+	items := make([]flowItemDTO, len(v.Items))
+	for i, it := range v.Items {
+		items[i] = flowItemDTO{ID: it.ID, Day: it.Day, Position: it.Position, TemplateID: it.TemplateID, taskSpecDTO: toSpec(it.Spec)}
+	}
+	return &flowVersionDTO{ID: v.ID, Number: v.Number, Status: v.Status, Revision: v.Revision, PublishedAt: v.PublishedAt, Items: items}
+}
+
+type flowDetailDTO struct {
+	Flow      flowDTO         `json:"flow"`
+	Draft     *flowVersionDTO `json:"draft"`
+	Published *flowVersionDTO `json:"published"`
+}
+
+func toFlowDetail(d app.FlowDetail) flowDetailDTO {
+	return flowDetailDTO{Flow: toFlow(d.Flow), Draft: toVersion(d.Draft), Published: toVersion(d.Published)}
+}
+
+type flowReq struct {
+	Name            string `json:"name"`
+	Stream          string `json:"stream"`
+	Description     string `json:"description"`
+	Days            int    `json:"days"`
+	Archived        bool   `json:"archived"`
+	ExpectedVersion int    `json:"expected_version"`
+}
+
+func (r flowReq) input() domain.FlowInput {
+	return domain.FlowInput{Name: r.Name, Stream: r.Stream, Description: r.Description, Days: r.Days}
+}
+
+type duplicateReq struct {
+	Name   string `json:"name"`
+	Stream string `json:"stream"`
+}
+
+type draftItemReq struct {
+	Day        int        `json:"day"`
+	TemplateID *uuid.UUID `json:"template_id"`
+	taskSpecDTO
+}
+
+type draftReq struct {
+	ExpectedRevision int            `json:"expected_revision"`
+	Items            []draftItemReq `json:"items"`
+}
+
+type publishReq struct {
+	ExpectedRevision int `json:"expected_revision"`
+}
+
+type assignFlowReq struct {
+	FlowID uuid.UUID `json:"flow_id"`
+}
+
+type bulkAssignReq struct {
+	EnrollmentIDs []uuid.UUID `json:"enrollment_ids"`
+}
+
+type itemErrorDTO struct {
+	Code    apperr.Code       `json:"code"`
+	Message string            `json:"message"`
+	Fields  map[string]string `json:"fields,omitempty"`
+}
+
+func toItemError(e *apperr.Error) *itemErrorDTO {
+	if e == nil {
+		return nil
+	}
+	return &itemErrorDTO{Code: e.Code, Message: e.Message, Fields: e.Fields}
+}
+
+type assignResultDTO struct {
+	EnrollmentID uuid.UUID     `json:"enrollment_id"`
+	Generated    int           `json:"generated"`
+	Skipped      int           `json:"skipped"`
+	Cancelled    int           `json:"cancelled"`
+	Error        *itemErrorDTO `json:"error"`
+}
+
+func toAssignResult(r app.AssignResult) assignResultDTO {
+	return assignResultDTO{EnrollmentID: r.EnrollmentID, Generated: r.Generated, Skipped: r.Skipped, Cancelled: r.Cancelled, Error: toItemError(r.Err)}
+}
+
+type threadDTO struct {
+	EnrollmentID uuid.UUID   `json:"enrollment_id"`
+	Persona      personaDTO  `json:"persona"`
+	LastMessage  *messageDTO `json:"last_message"`
+	Unread       int         `json:"unread"`
+}
+
+type staffThreadDTO struct {
+	threadDTO
+	Student threadStudentDTO `json:"student"`
+}
+
+type threadStudentDTO struct {
+	Name        string  `json:"name"`
+	GitHubLogin string  `json:"github_login"`
+	AvatarURL   *string `json:"avatar_url"`
+}
+
+func toThread(t store.Thread, staff bool) threadDTO {
+	var last *messageDTO
+	if t.LastMessage != nil {
+		m := toMessage(*t.LastMessage)
+		last = &m
+	}
+	unread := t.UnreadStudent
+	if staff {
+		unread = t.UnreadStaff
+	}
+	return threadDTO{EnrollmentID: t.EnrollmentID, Persona: toPersona(t.Persona), LastMessage: last, Unread: unread}
+}
+
+type broadcastReq struct {
+	PersonaID     uuid.UUID   `json:"persona_id"`
+	ClientID      uuid.UUID   `json:"client_id"`
+	EnrollmentIDs []uuid.UUID `json:"enrollment_ids"`
+	Body          string      `json:"body"`
+}
+
+type broadcastResultDTO struct {
+	EnrollmentID uuid.UUID     `json:"enrollment_id"`
+	Sent         bool          `json:"sent"`
+	Error        *itemErrorDTO `json:"error"`
 }

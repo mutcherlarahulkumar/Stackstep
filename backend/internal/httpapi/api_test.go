@@ -16,6 +16,7 @@ import (
 
 	"github.com/mutcherlarahulkumar/stackstep/backend/internal/auth"
 	"github.com/mutcherlarahulkumar/stackstep/backend/internal/config"
+	"github.com/mutcherlarahulkumar/stackstep/backend/internal/domain"
 	"github.com/mutcherlarahulkumar/stackstep/backend/internal/seed"
 )
 
@@ -386,7 +387,7 @@ func TestTaskLifecycleAndAnnouncements(t *testing.T) {
 	var msgs struct {
 		Items []messageDTO `json:"items"`
 	}
-	e.expect(e.do("GET", "/v1/me/messages", stu, nil), 200).json(t, &msgs)
+	e.expect(e.do("GET", leadThread, stu, nil), 200).json(t, &msgs)
 	joined := ""
 	for _, m := range msgs.Items {
 		joined += m.Body + "\n"
@@ -429,8 +430,10 @@ func TestCollegeAdminCannotReviewOutsideCollege(t *testing.T) {
 		Items []taskResp `json:"items"`
 	}
 	e.expect(e.do("GET", "/v1/me/tasks", e.login(seed.IndieStudentLogin), nil), 200).json(t, &board)
-	if len(board.Items) != 0 {
-		t.Fatalf("board = %+v", board.Items)
+	for _, it := range board.Items {
+		if it.ID == task.ID {
+			t.Fatalf("cancelled task still on the board: %+v", it)
+		}
 	}
 }
 
@@ -464,7 +467,7 @@ func TestFutureTaskHiddenUntilScheduled(t *testing.T) {
 // ---- Chat (C1–C8) ----
 
 func send(e *env, tok string, clientID uuid.UUID, body string) resp {
-	return e.do("POST", "/v1/me/messages", tok, map[string]any{"client_id": clientID, "body": body})
+	return e.do("POST", leadThread, tok, map[string]any{"client_id": clientID, "body": body})
 }
 
 func TestMessageValidation(t *testing.T) {
@@ -477,7 +480,7 @@ func TestMessageValidation(t *testing.T) {
 		}
 	}
 	e.expect(send(e, stu, uuid.Nil, "hi"), 422)
-	e.expect(e.do("POST", "/v1/me/messages", stu, `{"client_id":"nope","body":"hi"}`), 400)
+	e.expect(e.do("POST", leadThread, stu, `{"client_id":"nope","body":"hi"}`), 400)
 	e.expect(send(e, stu, uuid.New(), strings.Repeat("x", 4000)), 201)
 }
 
@@ -496,7 +499,7 @@ func TestMessageIdempotentAndLeadReplyDelayed(t *testing.T) {
 		var page struct {
 			Items []messageDTO `json:"items"`
 		}
-		e.expect(e.do("GET", "/v1/me/messages", stu, nil), 200).json(t, &page)
+		e.expect(e.do("GET", leadThread, stu, nil), 200).json(t, &page)
 		return page.Items
 	}
 	items := list()
@@ -505,7 +508,7 @@ func TestMessageIdempotentAndLeadReplyDelayed(t *testing.T) {
 	}
 	e.clock.Advance(30 * time.Second)
 	items = list()
-	if len(items) != 3 || items[0].Author != "lead" || !strings.Contains(items[0].Body, "review it shortly") {
+	if len(items) != 3 || items[0].Author != "persona" || !strings.Contains(items[0].Body, "review it shortly") {
 		t.Fatalf("after delay: %+v", items)
 	}
 }
@@ -516,8 +519,8 @@ func TestMessageRateLimit(t *testing.T) {
 	enr := e.enrollmentOf(seed.StudentLogin)
 	now := e.clock.Now()
 	if _, err := e.store.Pool.Exec(context.Background(), `
-		INSERT INTO chat_messages (enrollment_id, author, body, client_id, created_at, deliver_at, delivered_at)
-		SELECT $1, 'student', 'm' || g, gen_random_uuid(), $2, $2, $2 FROM generate_series(1, 199) g`, enr, now); err != nil {
+		INSERT INTO chat_messages (enrollment_id, persona_id, author, body, client_id, created_at, deliver_at, delivered_at)
+		SELECT $1, $3, 'student', 'm' || g, gen_random_uuid(), $2, $2, $2 FROM generate_series(1, 199) g`, enr, now, domain.DefaultPersonaID); err != nil {
 		t.Fatal(err)
 	}
 	lastOK := uuid.New()
@@ -547,7 +550,7 @@ func TestMessagePagination(t *testing.T) {
 	cursor := ""
 	pages := 0
 	for {
-		path := "/v1/me/messages?limit=4"
+		path := leadThread + "?limit=4"
 		if cursor != "" {
 			path += "&cursor=" + cursor
 		}
@@ -572,7 +575,7 @@ func TestMessagePagination(t *testing.T) {
 		t.Fatalf("seen %d messages over %d pages", len(seen), pages)
 	}
 	for _, bad := range []string{"limit=0", "limit=101", "limit=x", "cursor=!!"} {
-		e.expect(e.do("GET", "/v1/me/messages?"+bad, stu, nil), 422)
+		e.expect(e.do("GET", leadThread+"?"+bad, stu, nil), 422)
 	}
 }
 
@@ -584,7 +587,7 @@ func TestNoActiveEnrollment(t *testing.T) {
 	}
 	for _, r := range []resp{
 		e.do("GET", "/v1/me/tasks", tok, nil),
-		e.do("GET", "/v1/me/messages", tok, nil),
+		e.do("GET", leadThread, tok, nil),
 		send(e, tok, uuid.New(), "hello"),
 	} {
 		e.expect(r, 409)

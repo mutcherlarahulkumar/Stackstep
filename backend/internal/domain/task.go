@@ -21,10 +21,11 @@ const (
 	TaskGitChore   TaskType = "git_chore"
 	TaskCodeReview TaskType = "code_review"
 	TaskStandup    TaskType = "standup"
+	TaskBlog       TaskType = "blog"
 )
 
 // AllTaskTypes lists every task type in display order.
-var AllTaskTypes = []TaskType{TaskFeature, TaskBugFix, TaskDSA, TaskDocReading, TaskQuiz, TaskGitChore, TaskCodeReview, TaskStandup}
+var AllTaskTypes = []TaskType{TaskFeature, TaskBugFix, TaskDSA, TaskDocReading, TaskQuiz, TaskGitChore, TaskCodeReview, TaskStandup, TaskBlog}
 
 // Valid reports whether t is a known task type.
 func (t TaskType) Valid() bool {
@@ -55,6 +56,8 @@ func (t TaskType) Label() string {
 		return "code review"
 	case TaskStandup:
 		return "standup"
+	case TaskBlog:
+		return "blog post"
 	}
 	return "task"
 }
@@ -87,6 +90,19 @@ func (s TaskStatus) Valid() bool {
 // Terminal is true for statuses that can never change again.
 func (s TaskStatus) Terminal() bool { return s == StatusDone || s == StatusCancelled }
 
+// ReviewMode decides who finishes a task.
+type ReviewMode string
+
+const (
+	// ReviewManual: the student submits and an admin approves or requests changes.
+	ReviewManual ReviewMode = "manual"
+	// ReviewSelf: the student marks the task done (standups, readings).
+	ReviewSelf ReviewMode = "self"
+)
+
+// Valid reports whether m is a known review mode.
+func (m ReviewMode) Valid() bool { return m == ReviewManual || m == ReviewSelf }
+
 // Task is one unit of assigned work.
 type Task struct {
 	ID           uuid.UUID
@@ -101,6 +117,9 @@ type Task struct {
 	Version      int
 	CreatedAt    time.Time
 	UpdatedAt    time.Time
+	ReviewMode   ReviewMode
+	PersonaID    uuid.UUID
+	FlowItemID   *uuid.UUID
 }
 
 // Actor is who is attempting a transition, from the task's point of view.
@@ -131,7 +150,11 @@ var transitions = map[edge]struct{}{
 }
 
 // CanTransition reports whether actor may move a task from one status to another.
-func CanTransition(from, to TaskStatus, by Actor) bool {
+// Self-reviewed tasks let the student finish straight from in_progress.
+func CanTransition(from, to TaskStatus, by Actor, mode ReviewMode) bool {
+	if mode == ReviewSelf && by == ActorStudent && from == StatusInProgress && to == StatusDone {
+		return true
+	}
 	_, ok := transitions[edge{from, to, by}]
 	return ok
 }
@@ -155,6 +178,8 @@ const (
 // NewTaskInput is an admin's request to assign a task, before validation.
 type NewTaskInput struct {
 	Type         TaskType
+	PersonaID    uuid.UUID
+	ReviewMode   ReviewMode
 	Title        string
 	Brief        string
 	ScheduledFor *time.Time
@@ -164,6 +189,9 @@ type NewTaskInput struct {
 // ValidatedTask is a NewTaskInput that passed every rule, with normalized values.
 type ValidatedTask struct {
 	Type         TaskType
+	PersonaID    uuid.UUID
+	ReviewMode   ReviewMode
+	FlowItemID   *uuid.UUID
 	Title        string
 	Brief        string
 	ScheduledFor time.Time
@@ -174,10 +202,16 @@ type ValidatedTask struct {
 // It returns field → message for every failure, so clients can show all errors at once.
 func ValidateNewTask(in NewTaskInput, e Enrollment, now time.Time) (ValidatedTask, map[string]string) {
 	errs := map[string]string{}
-	out := ValidatedTask{Type: in.Type, Title: NormalizeText(in.Title), Brief: strings.TrimSpace(in.Brief)}
+	out := ValidatedTask{Type: in.Type, Title: NormalizeText(in.Title), Brief: strings.TrimSpace(in.Brief), PersonaID: in.PersonaID, ReviewMode: in.ReviewMode}
 
 	if !in.Type.Valid() {
 		errs["type"] = "Choose a task type."
+	}
+	if out.ReviewMode == "" {
+		out.ReviewMode = ReviewManual
+	}
+	if !out.ReviewMode.Valid() {
+		errs["review_mode"] = "Choose who finishes this task."
 	}
 	if msg := checkLine(out.Title, TitleMinLen, TitleMaxLen, "Title"); msg != "" {
 		errs["title"] = msg

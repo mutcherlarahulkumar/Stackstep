@@ -22,6 +22,7 @@ import (
 	"github.com/mutcherlarahulkumar/stackstep/backend/internal/clock"
 	"github.com/mutcherlarahulkumar/stackstep/backend/internal/config"
 	"github.com/mutcherlarahulkumar/stackstep/backend/internal/db"
+	"github.com/mutcherlarahulkumar/stackstep/backend/internal/domain"
 	"github.com/mutcherlarahulkumar/stackstep/backend/internal/lead"
 	"github.com/mutcherlarahulkumar/stackstep/backend/internal/realtime"
 	"github.com/mutcherlarahulkumar/stackstep/backend/internal/seed"
@@ -57,6 +58,9 @@ func testPool(t *testing.T) *pgxpool.Pool {
 	}
 	return pool
 }
+
+// leadThread is the student's conversation with the default Team Lead persona.
+var leadThread = "/v1/me/threads/" + domain.DefaultPersonaID.String() + "/messages"
 
 // env is one test's server, clock and helpers.
 type env struct {

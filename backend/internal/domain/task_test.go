@@ -33,7 +33,7 @@ func TestTransitionGraphIsClosed(t *testing.T) {
 		for _, to := range AllTaskStatuses {
 			for _, by := range []Actor{ActorStudent, ActorStaff} {
 				key := string(from) + ">" + string(to) + "/" + string(by)
-				if got := CanTransition(from, to, by); got != allowed[key] {
+				if got := CanTransition(from, to, by, ReviewManual); got != allowed[key] {
 					t.Errorf("CanTransition(%s) = %v, want %v", key, got, allowed[key])
 				}
 			}
@@ -41,7 +41,7 @@ func TestTransitionGraphIsClosed(t *testing.T) {
 	}
 	for _, s := range []TaskStatus{StatusDone, StatusCancelled} {
 		for _, to := range AllTaskStatuses {
-			if CanTransition(s, to, ActorStaff) || CanTransition(s, to, ActorStudent) {
+			if CanTransition(s, to, ActorStaff, ReviewSelf) || CanTransition(s, to, ActorStudent, ReviewSelf) {
 				t.Errorf("terminal status %s must not move to %s", s, to)
 			}
 		}

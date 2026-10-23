@@ -11,17 +11,17 @@ import (
 	"github.com/mutcherlarahulkumar/stackstep/backend/internal/domain"
 )
 
-const taskCols = "id, enrollment_id, type, title, brief, status, scheduled_for, due_at, created_by, version, created_at, updated_at"
+const taskCols = "id, enrollment_id, type, title, brief, status, scheduled_for, due_at, created_by, version, created_at, updated_at, review_mode, persona_id, flow_item_id"
 
 func scanTask(row pgx.Row) (domain.Task, error) {
 	var t domain.Task
-	var typ, status string
+	var typ, status, review string
 	if err := row.Scan(&t.ID, &t.EnrollmentID, &typ, &t.Title, &t.Brief, &status, &t.ScheduledFor, &t.DueAt,
-		&t.CreatedBy, &t.Version, &t.CreatedAt, &t.UpdatedAt); err != nil {
+		&t.CreatedBy, &t.Version, &t.CreatedAt, &t.UpdatedAt, &review, &t.PersonaID, &t.FlowItemID); err != nil {
 		return domain.Task{}, notFound(err)
 	}
-	t.Type, t.Status = domain.TaskType(typ), domain.TaskStatus(status)
-	if !t.Type.Valid() || !t.Status.Valid() {
+	t.Type, t.Status, t.ReviewMode = domain.TaskType(typ), domain.TaskStatus(status), domain.ReviewMode(review)
+	if !t.Type.Valid() || !t.Status.Valid() || !t.ReviewMode.Valid() {
 		return domain.Task{}, fmt.Errorf("task %s has unknown type/status %q/%q", t.ID, typ, status)
 	}
 	return t, nil
@@ -30,10 +30,12 @@ func scanTask(row pgx.Row) (domain.Task, error) {
 // InsertTask stores a new task in status todo.
 func InsertTask(ctx context.Context, q Q, enrollmentID, createdBy uuid.UUID, v domain.ValidatedTask, now time.Time) (domain.Task, error) {
 	return scanTask(q.QueryRow(ctx, `
-		INSERT INTO tasks (enrollment_id, type, title, brief, status, scheduled_for, due_at, created_by, created_at, updated_at)
-		VALUES ($1, $2, $3, $4, 'todo', $5, $6, $7, $8, $8)
+		INSERT INTO tasks (enrollment_id, type, title, brief, status, scheduled_for, due_at, created_by, created_at, updated_at,
+		                   review_mode, persona_id, flow_item_id)
+		VALUES ($1, $2, $3, $4, 'todo', $5, $6, $7, $8, $8, $9, $10, $11)
 		RETURNING `+taskCols,
-		enrollmentID, string(v.Type), v.Title, v.Brief, v.ScheduledFor, v.DueAt, createdBy, now))
+		enrollmentID, string(v.Type), v.Title, v.Brief, v.ScheduledFor, v.DueAt, createdBy, now,
+		string(v.ReviewMode), v.PersonaID, v.FlowItemID))
 }
 
 // GetTaskForUpdate loads and row-locks a task.
@@ -105,4 +107,41 @@ func InsertTaskCreatedEvent(ctx context.Context, q Q, t domain.Task) error {
 	_, err := q.Exec(ctx, `INSERT INTO task_events (task_id, actor_id, from_status, to_status, created_at)
 		VALUES ($1, $2, NULL, $3, $4)`, t.ID, t.CreatedBy, string(t.Status), t.CreatedAt)
 	return err
+}
+
+// CancelUnreleasedFlowTasks cancels flow-generated tasks of an enrollment that the student
+// can't see yet, and deletes their not-yet-delivered announcements. Released tasks stay.
+func CancelUnreleasedFlowTasks(ctx context.Context, q Q, enrollmentID, actor uuid.UUID, now time.Time) (int, error) {
+	rows, err := q.Query(ctx, `
+		UPDATE tasks SET status = 'cancelled', version = version + 1, updated_at = $3
+		WHERE enrollment_id = $1 AND flow_item_id IS NOT NULL AND scheduled_for > $2 AND status <> 'cancelled'
+		RETURNING id, status`, enrollmentID, now, now)
+	if err != nil {
+		return 0, fmt.Errorf("cancel flow tasks: %w", err)
+	}
+	var ids []uuid.UUID
+	for rows.Next() {
+		var id uuid.UUID
+		var st string
+		if err := rows.Scan(&id, &st); err != nil {
+			rows.Close()
+			return 0, err
+		}
+		ids = append(ids, id)
+	}
+	rows.Close()
+	if err := rows.Err(); err != nil {
+		return 0, err
+	}
+	if len(ids) == 0 {
+		return 0, nil
+	}
+	if _, err := q.Exec(ctx, `INSERT INTO task_events (task_id, actor_id, from_status, to_status, note, created_at)
+		SELECT id, $2, 'todo', 'cancelled', 'Replaced by a new flow', $3 FROM unnest($1::uuid[]) AS id`, ids, actor, now); err != nil {
+		return 0, err
+	}
+	if _, err := q.Exec(ctx, `DELETE FROM chat_messages WHERE task_id = ANY($1) AND delivered_at IS NULL`, ids); err != nil {
+		return 0, err
+	}
+	return len(ids), nil
 }

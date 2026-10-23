@@ -46,18 +46,40 @@ func (s *Server) page(c *gin.Context) (limit int, cursorRaw string, err error) {
 	return limit, cursorRaw, nil
 }
 
+func (s *Server) myThreads(c *gin.Context) {
+	rows, err := s.workspace.Threads(c.Request.Context(), currentUser(c))
+	if err != nil {
+		s.fail(c, err)
+		return
+	}
+	items := make([]threadDTO, len(rows))
+	for i, t := range rows {
+		items[i] = toThread(t, false)
+	}
+	c.JSON(http.StatusOK, gin.H{"items": items})
+}
+
 func (s *Server) myMessages(c *gin.Context) {
+	persona, err := pathUUID(c, "persona")
+	if err != nil {
+		s.fail(c, err)
+		return
+	}
 	limit, raw, err := s.page(c)
 	if err != nil {
 		s.fail(c, err)
 		return
 	}
 	cursor, _ := app.ValidatePage(limit, raw)
-	msgs, next, err := s.workspace.Messages(c.Request.Context(), currentUser(c), cursor, limit)
+	msgs, next, err := s.workspace.Messages(c.Request.Context(), currentUser(c), persona, cursor, limit)
 	if err != nil {
 		s.fail(c, err)
 		return
 	}
+	writeMessages(c, msgs, next)
+}
+
+func writeMessages(c *gin.Context, msgs []domain.Message, next string) {
 	items := make([]messageDTO, len(msgs))
 	for i, m := range msgs {
 		items[i] = toMessage(m)
@@ -66,21 +88,43 @@ func (s *Server) myMessages(c *gin.Context) {
 }
 
 func (s *Server) sendMessage(c *gin.Context) {
+	persona, err := pathUUID(c, "persona")
+	if err != nil {
+		s.fail(c, err)
+		return
+	}
 	var req sendMessageReq
 	if err := decode(c, &req); err != nil {
 		s.fail(c, err)
 		return
 	}
-	res, err := s.workspace.SendMessage(c.Request.Context(), currentUser(c), req.ClientID, req.Body)
+	res, err := s.workspace.SendMessage(c.Request.Context(), currentUser(c), persona, req.ClientID, req.Body)
 	if err != nil {
 		s.fail(c, err)
 		return
 	}
+	writeSent(c, res)
+}
+
+func writeSent(c *gin.Context, res app.SendResult) {
 	status := http.StatusOK
 	if res.Created {
 		status = http.StatusCreated
 	}
 	c.JSON(status, toMessage(res.Message))
+}
+
+func (s *Server) markRead(c *gin.Context) {
+	persona, err := pathUUID(c, "persona")
+	if err != nil {
+		s.fail(c, err)
+		return
+	}
+	if err := s.workspace.MarkRead(c.Request.Context(), currentUser(c), persona); err != nil {
+		s.fail(c, err)
+		return
+	}
+	c.Status(http.StatusNoContent)
 }
 
 func (s *Server) transition(c *gin.Context) {
@@ -142,9 +186,11 @@ func (s *Server) createTask(c *gin.Context) {
 		s.fail(c, err)
 		return
 	}
-	t, err := s.workspace.CreateTask(c.Request.Context(), currentUser(c), id, domain.NewTaskInput{
-		Type: req.Type, Title: req.Title, Brief: req.Brief, ScheduledFor: req.ScheduledFor, DueAt: req.DueAt,
-	})
+	in := domain.NewTaskInput{Type: req.Type, Title: req.Title, Brief: req.Brief, ScheduledFor: req.ScheduledFor, DueAt: req.DueAt, ReviewMode: req.ReviewMode}
+	if req.PersonaID != nil {
+		in.PersonaID = *req.PersonaID
+	}
+	t, err := s.workspace.CreateTask(c.Request.Context(), currentUser(c), id, in)
 	if err != nil {
 		s.fail(c, err)
 		return

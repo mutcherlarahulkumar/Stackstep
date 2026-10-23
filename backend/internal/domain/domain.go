@@ -76,6 +76,15 @@ type Enrollment struct {
 	EndDate   time.Time // midnight UTC of the calendar date (inclusive last day)
 	Timezone  string
 	Status    EnrollmentStatus
+	Flow      *EnrollmentFlow
+}
+
+// EnrollmentFlow is the flow version an enrollment follows.
+type EnrollmentFlow struct {
+	FlowID    uuid.UUID
+	VersionID uuid.UUID
+	Name      string
+	Number    int
 }
 
 // Location returns the enrollment's time zone, falling back to UTC.
