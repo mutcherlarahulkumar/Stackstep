@@ -5,7 +5,9 @@ import 'package:stackstep/api/models.dart';
 import 'package:stackstep/core/providers.dart';
 import 'package:stackstep/core/theme.dart';
 import 'package:stackstep/features/admin/assign_screen.dart';
-import 'package:stackstep/features/chat/chat_screen.dart';
+import 'package:stackstep/features/admin/broadcast_screen.dart';
+import 'package:stackstep/features/chat/inbox_controller.dart';
+import 'package:stackstep/features/chat/inbox_screen.dart';
 import 'package:stackstep/features/tasks/board_screen.dart';
 import 'package:stackstep/shared/brand_mark.dart';
 import 'package:stackstep/shared/state_views.dart';
@@ -47,7 +49,7 @@ class _AccountMenu extends ConsumerWidget {
   }
 }
 
-/// Student home: chat first, then the board.
+/// Student home: chats (one per persona) first, then the board.
 class StudentShell extends ConsumerStatefulWidget {
   const StudentShell({required this.me, super.key});
   final Me me;
@@ -64,6 +66,7 @@ class _StudentShellState extends ConsumerState<StudentShell> {
   Widget build(BuildContext context) {
     final e = widget.me.enrollment!;
     final t = ShadTheme.of(context);
+    final unread = totalUnread(ref.watch(studentInboxProvider).value ?? const []);
     return Scaffold(
       appBar: AppBar(
         titleSpacing: Space.lg,
@@ -75,7 +78,7 @@ class _StudentShellState extends ConsumerState<StudentShell> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(_tab == 0 ? 'Team lead' : 'Your board', style: t.textTheme.large),
+                  Text(_tab == 0 ? 'Chats' : 'Your board', style: t.textTheme.large),
                   Text(
                     e.status == EnrollmentStatus.paused
                         ? 'Internship paused'
@@ -98,7 +101,7 @@ class _StudentShellState extends ConsumerState<StudentShell> {
       body: IndexedStack(
         index: _tab,
         children: [
-          ChatScreen(
+          StudentInboxScreen(
             onOpenTask: (id) => setState(() {
               _focusTask = id;
               _tab = 1;
@@ -110,36 +113,83 @@ class _StudentShellState extends ConsumerState<StudentShell> {
       bottomNavigationBar: NavigationBar(
         selectedIndex: _tab,
         onDestinationSelected: (i) => setState(() => _tab = i),
-        destinations: const [
-          NavigationDestination(icon: Icon(LucideIcons.messageCircle), label: 'Chat'),
-          NavigationDestination(icon: Icon(LucideIcons.squareKanban), label: 'Tasks'),
+        destinations: [
+          NavigationDestination(
+            icon: _Badged(count: unread, child: const Icon(LucideIcons.messageCircle)),
+            label: 'Chats',
+          ),
+          const NavigationDestination(icon: Icon(LucideIcons.squareKanban), label: 'Tasks'),
         ],
       ),
     );
   }
 }
 
-/// Admins on mobile get task allocation only, plus a pointer to the desktop console.
-class AdminShell extends StatelessWidget {
+/// Small count bubble on a nav icon.
+class _Badged extends StatelessWidget {
+  const _Badged({required this.count, required this.child});
+  final int count;
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) => Badge(isLabelVisible: count > 0, label: Text(count > 99 ? '99+' : '$count'), child: child);
+}
+
+/// Admins on mobile: assign tasks and answer students as a persona. Flows, the task
+/// library and reviews live on the desktop console.
+class AdminShell extends ConsumerStatefulWidget {
   const AdminShell({required this.me, super.key});
   final Me me;
 
   @override
+  ConsumerState<AdminShell> createState() => _AdminShellState();
+}
+
+class _AdminShellState extends ConsumerState<AdminShell> {
+  var _tab = 0;
+
+  @override
   Widget build(BuildContext context) {
+    final unread = totalUnread(ref.watch(staffInboxProvider).value?.items ?? const []);
     return Scaffold(
       appBar: AppBar(
         titleSpacing: Space.lg,
-        title: const Row(
+        title: Row(
           children: [
-            BrandMark(size: 30),
-            SizedBox(width: Space.md),
-            Text('Assign tasks'),
+            const BrandMark(size: 30),
+            const SizedBox(width: Space.md),
+            Text(_tab == 0 ? 'Assign tasks' : 'Inbox'),
           ],
         ),
-        actions: [_AccountMenu(user: me.user)],
+        actions: [_AccountMenu(user: widget.me.user)],
       ),
-      body: StudentPickerScreen(
-        onPick: (s) => Navigator.of(context).push(MaterialPageRoute<void>(builder: (_) => AssignTaskScreen(student: s))),
+      body: IndexedStack(
+        index: _tab,
+        children: [
+          StudentPickerScreen(
+            onPick: (s) => Navigator.of(context).push(MaterialPageRoute<void>(builder: (_) => AssignTaskScreen(student: s))),
+          ),
+          const StaffInboxScreen(),
+        ],
+      ),
+      floatingActionButton: _tab == 1
+          ? FloatingActionButton.extended(
+              key: const Key('broadcast-open'),
+              onPressed: () => Navigator.of(context).push(MaterialPageRoute<void>(builder: (_) => const BroadcastScreen())),
+              icon: const Icon(LucideIcons.megaphone),
+              label: const Text('Message students'),
+            )
+          : null,
+      bottomNavigationBar: NavigationBar(
+        selectedIndex: _tab,
+        onDestinationSelected: (i) => setState(() => _tab = i),
+        destinations: [
+          const NavigationDestination(icon: Icon(LucideIcons.clipboardPlus), label: 'Assign'),
+          NavigationDestination(
+            icon: _Badged(count: unread, child: const Icon(LucideIcons.inbox)),
+            label: 'Inbox',
+          ),
+        ],
       ),
     );
   }

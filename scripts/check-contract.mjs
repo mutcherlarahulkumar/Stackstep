@@ -13,12 +13,36 @@ const go = {
   TaskStatus: read("backend/internal/domain/task.go"),
   EnrollmentStatus: read("backend/internal/domain/domain.go"),
   ErrorCode: read("backend/internal/apperr/apperr.go"),
+  ReviewMode: read("backend/internal/domain/task.go"),
+  PersonaColor: read("backend/internal/domain/catalog.go"),
+  FlowVersionStatus: read("backend/internal/domain/catalog.go"),
+  Author: read("backend/internal/domain/chat.go"),
 };
-const goType = { Role: "Role", TaskType: "TaskType", TaskStatus: "TaskStatus", EnrollmentStatus: "EnrollmentStatus", ErrorCode: "Code" };
+const goType = {
+  Role: "Role",
+  TaskType: "TaskType",
+  TaskStatus: "TaskStatus",
+  EnrollmentStatus: "EnrollmentStatus",
+  ErrorCode: "Code",
+  ReviewMode: "ReviewMode",
+  PersonaColor: "PersonaColor",
+  FlowVersionStatus: "FlowVersionStatus",
+  Author: "Author",
+};
 const ts = read("web/src/lib/api/schemas.ts");
-const tsConst = { Role: "ROLES", TaskType: "TASK_TYPES", TaskStatus: "TASK_STATUSES", EnrollmentStatus: "ENROLLMENT_STATUSES", ErrorCode: "ERROR_CODES" };
+const tsConst = {
+  Role: "ROLES",
+  TaskType: "TASK_TYPES",
+  TaskStatus: "TASK_STATUSES",
+  EnrollmentStatus: "ENROLLMENT_STATUSES",
+  ErrorCode: "ERROR_CODES",
+  ReviewMode: "REVIEW_MODES",
+  PersonaColor: "PERSONA_COLORS",
+  FlowVersionStatus: "FLOW_VERSION_STATUSES",
+  Author: "AUTHORS",
+};
 const dart = read("mobile/lib/api/models.dart");
-const dartEnum = { Role: "Role", TaskType: "TaskType", TaskStatus: "TaskStatus", EnrollmentStatus: "EnrollmentStatus", ErrorCode: "ErrorCode" };
+const dartEnum = { ...goType, ErrorCode: "ErrorCode" };
 
 const sorted = (a) => [...a].sort().join(",");
 let failed = false;
@@ -31,7 +55,10 @@ const check = (label, expected, actual) => {
 
 for (const name of Object.keys(goType)) {
   const expected = enums(name);
-  const goVals = [...go[name].matchAll(new RegExp(`\\s\\w+\\s+${goType[name]} = "([a-z_]+)"`, "g"))].map((m) => m[1]);
+  // Go declares values as typed constants, or as one `All… = []Type{...}` slice.
+  const consts = [...go[name].matchAll(new RegExp(`\\s\\w+\\s+${goType[name]} = "([a-z_]+)"`, "g"))].map((m) => m[1]);
+  const slice = new RegExp(`= \\[\\]${goType[name]}\\{([^}]*)\\}`).exec(go[name])?.[1] ?? "";
+  const goVals = [...consts, ...[...slice.matchAll(/"([a-z_]+)"/g)].map((m) => m[1])];
   check(`Go ${goType[name]}`, expected, goVals);
 
   const tsBlock = new RegExp(`export const ${tsConst[name]} = \\[([\\s\\S]*?)\\] as const`).exec(ts)?.[1] ?? "";

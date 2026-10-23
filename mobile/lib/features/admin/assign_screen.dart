@@ -11,6 +11,7 @@ import 'package:stackstep/core/config.dart';
 import 'package:stackstep/core/providers.dart';
 import 'package:stackstep/core/theme.dart';
 import 'package:stackstep/features/admin/students_controller.dart';
+import 'package:stackstep/features/chat/inbox_controller.dart';
 import 'package:stackstep/shared/errors.dart';
 import 'package:stackstep/shared/format.dart';
 import 'package:stackstep/shared/state_views.dart';
@@ -29,7 +30,7 @@ class DesktopNotice extends StatelessWidget {
       description: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text('Reviews, cohorts and reports need a bigger screen. On your phone you can assign tasks.'),
+          const Text('Flows, the task library and reviews need a bigger screen. On your phone you can assign tasks and reply to students.'),
           const SizedBox(height: Space.sm),
           ShadButton.outline(
             size: ShadButtonSize.sm,
@@ -140,6 +141,10 @@ class _AssignTaskScreenState extends ConsumerState<AssignTaskScreen> {
   final _title = TextEditingController();
   final _brief = TextEditingController();
   TaskType _type = TaskType.feature;
+
+  /// Null until the admin picks one; the server then uses the default team lead.
+  String? _personaId;
+  ReviewMode _reviewMode = ReviewMode.manual;
   bool _startLater = false;
   DateTime? _startAt;
   _DuePreset _preset = _DuePreset.todayEvening;
@@ -218,6 +223,8 @@ class _AssignTaskScreenState extends ConsumerState<AssignTaskScreen> {
     try {
       final task = await ref.read(apiClientProvider).createTask(widget.student.enrollment.id, (
         type: _type,
+        personaId: _personaId ?? _selectedPersona(ref.read(personasProvider).value ?? const []),
+        reviewMode: _reviewMode,
         title: normalizeLine(_title.text),
         brief: _brief.text.trim(),
         scheduledFor: start,
@@ -248,7 +255,7 @@ class _AssignTaskScreenState extends ConsumerState<AssignTaskScreen> {
       builder: (ctx) => ShadDialog(
         title: const Text('Task assigned'),
         description: Text(
-          '${widget.student.user.firstName} sees “${task.title}” on their board, and the team lead announced it in chat. ${dueLabel(task.dueAt, _now)}.',
+          '${widget.student.user.firstName} sees “${task.title}” on their board, and ${_personaName(task.personaId)} announced it in chat. ${dueLabel(task.dueAt, _now)}.',
         ),
         actions: [
           ShadButton.outline(onPressed: () => Navigator.pop(ctx, false), child: const Text('Pick another student')),
@@ -266,16 +273,24 @@ class _AssignTaskScreenState extends ConsumerState<AssignTaskScreen> {
     }
   }
 
+  /// The admin's pick, else the default team lead, else the first persona.
+  String? _selectedPersona(List<Persona> all) =>
+      _personaId ?? (all.any((p) => p.id == defaultPersonaId) ? defaultPersonaId : all.firstOrNull?.id);
+
+  String _personaName(String id) => ref.read(personasProvider).value?.where((p) => p.id == id).firstOrNull?.name ?? 'the team lead';
+
   @override
   Widget build(BuildContext context) {
     final t = ShadTheme.of(context);
     final s = widget.student;
+    final personas = ref.watch(personasProvider);
     final now = _now;
     final due = _dueFor((_startLater ? _startAt : null) ?? now);
     return Scaffold(
       appBar: AppBar(title: const Text('Assign a task')),
       body: SafeArea(
         child: ListView(
+          key: const Key('assign-form'),
           padding: const EdgeInsets.all(Space.lg),
           children: [
             ShadCard(
@@ -326,6 +341,58 @@ class _AssignTaskScreenState extends ConsumerState<AssignTaskScreen> {
             ),
             const SizedBox(height: Space.lg),
             AppField(
+              label: 'Posted by',
+              description: 'The student sees the task announced in this person’s chat.',
+              error: _errors['persona_id'],
+              child: switch (personas) {
+                AsyncData(:final value) => Wrap(
+                  spacing: Space.sm,
+                  runSpacing: Space.sm,
+                  children: [
+                    for (final p in value)
+                      Semantics(
+                        selected: p.id == _selectedPersona(value),
+                        child: ((p.id == _selectedPersona(value)) ? ShadButton.new : ShadButton.outline)(
+                          key: Key('persona-${p.id}'),
+                          size: ShadButtonSize.sm,
+                          onPressed: () => setState(() {
+                            _personaId = p.id;
+                            _errors = {..._errors}..remove('persona_id');
+                          }),
+                          leading: PersonaAvatar(p, size: 18),
+                          child: Text(p.name.split(' ').first),
+                        ),
+                      ),
+                  ],
+                ),
+                AsyncError() => Text('Couldn’t load personas. The team lead will post it.', style: t.textTheme.muted),
+                _ => const SizedBox(height: 32, child: LinearProgressIndicator(minHeight: 2)),
+              },
+            ),
+            const SizedBox(height: Space.lg),
+            AppField(
+              label: 'Review',
+              description: _reviewMode == ReviewMode.manual
+                  ? 'The student submits it and you approve or request changes.'
+                  : 'The student marks it done themselves. Good for reading and practice.',
+              child: Wrap(
+                spacing: Space.sm,
+                children: [
+                  for (final (m, label) in [(ReviewMode.manual, 'Admin reviews'), (ReviewMode.self, 'Student marks done')])
+                    Semantics(
+                      selected: _reviewMode == m,
+                      child: (_reviewMode == m ? ShadButton.new : ShadButton.outline)(
+                        key: Key('review-${m.wire}'),
+                        size: ShadButtonSize.sm,
+                        onPressed: () => setState(() => _reviewMode = m),
+                        child: Text(label),
+                      ),
+                    ),
+                ],
+              ),
+            ),
+            const SizedBox(height: Space.lg),
+            AppField(
               label: 'Title',
               error: _errors['title'],
               trailingLabel: CharCounter(length: runeLength(normalizeLine(_title.text)), max: Bounds.titleMax),
@@ -351,7 +418,7 @@ class _AssignTaskScreenState extends ConsumerState<AssignTaskScreen> {
             AppField(
               label: 'Shows up',
               error: _errors['scheduled_for'],
-              description: _startLater ? null : 'Right away. The lead announces it in chat.',
+              description: _startLater ? null : 'Right away, with an announcement in chat.',
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [

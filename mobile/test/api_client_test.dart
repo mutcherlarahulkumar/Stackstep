@@ -81,7 +81,7 @@ void main() {
     });
     final api = ApiClient(baseUrl: Uri.parse('http://api.test'), tokenStore: store, httpClient: client);
     await expectLater(
-      api.sendMessage(clientId: 'c', body: 'hi'),
+      api.sendMessage(leadId, clientId: 'c', body: 'hi'),
       throwsA(
         isA<ApiException>()
             .having((e) => e.code, 'code', ErrorCode.rateLimited)
@@ -110,8 +110,9 @@ void main() {
       return json(messageJson(author: 'student', clientId: 'c-1'), 201);
     });
     final api = ApiClient(baseUrl: Uri.parse('http://api.test'), tokenStore: store, httpClient: client);
-    final m = await api.sendMessage(clientId: 'c-1', body: 'hello');
+    final m = await api.sendMessage(managerId, clientId: 'c-1', body: 'hello');
     expect(m.author, Author.student);
+    expect(seen.url.path, '/v1/me/threads/$managerId/messages');
     expect(seen.headers['X-Client'], 'mobile');
     expect(jsonDecode(seen.body), {'client_id': 'c-1', 'body': 'hello'});
   });

@@ -40,3 +40,22 @@ String dayLabel(DateTime at, DateTime now) {
 String timeLabel(DateTime at) => DateFormat.jm().format(at.toLocal());
 
 String dateTimeLabel(DateTime at) => DateFormat('EEE d MMM, h:mm a').format(at.toLocal());
+
+/// Inbox row times: "4:05 PM" today, then "Yesterday", "Mon", "2 Nov".
+String inboxTimeLabel(DateTime at, DateTime now) {
+  final a = at.toLocal();
+  final n = now.toLocal();
+  final days = DateTime(n.year, n.month, n.day).difference(DateTime(a.year, a.month, a.day)).inDays;
+  if (days <= 0) return timeLabel(a);
+  if (days == 1) return 'Yesterday';
+  if (days < 7) return DateFormat.E().format(a);
+  if (a.year == n.year) return DateFormat.MMMd().format(a);
+  return DateFormat.yMMMd().format(a);
+}
+
+/// One line of a message for list previews.
+String previewLine(String body, {int max = 90}) {
+  final one = body.trim().split(RegExp(r'\s+')).where((p) => p.isNotEmpty).join(' ');
+  final runes = one.runes;
+  return runes.length <= max ? one : '${String.fromCharCodes(runes.take(max - 1))}…';
+}

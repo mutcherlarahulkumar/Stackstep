@@ -1,7 +1,7 @@
 openapi: 3.1.0
 info:
   title: Stackstep API
-  version: 0.1.0
+  version: 0.2.0
   description: |
     Workspace core (feature 01). All timestamps are RFC 3339 UTC. All errors use the
     `Error` envelope; clients switch on `error.code`, never on `message`.
@@ -22,6 +22,10 @@ tags:
     description: The student workspace (board and chat)
   - name: admin
     description: Task allocation and review for admins and college admins
+  - name: catalog
+    description: Personas, task library and flows (platform admins edit; college admins read and assign)
+  - name: inbox
+    description: Admin conversations with students, as manager personas
 paths:
   /v1/auth/dev-login:
     post:
@@ -149,48 +153,56 @@ paths:
                   items: { type: array, items: { $ref: "#/components/schemas/Task" } }
         "403": { $ref: "#/components/responses/Error" }
         "409": { $ref: "#/components/responses/Error" }
-  /v1/me/messages:
+  /v1/me/threads:
     get:
       tags: [student]
-      operationId: listMyMessages
-      summary: Chat page, newest first
-      parameters:
-        - $ref: "#/components/parameters/Limit"
-        - $ref: "#/components/parameters/Cursor"
+      operationId: listMyThreads
+      summary: The student's conversations, one per persona, newest first
       responses:
         "200":
-          description: Page
+          description: Inbox
           content:
             application/json:
               schema:
                 type: object
-                required: [items, next_cursor]
+                required: [items]
                 properties:
-                  items: { type: array, items: { $ref: "#/components/schemas/Message" } }
-                  next_cursor: { type: [string, "null"] }
+                  items: { type: array, items: { $ref: "#/components/schemas/Thread" } }
+        "409": { $ref: "#/components/responses/Error" }
+  /v1/me/threads/{persona}/messages:
+    parameters: [{ $ref: "#/components/parameters/Persona" }]
+    get:
+      tags: [student]
+      operationId: listMyMessages
+      summary: One conversation, newest first
+      parameters:
+        - $ref: "#/components/parameters/Limit"
+        - $ref: "#/components/parameters/Cursor"
+      responses:
+        "200": { $ref: "#/components/responses/MessagePage" }
+        "404": { $ref: "#/components/responses/Error" }
         "409": { $ref: "#/components/responses/Error" }
         "422": { $ref: "#/components/responses/Error" }
     post:
       tags: [student]
       operationId: sendMessage
-      summary: Send a message. Same client_id → 200 with the original message.
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-              additionalProperties: false
-              required: [client_id, body]
-              properties:
-                client_id: { type: string, format: uuid }
-                body: { type: string, minLength: 1, maxLength: 4000 }
+      summary: Message a persona. Same client_id → 200 with the original message. Only auto-reply personas answer automatically.
+      requestBody: { $ref: "#/components/requestBodies/SendMessage" }
       responses:
         "200": { description: Retry of an existing message, content: { application/json: { schema: { $ref: "#/components/schemas/Message" } } } }
         "201": { description: Created, content: { application/json: { schema: { $ref: "#/components/schemas/Message" } } } }
+        "404": { $ref: "#/components/responses/Error" }
         "409": { $ref: "#/components/responses/Error" }
         "422": { $ref: "#/components/responses/Error" }
         "429": { $ref: "#/components/responses/Error" }
+  /v1/me/threads/{persona}/read:
+    parameters: [{ $ref: "#/components/parameters/Persona" }]
+    post:
+      tags: [student]
+      operationId: markThreadRead
+      summary: Clear the conversation's unread count
+      responses:
+        "204": { description: Marked read }
   /v1/tasks/{id}/transitions:
     post:
       tags: [student, admin]
@@ -269,6 +281,8 @@ paths:
               required: [type, title, due_at]
               properties:
                 type: { $ref: "#/components/schemas/TaskType" }
+                persona_id: { type: [string, "null"], format: uuid, description: Who posts it; defaults to the Team Lead }
+                review_mode: { $ref: "#/components/schemas/ReviewMode" }
                 title: { type: string, minLength: 3, maxLength: 120 }
                 brief: { type: string, maxLength: 8000 }
                 scheduled_for: { type: [string, "null"], format: date-time, description: Defaults to now (or the internship start) }
@@ -277,12 +291,318 @@ paths:
         "201": { description: Created, content: { application/json: { schema: { $ref: "#/components/schemas/Task" } } } }
         "404": { $ref: "#/components/responses/Error" }
         "422": { $ref: "#/components/responses/Error" }
+  /v1/admin/enrollments/{id}/flow:
+    put:
+      tags: [admin]
+      operationId: assignEnrollmentFlow
+      summary: Put a student on a flow's published version and schedule its tasks
+      parameters: [{ $ref: "#/components/parameters/Id" }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [flow_id]
+              properties:
+                flow_id: { type: string, format: uuid }
+      responses:
+        "200": { description: Scheduled, content: { application/json: { schema: { $ref: "#/components/schemas/AssignResult" } } } }
+        "404": { $ref: "#/components/responses/Error" }
+        "422": { $ref: "#/components/responses/Error" }
+  /v1/admin/personas:
+    get:
+      tags: [catalog]
+      operationId: listPersonas
+      summary: Manager personas
+      parameters: [{ $ref: "#/components/parameters/IncludeArchived" }]
+      responses:
+        "200":
+          description: Personas by name
+          content:
+            application/json:
+              schema: { type: object, required: [items], properties: { items: { type: array, items: { $ref: "#/components/schemas/Persona" } } } }
+        "403": { $ref: "#/components/responses/Error" }
+    post:
+      tags: [catalog]
+      operationId: createPersona
+      summary: Add a persona (platform admins)
+      requestBody: { $ref: "#/components/requestBodies/Persona" }
+      responses:
+        "201": { description: Created, content: { application/json: { schema: { $ref: "#/components/schemas/Persona" } } } }
+        "403": { $ref: "#/components/responses/Error" }
+        "422": { $ref: "#/components/responses/Error" }
+  /v1/admin/personas/{id}:
+    patch:
+      tags: [catalog]
+      operationId: updatePersona
+      summary: Edit or archive a persona (platform admins)
+      parameters: [{ $ref: "#/components/parameters/Id" }]
+      requestBody: { $ref: "#/components/requestBodies/Persona" }
+      responses:
+        "200": { description: Updated, content: { application/json: { schema: { $ref: "#/components/schemas/Persona" } } } }
+        "404": { $ref: "#/components/responses/Error" }
+        "409": { $ref: "#/components/responses/Error" }
+        "422": { $ref: "#/components/responses/Error" }
+  /v1/admin/task-templates:
+    get:
+      tags: [catalog]
+      operationId: listTemplates
+      summary: Task library
+      parameters:
+        - { name: q, in: query, schema: { type: string, maxLength: 100 } }
+        - { name: type, in: query, schema: { $ref: "#/components/schemas/TaskType" } }
+        - { name: persona_id, in: query, schema: { type: string, format: uuid } }
+        - $ref: "#/components/parameters/IncludeArchived"
+        - $ref: "#/components/parameters/Limit"
+        - $ref: "#/components/parameters/Cursor"
+      responses:
+        "200":
+          description: Templates by title
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [items, next_cursor]
+                properties:
+                  items: { type: array, items: { $ref: "#/components/schemas/TaskTemplate" } }
+                  next_cursor: { type: [string, "null"] }
+        "403": { $ref: "#/components/responses/Error" }
+        "422": { $ref: "#/components/responses/Error" }
+    post:
+      tags: [catalog]
+      operationId: createTemplate
+      summary: Add a library task (platform admins)
+      requestBody: { $ref: "#/components/requestBodies/TaskTemplate" }
+      responses:
+        "201": { description: Created, content: { application/json: { schema: { $ref: "#/components/schemas/TaskTemplate" } } } }
+        "403": { $ref: "#/components/responses/Error" }
+        "422": { $ref: "#/components/responses/Error" }
+  /v1/admin/task-templates/{id}:
+    patch:
+      tags: [catalog]
+      operationId: updateTemplate
+      summary: Edit or archive a library task (flows keep their own copies)
+      parameters: [{ $ref: "#/components/parameters/Id" }]
+      requestBody: { $ref: "#/components/requestBodies/TaskTemplate" }
+      responses:
+        "200": { description: Updated, content: { application/json: { schema: { $ref: "#/components/schemas/TaskTemplate" } } } }
+        "404": { $ref: "#/components/responses/Error" }
+        "409": { $ref: "#/components/responses/Error" }
+        "422": { $ref: "#/components/responses/Error" }
+  /v1/admin/flows:
+    get:
+      tags: [catalog]
+      operationId: listFlows
+      summary: Flows with version state
+      parameters: [{ $ref: "#/components/parameters/IncludeArchived" }]
+      responses:
+        "200":
+          description: Flows by name
+          content:
+            application/json:
+              schema: { type: object, required: [items], properties: { items: { type: array, items: { $ref: "#/components/schemas/FlowSummary" } } } }
+        "403": { $ref: "#/components/responses/Error" }
+    post:
+      tags: [catalog]
+      operationId: createFlow
+      summary: Add a flow with an empty draft (platform admins)
+      requestBody: { $ref: "#/components/requestBodies/Flow" }
+      responses:
+        "201": { $ref: "#/components/responses/FlowDetail" }
+        "403": { $ref: "#/components/responses/Error" }
+        "422": { $ref: "#/components/responses/Error" }
+  /v1/admin/flows/{id}:
+    parameters: [{ $ref: "#/components/parameters/Id" }]
+    get:
+      tags: [catalog]
+      operationId: getFlow
+      summary: A flow with its draft and published versions
+      responses:
+        "200": { $ref: "#/components/responses/FlowDetail" }
+        "404": { $ref: "#/components/responses/Error" }
+    patch:
+      tags: [catalog]
+      operationId: updateFlow
+      summary: Edit flow details; days can't change once published
+      requestBody: { $ref: "#/components/requestBodies/Flow" }
+      responses:
+        "200": { description: Updated, content: { application/json: { schema: { $ref: "#/components/schemas/Flow" } } } }
+        "409": { $ref: "#/components/responses/Error" }
+        "422": { $ref: "#/components/responses/Error" }
+  /v1/admin/flows/{id}/draft:
+    put:
+      tags: [catalog]
+      operationId: saveFlowDraft
+      summary: Replace the draft's items. expected_revision 0 starts a new draft from the published version.
+      parameters: [{ $ref: "#/components/parameters/Id" }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [expected_revision, items]
+              properties:
+                expected_revision: { type: integer, minimum: 0 }
+                items: { type: array, maxItems: 600, items: { $ref: "#/components/schemas/FlowItemInput" } }
+      responses:
+        "200": { $ref: "#/components/responses/FlowDetail" }
+        "409": { $ref: "#/components/responses/Error" }
+        "422": { $ref: "#/components/responses/Error" }
+  /v1/admin/flows/{id}/publish:
+    post:
+      tags: [catalog]
+      operationId: publishFlow
+      summary: Freeze the draft as the new published version
+      parameters: [{ $ref: "#/components/parameters/Id" }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { type: object, additionalProperties: false, required: [expected_revision], properties: { expected_revision: { type: integer, minimum: 1 } } }
+      responses:
+        "200": { $ref: "#/components/responses/FlowDetail" }
+        "409": { $ref: "#/components/responses/Error" }
+        "422": { $ref: "#/components/responses/Error" }
+  /v1/admin/flows/{id}/duplicate:
+    post:
+      tags: [catalog]
+      operationId: duplicateFlow
+      summary: Copy a flow's latest items into a new flow (e.g. React → Angular)
+      parameters: [{ $ref: "#/components/parameters/Id" }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [name, stream]
+              properties:
+                name: { type: string, minLength: 3, maxLength: 80 }
+                stream: { type: string, minLength: 2, maxLength: 40 }
+      responses:
+        "201": { $ref: "#/components/responses/FlowDetail" }
+        "422": { $ref: "#/components/responses/Error" }
+  /v1/admin/flows/{id}/assign:
+    post:
+      tags: [catalog]
+      operationId: bulkAssignFlow
+      summary: Assign a flow to many students; each result succeeds or fails on its own
+      parameters: [{ $ref: "#/components/parameters/Id" }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [enrollment_ids]
+              properties:
+                enrollment_ids: { type: array, minItems: 1, maxItems: 500, uniqueItems: true, items: { type: string, format: uuid } }
+      responses:
+        "200":
+          description: Per-student results
+          content:
+            application/json:
+              schema: { type: object, required: [items], properties: { items: { type: array, items: { $ref: "#/components/schemas/AssignResult" } } } }
+        "422": { $ref: "#/components/responses/Error" }
+  /v1/admin/threads:
+    get:
+      tags: [inbox]
+      operationId: listStaffThreads
+      summary: Admin inbox, most recent first
+      parameters:
+        - { name: persona_id, in: query, schema: { type: string, format: uuid } }
+        - { name: unread, in: query, schema: { type: boolean } }
+        - $ref: "#/components/parameters/Limit"
+        - $ref: "#/components/parameters/Cursor"
+      responses:
+        "200":
+          description: Conversations
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [items, next_cursor]
+                properties:
+                  items: { type: array, items: { $ref: "#/components/schemas/StaffThread" } }
+                  next_cursor: { type: [string, "null"] }
+        "403": { $ref: "#/components/responses/Error" }
+  /v1/admin/threads/{enrollment}/{persona}/messages:
+    parameters:
+      - { name: enrollment, in: path, required: true, schema: { type: string, format: uuid } }
+      - $ref: "#/components/parameters/Persona"
+    get:
+      tags: [inbox]
+      operationId: listStaffMessages
+      summary: One student's conversation with a persona
+      parameters:
+        - $ref: "#/components/parameters/Limit"
+        - $ref: "#/components/parameters/Cursor"
+      responses:
+        "200": { $ref: "#/components/responses/MessagePage" }
+        "404": { $ref: "#/components/responses/Error" }
+    post:
+      tags: [inbox]
+      operationId: sendStaffMessage
+      summary: Reply as the persona
+      requestBody: { $ref: "#/components/requestBodies/SendMessage" }
+      responses:
+        "200": { description: Retry of an existing message, content: { application/json: { schema: { $ref: "#/components/schemas/Message" } } } }
+        "201": { description: Created, content: { application/json: { schema: { $ref: "#/components/schemas/Message" } } } }
+        "404": { $ref: "#/components/responses/Error" }
+        "422": { $ref: "#/components/responses/Error" }
+  /v1/admin/threads/{enrollment}/{persona}/read:
+    parameters:
+      - { name: enrollment, in: path, required: true, schema: { type: string, format: uuid } }
+      - $ref: "#/components/parameters/Persona"
+    post:
+      tags: [inbox]
+      operationId: markStaffThreadRead
+      summary: Clear the inbox unread count
+      responses:
+        "204": { description: Marked read }
+  /v1/admin/broadcasts:
+    post:
+      tags: [inbox]
+      operationId: broadcast
+      summary: Message many students as one persona; retries with the same client_id never duplicate
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [persona_id, client_id, enrollment_ids, body]
+              properties:
+                persona_id: { type: string, format: uuid }
+                client_id: { type: string, format: uuid }
+                enrollment_ids: { type: array, minItems: 1, maxItems: 500, uniqueItems: true, items: { type: string, format: uuid } }
+                body: { type: string, minLength: 1, maxLength: 4000 }
+      responses:
+        "200":
+          description: Per-student results
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [sent, items]
+                properties:
+                  sent: { type: integer, minimum: 0 }
+                  items: { type: array, items: { $ref: "#/components/schemas/BroadcastResult" } }
+        "422": { $ref: "#/components/responses/Error" }
   /v1/ws:
     get:
       tags: [student]
       operationId: websocket
       summary: |
-        WebSocket. Offer subprotocols `stackstep.v1` and `bearer.<access token>`.
+        WebSocket. Offer subprotocols `stackstep.v1` and `bearer.<access token>`. Students get their
+        own messages and tasks; staff get every student message in their scope (admin inbox).
         Frames are `Frame` JSON. Close codes: 4401 unauthenticated, 4409 no enrollment, 4429 too many sockets.
       security: []
       responses:
@@ -296,7 +616,77 @@ components:
     Id: { name: id, in: path, required: true, schema: { type: string, format: uuid } }
     Limit: { name: limit, in: query, schema: { type: integer, minimum: 1, maximum: 100, default: 50 } }
     Cursor: { name: cursor, in: query, schema: { type: string, maxLength: 512 } }
+    Persona: { name: persona, in: path, required: true, schema: { type: string, format: uuid } }
+    IncludeArchived: { name: include_archived, in: query, schema: { type: boolean, default: false } }
+  requestBodies:
+    SendMessage:
+      required: true
+      content:
+        application/json:
+          schema:
+            type: object
+            additionalProperties: false
+            required: [client_id, body]
+            properties:
+              client_id: { type: string, format: uuid }
+              body: { type: string, minLength: 1, maxLength: 4000 }
+    Persona:
+      required: true
+      content:
+        application/json:
+          schema:
+            type: object
+            additionalProperties: false
+            required: [name, title, color]
+            properties:
+              name: { type: string, minLength: 2, maxLength: 60 }
+              title: { type: string, minLength: 2, maxLength: 60 }
+              color: { $ref: "#/components/schemas/PersonaColor" }
+              auto_reply: { type: boolean }
+              archived: { type: boolean }
+              expected_version: { type: integer, minimum: 1, description: Required on update }
+    TaskTemplate:
+      required: true
+      content:
+        application/json:
+          schema:
+            allOf:
+              - $ref: "#/components/schemas/TaskSpec"
+              - type: object
+                properties:
+                  archived: { type: boolean }
+                  expected_version: { type: integer, minimum: 1, description: Required on update }
+    Flow:
+      required: true
+      content:
+        application/json:
+          schema:
+            type: object
+            additionalProperties: false
+            required: [name, stream, days]
+            properties:
+              name: { type: string, minLength: 3, maxLength: 80 }
+              stream: { type: string, minLength: 2, maxLength: 40 }
+              description: { type: string, maxLength: 500 }
+              days: { type: integer, enum: [30, 60] }
+              archived: { type: boolean }
+              expected_version: { type: integer, minimum: 1, description: Required on update }
   responses:
+    MessagePage:
+      description: Messages, newest first
+      content:
+        application/json:
+          schema:
+            type: object
+            required: [items, next_cursor]
+            properties:
+              items: { type: array, items: { $ref: "#/components/schemas/Message" } }
+              next_cursor: { type: [string, "null"] }
+    FlowDetail:
+      description: A flow with its draft and published versions
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/FlowDetail" }
     Tokens:
       description: Session tokens. refresh_* are present only for X-Client mobile.
       content:
@@ -317,10 +707,13 @@ components:
   schemas:
     Client: { type: string, enum: [web, mobile] }
     Role: { type: string, enum: [student, college_admin, admin] }
-    TaskType: { type: string, enum: [feature, bug_fix, dsa, doc_reading, quiz, git_chore, code_review, standup] }
+    TaskType: { type: string, enum: [feature, bug_fix, dsa, doc_reading, quiz, git_chore, code_review, standup, blog] }
+    ReviewMode: { type: string, enum: [manual, self], description: "manual: an admin approves; self: the student marks it done" }
+    PersonaColor: { type: string, enum: [violet, blue, emerald, amber, rose, cyan, slate] }
+    FlowVersionStatus: { type: string, enum: [draft, published, retired] }
     TaskStatus: { type: string, enum: [todo, in_progress, in_review, changes_requested, done, cancelled] }
     EnrollmentStatus: { type: string, enum: [active, paused, completed, cancelled] }
-    Author: { type: string, enum: [student, lead] }
+    Author: { type: string, enum: [student, persona] }
     ErrorCode:
       type: string
       enum: [bad_request, payload_too_large, unauthenticated, forbidden, not_found, validation_failed, invalid_transition,
@@ -366,6 +759,16 @@ components:
         timezone: { type: string }
         status: { $ref: "#/components/schemas/EnrollmentStatus" }
         day_number: { type: integer, minimum: 0, maximum: 60 }
+        flow:
+          oneOf:
+            - type: "null"
+            - type: object
+              required: [flow_id, version_id, name, version]
+              properties:
+                flow_id: { type: string, format: uuid }
+                version_id: { type: string, format: uuid }
+                name: { type: string }
+                version: { type: integer, minimum: 1 }
     Me:
       type: object
       required: [user, enrollment]
@@ -377,7 +780,7 @@ components:
             - type: "null"
     Task:
       type: object
-      required: [id, enrollment_id, type, title, brief, status, scheduled_for, due_at, version, created_at, updated_at]
+      required: [id, enrollment_id, type, title, brief, status, scheduled_for, due_at, version, created_at, updated_at, review_mode, persona_id, from_flow]
       properties:
         id: { type: string, format: uuid }
         enrollment_id: { type: string, format: uuid }
@@ -390,11 +793,16 @@ components:
         version: { type: integer, minimum: 1 }
         created_at: { type: string, format: date-time }
         updated_at: { type: string, format: date-time }
+        review_mode: { $ref: "#/components/schemas/ReviewMode" }
+        persona_id: { type: string, format: uuid }
+        from_flow: { type: boolean }
     Message:
       type: object
-      required: [id, author, body, task_id, client_id, sent_at]
+      required: [id, enrollment_id, persona_id, author, body, task_id, client_id, sent_at]
       properties:
         id: { type: string, format: uuid }
+        enrollment_id: { type: string, format: uuid }
+        persona_id: { type: string, format: uuid }
         author: { $ref: "#/components/schemas/Author" }
         body: { type: string }
         task_id: { type: [string, "null"], format: uuid }
@@ -415,3 +823,136 @@ components:
         type: { type: string, enum: [ready, message, task] }
         message: { $ref: "#/components/schemas/Message" }
         task: { $ref: "#/components/schemas/Task" }
+    Persona:
+      type: object
+      required: [id, name, title, color, auto_reply, archived, version]
+      properties:
+        id: { type: string, format: uuid }
+        name: { type: string }
+        title: { type: string }
+        color: { $ref: "#/components/schemas/PersonaColor" }
+        auto_reply: { type: boolean }
+        archived: { type: boolean }
+        version: { type: integer, minimum: 1 }
+    TaskSpec:
+      type: object
+      required: [type, title, brief, persona_id, review_mode, release_time, due_minutes]
+      properties:
+        type: { $ref: "#/components/schemas/TaskType" }
+        title: { type: string, minLength: 3, maxLength: 120 }
+        brief: { type: string, maxLength: 8000 }
+        persona_id: { type: string, format: uuid }
+        review_mode: { $ref: "#/components/schemas/ReviewMode" }
+        release_time: { type: string, pattern: "^([01][0-9]|2[0-3]):[0-5][0-9]$", description: Local time in the student's time zone }
+        due_minutes: { type: integer, minimum: 15, maximum: 10080 }
+    TaskTemplate:
+      allOf:
+        - $ref: "#/components/schemas/TaskSpec"
+        - type: object
+          required: [id, archived, version, updated_at]
+          properties:
+            id: { type: string, format: uuid }
+            archived: { type: boolean }
+            version: { type: integer, minimum: 1 }
+            updated_at: { type: string, format: date-time }
+    Flow:
+      type: object
+      required: [id, name, stream, description, days, archived, version, updated_at]
+      properties:
+        id: { type: string, format: uuid }
+        name: { type: string }
+        stream: { type: string }
+        description: { type: string }
+        days: { type: integer, enum: [30, 60] }
+        archived: { type: boolean }
+        version: { type: integer, minimum: 1 }
+        updated_at: { type: string, format: date-time }
+    FlowSummary:
+      allOf:
+        - $ref: "#/components/schemas/Flow"
+        - type: object
+          required: [published_version, has_draft, task_count, active_students]
+          properties:
+            published_version: { type: [integer, "null"] }
+            has_draft: { type: boolean }
+            task_count: { type: integer, minimum: 0 }
+            active_students: { type: integer, minimum: 0 }
+    FlowItemInput:
+      allOf:
+        - $ref: "#/components/schemas/TaskSpec"
+        - type: object
+          required: [day]
+          properties:
+            day: { type: integer, minimum: 1, maximum: 60 }
+            template_id: { type: [string, "null"], format: uuid }
+    FlowItem:
+      allOf:
+        - $ref: "#/components/schemas/TaskSpec"
+        - type: object
+          required: [id, day, position, template_id]
+          properties:
+            id: { type: string, format: uuid }
+            day: { type: integer, minimum: 1, maximum: 60 }
+            position: { type: integer, minimum: 0 }
+            template_id: { type: [string, "null"], format: uuid }
+    FlowVersion:
+      type: object
+      required: [id, number, status, revision, published_at, items]
+      properties:
+        id: { type: string, format: uuid }
+        number: { type: integer, minimum: 1 }
+        status: { $ref: "#/components/schemas/FlowVersionStatus" }
+        revision: { type: integer, minimum: 1 }
+        published_at: { type: [string, "null"], format: date-time }
+        items: { type: array, items: { $ref: "#/components/schemas/FlowItem" } }
+    FlowDetail:
+      type: object
+      required: [flow, draft, published]
+      properties:
+        flow: { $ref: "#/components/schemas/Flow" }
+        draft: { oneOf: [{ $ref: "#/components/schemas/FlowVersion" }, { type: "null" }] }
+        published: { oneOf: [{ $ref: "#/components/schemas/FlowVersion" }, { type: "null" }] }
+    ItemError:
+      type: object
+      required: [code, message]
+      properties:
+        code: { $ref: "#/components/schemas/ErrorCode" }
+        message: { type: string }
+        fields: { type: object, additionalProperties: { type: string } }
+    AssignResult:
+      type: object
+      required: [enrollment_id, generated, skipped, cancelled, error]
+      properties:
+        enrollment_id: { type: string, format: uuid }
+        generated: { type: integer, minimum: 0 }
+        skipped: { type: integer, minimum: 0 }
+        cancelled: { type: integer, minimum: 0 }
+        error: { oneOf: [{ $ref: "#/components/schemas/ItemError" }, { type: "null" }] }
+    BroadcastResult:
+      type: object
+      required: [enrollment_id, sent, error]
+      properties:
+        enrollment_id: { type: string, format: uuid }
+        sent: { type: boolean }
+        error: { oneOf: [{ $ref: "#/components/schemas/ItemError" }, { type: "null" }] }
+    Thread:
+      type: object
+      required: [enrollment_id, persona, last_message, unread]
+      properties:
+        enrollment_id: { type: string, format: uuid }
+        persona: { $ref: "#/components/schemas/Persona" }
+        last_message: { oneOf: [{ $ref: "#/components/schemas/Message" }, { type: "null" }] }
+        unread: { type: integer, minimum: 0 }
+    StaffThread:
+      allOf:
+        - $ref: "#/components/schemas/Thread"
+        - type: object
+          required: [student]
+          properties:
+            student:
+              type: object
+              required: [name, github_login, avatar_url]
+              properties:
+                name: { type: string }
+                github_login: { type: string }
+                avatar_url: { type: [string, "null"] }

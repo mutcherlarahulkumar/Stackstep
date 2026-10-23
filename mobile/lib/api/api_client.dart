@@ -68,7 +68,15 @@ final class MemoryTokenStore implements TokenStore {
   Future<void> clear() async => value = null;
 }
 
-typedef CreateTaskInput = ({TaskType type, String title, String brief, DateTime? scheduledFor, DateTime dueAt});
+typedef CreateTaskInput = ({
+  TaskType type,
+  String? personaId,
+  ReviewMode reviewMode,
+  String title,
+  String brief,
+  DateTime? scheduledFor,
+  DateTime dueAt,
+});
 
 final class ApiClient {
   ApiClient({
@@ -141,13 +149,22 @@ final class ApiClient {
 
   Future<List<Task>> myTasks() async => asObject(await _send('GET', '/v1/me/tasks')).list('items', Task.fromJson);
 
-  Future<Page<Message>> messages({String? cursor, int limit = 50}) async {
-    final j = asObject(await _send('GET', '/v1/me/messages', query: {'limit': '$limit', 'cursor': ?cursor}));
-    return Page(items: j.list('items', Message.fromJson), nextCursor: j.stringOrNull('next_cursor'));
+  Future<List<Thread>> threads() async => asObject(await _send('GET', '/v1/me/threads')).list('items', Thread.fromJson);
+
+  Future<Page<Message>> messages(String personaId, {String? cursor, int limit = 50}) async =>
+      _messagePage(await _send('GET', '/v1/me/threads/$personaId/messages', query: {'limit': '$limit', 'cursor': ?cursor}));
+
+  Future<Message> sendMessage(String personaId, {required String clientId, required String body}) async =>
+      Message.fromJson(asObject(await _send('POST', '/v1/me/threads/$personaId/messages', body: {'client_id': clientId, 'body': body})));
+
+  Future<void> markRead(String personaId) async {
+    await _send('POST', '/v1/me/threads/$personaId/read');
   }
 
-  Future<Message> sendMessage({required String clientId, required String body}) async =>
-      Message.fromJson(asObject(await _send('POST', '/v1/me/messages', body: {'client_id': clientId, 'body': body})));
+  Page<Message> _messagePage(Object? raw) {
+    final j = asObject(raw);
+    return Page(items: j.list('items', Message.fromJson), nextCursor: j.stringOrNull('next_cursor'));
+  }
 
   Future<Task> transition({required String taskId, required TaskStatus to, required int expectedVersion, String note = ''}) async =>
       Task.fromJson(
@@ -172,6 +189,8 @@ final class ApiClient {
         '/v1/admin/enrollments/$enrollmentId/tasks',
         body: {
           'type': input.type.wire,
+          'persona_id': input.personaId,
+          'review_mode': input.reviewMode.wire,
           'title': input.title,
           'brief': input.brief,
           'scheduled_for': input.scheduledFor?.toUtc().toIso8601String(),
@@ -180,6 +199,49 @@ final class ApiClient {
       ),
     ),
   );
+
+  Future<List<Persona>> personas() async => asObject(await _send('GET', '/v1/admin/personas')).list('items', Persona.fromJson);
+
+  Future<Page<Thread>> staffThreads({String? personaId, bool unreadOnly = false, String? cursor, int limit = 30}) async {
+    final j = asObject(
+      await _send(
+        'GET',
+        '/v1/admin/threads',
+        query: {'limit': '$limit', 'persona_id': ?personaId, if (unreadOnly) 'unread': 'true', 'cursor': ?cursor},
+      ),
+    );
+    return Page(items: j.list('items', Thread.fromJson), nextCursor: j.stringOrNull('next_cursor'));
+  }
+
+  Future<Page<Message>> staffMessages(String enrollmentId, String personaId, {String? cursor, int limit = 50}) async => _messagePage(
+    await _send('GET', '/v1/admin/threads/$enrollmentId/$personaId/messages', query: {'limit': '$limit', 'cursor': ?cursor}),
+  );
+
+  Future<Message> staffSend(String enrollmentId, String personaId, {required String clientId, required String body}) async =>
+      Message.fromJson(
+        asObject(await _send('POST', '/v1/admin/threads/$enrollmentId/$personaId/messages', body: {'client_id': clientId, 'body': body})),
+      );
+
+  Future<void> staffMarkRead(String enrollmentId, String personaId) async {
+    await _send('POST', '/v1/admin/threads/$enrollmentId/$personaId/read');
+  }
+
+  Future<BroadcastOutcome> broadcast({
+    required String personaId,
+    required String clientId,
+    required List<String> enrollmentIds,
+    required String body,
+  }) async {
+    final j = asObject(
+      await _send(
+        'POST',
+        '/v1/admin/broadcasts',
+        body: {'persona_id': personaId, 'client_id': clientId, 'enrollment_ids': enrollmentIds, 'body': body},
+      ),
+    );
+    final sent = j.integer('sent');
+    return BroadcastOutcome(sent: sent, failed: j.list('items', (i) => i).length - sent);
+  }
 
   // ---- Transport ----
 

@@ -19,7 +19,8 @@ enum TaskType {
   quiz('quiz', 'Quiz'),
   gitChore('git_chore', 'Git chore'),
   codeReview('code_review', 'Code review'),
-  standup('standup', 'Standup');
+  standup('standup', 'Standup'),
+  blog('blog', 'Blog');
 
   TaskType(this.wire, this.label);
   final String wire;
@@ -49,11 +50,49 @@ enum EnrollmentStatus {
 
   EnrollmentStatus(this.wire);
   final String wire;
+
+  String get label => switch (this) {
+    EnrollmentStatus.active => 'Active',
+    EnrollmentStatus.paused => 'Paused',
+    EnrollmentStatus.completed => 'Completed',
+    EnrollmentStatus.cancelled => 'Cancelled',
+  };
+}
+
+enum ReviewMode {
+  manual('manual', 'Admin reviews'),
+  self('self', 'Student marks done');
+
+  ReviewMode(this.wire, this.label);
+  final String wire;
+  final String label;
+}
+
+enum PersonaColor {
+  violet('violet'),
+  blue('blue'),
+  emerald('emerald'),
+  amber('amber'),
+  rose('rose'),
+  cyan('cyan'),
+  slate('slate');
+
+  PersonaColor(this.wire);
+  final String wire;
+}
+
+enum FlowVersionStatus {
+  draft('draft'),
+  published('published'),
+  retired('retired');
+
+  FlowVersionStatus(this.wire);
+  final String wire;
 }
 
 enum Author {
   student('student'),
-  lead('lead');
+  persona('persona');
 
   Author(this.wire);
   final String wire;
@@ -154,6 +193,7 @@ final class Enrollment {
     required this.timezone,
     required this.status,
     required this.dayNumber,
+    required this.flowName,
   });
 
   factory Enrollment.fromJson(JsonReader j) => Enrollment(
@@ -164,6 +204,7 @@ final class Enrollment {
     timezone: j.string('timezone'),
     status: j.enumValue('status', EnrollmentStatus.values, (s) => s.wire),
     dayNumber: j.integer('day_number'),
+    flowName: j.objectOrNull('flow')?.string('name'),
   );
 
   final String id;
@@ -173,6 +214,9 @@ final class Enrollment {
   final String timezone;
   final EnrollmentStatus status;
   final int dayNumber;
+
+  /// The flow (course) this internship follows, if one is assigned.
+  final String? flowName;
 }
 
 final class Me {
@@ -200,6 +244,9 @@ final class Task {
     required this.version,
     required this.createdAt,
     required this.updatedAt,
+    required this.reviewMode,
+    required this.personaId,
+    required this.fromFlow,
   });
 
   factory Task.fromJson(JsonReader j) => Task(
@@ -214,6 +261,26 @@ final class Task {
     version: j.integer('version'),
     createdAt: j.dateTime('created_at'),
     updatedAt: j.dateTime('updated_at'),
+    reviewMode: j.enumValue('review_mode', ReviewMode.values, (m) => m.wire),
+    personaId: j.string('persona_id'),
+    fromFlow: j.boolean('from_flow'),
+  );
+
+  Task withStatus(TaskStatus s) => Task(
+    id: id,
+    enrollmentId: enrollmentId,
+    type: type,
+    title: title,
+    brief: brief,
+    status: s,
+    scheduledFor: scheduledFor,
+    dueAt: dueAt,
+    version: version,
+    createdAt: createdAt,
+    updatedAt: updatedAt,
+    reviewMode: reviewMode,
+    personaId: personaId,
+    fromFlow: fromFlow,
   );
 
   final String id;
@@ -227,11 +294,16 @@ final class Task {
   final int version;
   final DateTime createdAt;
   final DateTime updatedAt;
+  final ReviewMode reviewMode;
+  final String personaId;
+  final bool fromFlow;
 }
 
 final class Message {
   const Message({
     required this.id,
+    required this.enrollmentId,
+    required this.personaId,
     required this.author,
     required this.body,
     required this.taskId,
@@ -241,6 +313,8 @@ final class Message {
 
   factory Message.fromJson(JsonReader j) => Message(
     id: j.string('id'),
+    enrollmentId: j.string('enrollment_id'),
+    personaId: j.string('persona_id'),
     author: j.enumValue('author', Author.values, (a) => a.wire),
     body: j.string('body'),
     taskId: j.stringOrNull('task_id'),
@@ -249,6 +323,8 @@ final class Message {
   );
 
   final String id;
+  final String enrollmentId;
+  final String personaId;
   final Author author;
   final String body;
   final String? taskId;
@@ -320,4 +396,88 @@ final class MessageFrame extends Frame {
 final class TaskFrame extends Frame {
   const TaskFrame(this.task);
   final Task task;
+}
+
+final class Persona {
+  const Persona({
+    required this.id,
+    required this.name,
+    required this.title,
+    required this.color,
+    required this.autoReply,
+    required this.archived,
+  });
+
+  factory Persona.fromJson(JsonReader j) => Persona(
+    id: j.string('id'),
+    name: j.string('name'),
+    title: j.string('title'),
+    color: j.enumValue('color', PersonaColor.values, (c) => c.wire),
+    autoReply: j.boolean('auto_reply'),
+    archived: j.boolean('archived'),
+  );
+
+  final String id;
+  final String name;
+  final String title;
+  final PersonaColor color;
+  final bool autoReply;
+  final bool archived;
+
+  String get initials {
+    final parts = name.trim().split(RegExp(r'\s+')).where((p) => p.isNotEmpty).toList();
+    if (parts.isEmpty) return '?';
+    return (parts.first.substring(0, 1) + (parts.length > 1 ? parts.last.substring(0, 1) : '')).toUpperCase();
+  }
+}
+
+/// One conversation: a student with a persona.
+final class Thread {
+  const Thread({
+    required this.enrollmentId,
+    required this.persona,
+    required this.lastMessage,
+    required this.unread,
+    this.studentName,
+    this.studentLogin,
+  });
+
+  factory Thread.fromJson(JsonReader j) {
+    final last = j.objectOrNull('last_message');
+    final student = j.objectOrNull('student');
+    return Thread(
+      enrollmentId: j.string('enrollment_id'),
+      persona: Persona.fromJson(j.object('persona')),
+      lastMessage: last == null ? null : Message.fromJson(last),
+      unread: j.integer('unread'),
+      studentName: student?.string('name'),
+      studentLogin: student?.string('github_login'),
+    );
+  }
+
+  final String enrollmentId;
+  final Persona persona;
+  final Message? lastMessage;
+  final int unread;
+
+  /// Set in the admin inbox only.
+  final String? studentName;
+  final String? studentLogin;
+
+  String get key => '$enrollmentId/${persona.id}';
+
+  Thread copyWith({Message? lastMessage, int? unread}) => Thread(
+    enrollmentId: enrollmentId,
+    persona: persona,
+    lastMessage: lastMessage ?? this.lastMessage,
+    unread: unread ?? this.unread,
+    studentName: studentName,
+    studentLogin: studentLogin,
+  );
+}
+
+final class BroadcastOutcome {
+  const BroadcastOutcome({required this.sent, required this.failed});
+  final int sent;
+  final int failed;
 }

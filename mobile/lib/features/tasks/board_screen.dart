@@ -8,6 +8,7 @@ import 'package:stackstep/api/models.dart';
 import 'package:stackstep/api/validation.dart';
 import 'package:stackstep/core/providers.dart';
 import 'package:stackstep/core/theme.dart';
+import 'package:stackstep/features/chat/inbox_controller.dart';
 import 'package:stackstep/features/tasks/board_controller.dart';
 import 'package:stackstep/shared/errors.dart';
 import 'package:stackstep/shared/format.dart';
@@ -170,6 +171,10 @@ class _EmptyColumn extends StatelessWidget {
   };
 }
 
+/// The persona who posted a task, from the student's chats (null until they load).
+Persona? taskPersona(WidgetRef ref, Task task) =>
+    ref.watch(studentInboxProvider).value?.map((t) => t.persona).where((p) => p.id == task.personaId).firstOrNull;
+
 class TaskCard extends ConsumerWidget {
   const TaskCard({required this.task, required this.onTap, super.key});
 
@@ -181,9 +186,11 @@ class TaskCard extends ConsumerWidget {
     final t = ShadTheme.of(context);
     final now = ref.watch(clockProvider)();
     final overdue = !task.status.isTerminal && task.status != TaskStatus.inReview && isOverdue(task.dueAt, now);
+    final persona = taskPersona(ref, task);
     return Semantics(
       button: true,
-      label: '${task.type.label}: ${task.title}. ${task.status.label}. ${dueLabel(task.dueAt, now)}',
+      label:
+          '${task.type.label}: ${task.title}. ${task.status.label}. ${dueLabel(task.dueAt, now)}${persona == null ? '' : '. From ${persona.name}'}',
       child: ShadCard(
         padding: EdgeInsets.zero,
         child: InkWell(
@@ -213,6 +220,12 @@ class TaskCard extends ConsumerWidget {
                         fontWeight: overdue ? FontWeight.w600 : FontWeight.w400,
                       ),
                     ),
+                    const Spacer(),
+                    if (persona != null) ...[
+                      PersonaAvatar(persona, size: 20),
+                      const SizedBox(width: 6),
+                      Text(persona.name.split(' ').first, style: t.textTheme.small.copyWith(color: t.colorScheme.mutedForeground)),
+                    ],
                   ],
                 ),
               ],
@@ -234,12 +247,15 @@ Future<void> openTaskSheet(BuildContext context, Task task) => showModalBottomSh
 String _actionLabel(TaskStatus from, TaskStatus to) => switch ((from, to)) {
   (TaskStatus.todo, TaskStatus.inProgress) => 'Start working',
   (TaskStatus.inProgress, TaskStatus.inReview) => 'Submit for review',
+  (TaskStatus.inProgress, TaskStatus.done) => 'Mark as done',
   (TaskStatus.changesRequested, TaskStatus.inReview) => 'Resubmit for review',
   (TaskStatus.changesRequested, TaskStatus.inProgress) => 'Keep working',
   _ => to.label,
 };
 
-String _nextStepHint(TaskStatus s) => switch (s) {
+String _nextStepHint(Task task) => switch (task.status) {
+  TaskStatus.todo when task.reviewMode == ReviewMode.self => 'Tap Start working when you begin. You mark this one done yourself.',
+  TaskStatus.inProgress when task.reviewMode == ReviewMode.self => 'No review needed. Mark it done once you’ve finished.',
   TaskStatus.todo => 'Create a branch for this ticket, then tap Start working.',
   TaskStatus.inProgress => 'Push your branch and open a PR, then submit it for review.',
   TaskStatus.inReview => 'Your lead is reviewing. Pick up a smaller task while you wait.',
@@ -282,7 +298,11 @@ class _TaskSheetState extends ConsumerState<TaskSheet> {
       showToast(context, err, error: true);
     } else {
       unawaited(HapticFeedback.mediumImpact());
-      showToast(context, to == TaskStatus.inReview ? 'Sent for review' : 'Moved to ${to.label}');
+      showToast(context, switch (to) {
+        TaskStatus.inReview => 'Sent for review',
+        TaskStatus.done => 'Nice work. Marked as done.',
+        _ => 'Moved to ${to.label}',
+      });
     }
   }
 
@@ -297,7 +317,8 @@ class _TaskSheetState extends ConsumerState<TaskSheet> {
       );
     }
     final now = ref.watch(clockProvider)();
-    final moves = studentMoves(task.status);
+    final moves = studentMoves(task.status, task.reviewMode);
+    final persona = taskPersona(ref, task);
     return DraggableScrollableSheet(
       expand: false,
       initialChildSize: 0.7,
@@ -316,6 +337,16 @@ class _TaskSheetState extends ConsumerState<TaskSheet> {
           const SizedBox(height: Space.md),
           Text(task.title, style: t.textTheme.h3),
           const SizedBox(height: Space.sm),
+          if (persona != null) ...[
+            Row(
+              children: [
+                PersonaAvatar(persona, size: 20),
+                const SizedBox(width: 6),
+                Text('From ${persona.name} · ${persona.title}', style: t.textTheme.muted),
+              ],
+            ),
+            const SizedBox(height: Space.xs),
+          ],
           Row(
             children: [
               Icon(LucideIcons.calendarClock, size: 14, color: t.colorScheme.mutedForeground),
@@ -324,16 +355,12 @@ class _TaskSheetState extends ConsumerState<TaskSheet> {
             ],
           ),
           const SizedBox(height: Space.lg),
-          ShadAlert(
-            icon: const Icon(LucideIcons.footprints),
-            title: const Text('Next step'),
-            description: Text(_nextStepHint(task.status)),
-          ),
+          ShadAlert(icon: const Icon(LucideIcons.footprints), title: const Text('Next step'), description: Text(_nextStepHint(task))),
           const SizedBox(height: Space.xl),
           Text('Brief', style: t.textTheme.small.copyWith(fontWeight: FontWeight.w600)),
           const SizedBox(height: Space.sm),
           if (task.brief.isEmpty)
-            Text('No brief for this one. Ask your lead in chat if anything is unclear.', style: t.textTheme.muted)
+            Text('No brief for this one. Ask ${persona?.name ?? 'your lead'} in chat if anything is unclear.', style: t.textTheme.muted)
           else
             SelectableText(task.brief, style: t.textTheme.p.copyWith(height: 1.55)),
           const SizedBox(height: Space.xl),

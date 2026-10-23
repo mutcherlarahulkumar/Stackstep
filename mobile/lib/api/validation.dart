@@ -77,9 +77,10 @@ String? validateNote(String raw, TaskStatus to) {
 }
 
 /// Student-allowed moves, mirroring the server's transition graph.
-List<TaskStatus> studentMoves(TaskStatus from) => switch (from) {
+/// Self-reviewed tasks are finished by the student instead of going to review.
+List<TaskStatus> studentMoves(TaskStatus from, [ReviewMode mode = ReviewMode.manual]) => switch (from) {
   TaskStatus.todo => const [TaskStatus.inProgress],
-  TaskStatus.inProgress => const [TaskStatus.inReview],
+  TaskStatus.inProgress => mode == ReviewMode.self ? const [TaskStatus.done] : const [TaskStatus.inReview],
   TaskStatus.changesRequested => const [TaskStatus.inReview, TaskStatus.inProgress],
   TaskStatus.inReview || TaskStatus.done || TaskStatus.cancelled => const [],
 };

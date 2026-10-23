@@ -1,12 +1,16 @@
 import 'dart:async';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_riverpod/misc.dart';
 import 'package:stackstep/api/api_client.dart';
 import 'package:stackstep/api/models.dart';
 import 'package:stackstep/api/validation.dart';
 import 'package:stackstep/core/providers.dart';
+import 'package:stackstep/features/chat/inbox_controller.dart';
 import 'package:stackstep/shared/errors.dart';
 import 'package:uuid/uuid.dart';
+
+export 'package:stackstep/features/chat/inbox_controller.dart' show ChatTarget, ChatTargetX;
 
 /// A row in the chat: a delivered message, or one of ours still sending or failed.
 sealed class ChatItem {
@@ -75,29 +79,55 @@ List<Message> mergeMessages(List<Message> a, List<Message> b) {
   });
 }
 
-final AsyncNotifierProvider<ChatController, ChatState> chatProvider = AsyncNotifierProvider.autoDispose<ChatController, ChatState>(
-  ChatController.new,
-);
+final AsyncNotifierProviderFamily<ChatController, ChatState, ChatTarget> chatProvider = AsyncNotifierProvider.autoDispose
+    .family<ChatController, ChatState, ChatTarget>(ChatController.new);
 
 final class ChatController extends AsyncNotifier<ChatState> {
+  ChatController(this.target);
+
+  final ChatTarget target;
   ApiClient get _api => ref.read(apiClientProvider);
   static const _uuid = Uuid();
+
+  Future<Page<Message>> _page({String? cursor}) => switch (target.enrollmentId) {
+    final enrollment? => _api.staffMessages(enrollment, target.personaId, cursor: cursor),
+    null => _api.messages(target.personaId, cursor: cursor),
+  };
+
+  Future<Message> _post(String clientId, String body) => switch (target.enrollmentId) {
+    final enrollment? => _api.staffSend(enrollment, target.personaId, clientId: clientId, body: body),
+    null => _api.sendMessage(target.personaId, clientId: clientId, body: body),
+  };
+
+  Future<void> _markRead() async {
+    try {
+      await switch (target.enrollmentId) {
+        final enrollment? => _api.staffMarkRead(enrollment, target.personaId),
+        null => _api.markRead(target.personaId),
+      };
+      if (ref.mounted) ref.read(inboxReadsProvider).markedRead(target);
+    } on Exception {
+      // Unread counts are best effort; the next open retries.
+    }
+  }
 
   @override
   Future<ChatState> build() async {
     final rt = ref.watch(realtimeProvider);
     final sub = rt.frames.listen((f) {
       switch (f) {
-        case MessageFrame(:final message):
+        case MessageFrame(:final message) when target.contains(message):
           _receive([message]);
+          if (!target.isMine(message)) unawaited(_markRead());
         case ReadyFrame():
           unawaited(_catchUp());
-        case TaskFrame():
+        case MessageFrame() || TaskFrame():
           break;
       }
     });
     ref.onDispose(sub.cancel);
-    final page = await _api.messages();
+    final page = await _page();
+    unawaited(_markRead());
     return ChatState(delivered: page.items, outgoing: const [], nextCursor: page.nextCursor);
   }
 
@@ -113,7 +143,7 @@ final class ChatController extends AsyncNotifier<ChatState> {
   /// After a reconnect, pull the newest page so nothing sent while offline is missed.
   Future<void> _catchUp() async {
     try {
-      final page = await _api.messages();
+      final page = await _page();
       if (ref.mounted) _receive(page.items);
     } on Exception {
       // The next reconnect tries again.
@@ -125,7 +155,7 @@ final class ChatController extends AsyncNotifier<ChatState> {
     if (s == null || s.loadingOlder || s.nextCursor == null) return;
     state = AsyncData(s.copyWith(loadingOlder: true));
     try {
-      final page = await _api.messages(cursor: s.nextCursor);
+      final page = await _page(cursor: s.nextCursor);
       final now = state.value!;
       if (!ref.mounted) return;
       state = AsyncData(
@@ -162,7 +192,7 @@ final class ChatController extends AsyncNotifier<ChatState> {
 
   Future<void> _deliver(Outgoing o) async {
     try {
-      final msg = await _api.sendMessage(clientId: o.clientId, body: o.body);
+      final msg = await _post(o.clientId, o.body);
       if (ref.mounted) _receive([msg]);
     } on Exception catch (e) {
       if (ref.mounted) _replaceOutgoing(o.clientId, o.failed(messageFor(e)));

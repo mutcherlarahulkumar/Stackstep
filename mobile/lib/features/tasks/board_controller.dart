@@ -90,22 +90,7 @@ final class BoardController extends AsyncNotifier<List<Task>> {
     if (before == null) return null;
     state = AsyncData([
       for (final t in before)
-        if (t.id == task.id)
-          Task(
-            id: t.id,
-            enrollmentId: t.enrollmentId,
-            type: t.type,
-            title: t.title,
-            brief: t.brief,
-            status: to,
-            scheduledFor: t.scheduledFor,
-            dueAt: t.dueAt,
-            version: t.version,
-            createdAt: t.createdAt,
-            updatedAt: t.updatedAt,
-          )
-        else
-          t,
+        if (t.id == task.id) t.withStatus(to) else t,
     ]);
     try {
       final updated = await _api.transition(taskId: task.id, to: to, expectedVersion: task.version);

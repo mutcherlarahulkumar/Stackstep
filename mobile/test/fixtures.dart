@@ -26,6 +26,8 @@ Json taskJson({
   String due = '2026-11-04T12:00:00Z',
   int version = 1,
   String title = 'Add filtering',
+  String reviewMode = 'manual',
+  String personaId = leadId,
 }) => {
   'id': id,
   'enrollment_id': 'e-1',
@@ -38,15 +40,49 @@ Json taskJson({
   'version': version,
   'created_at': '2026-11-04T04:30:00Z',
   'updated_at': '2026-11-04T04:30:00Z',
+  'review_mode': reviewMode,
+  'persona_id': personaId,
+  'from_flow': false,
 };
 
 Json messageJson({
   String id = 'm-1',
-  String author = 'lead',
+  String author = 'persona',
   String body = 'Hi',
   String sentAt = '2026-11-04T04:30:00Z',
   String? clientId,
-}) => {'id': id, 'author': author, 'body': body, 'task_id': null, 'client_id': clientId, 'sent_at': sentAt};
+  String personaId = leadId,
+  String enrollmentId = 'e-1',
+}) => {
+  'id': id,
+  'enrollment_id': enrollmentId,
+  'persona_id': personaId,
+  'author': author,
+  'body': body,
+  'task_id': null,
+  'client_id': clientId,
+  'sent_at': sentAt,
+};
+
+const leadId = '00000000-0000-4000-8000-000000000001';
+const managerId = '00000000-0000-4000-8000-0000000000a1';
+
+Json personaJson({String id = leadId, String name = 'Sam Rivera', String title = 'Team Lead', String color = 'violet'}) => {
+  'id': id,
+  'name': name,
+  'title': title,
+  'color': color,
+  'auto_reply': id == leadId,
+  'archived': false,
+};
+
+Json threadJson({Json? persona, Json? last, int unread = 0, String enrollmentId = 'e-1', Json? student}) => {
+  'enrollment_id': enrollmentId,
+  'persona': persona ?? personaJson(),
+  'last_message': last,
+  'unread': unread,
+  'student': ?student,
+};
 
 Json tokensJson({String access = 'access-1', String refresh = 'refresh-1', String exp = '2999-01-01T00:00:00Z'}) => {
   'access_token': access,

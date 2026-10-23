@@ -58,5 +58,8 @@ void main() {
     for (final s in [TaskStatus.inReview, TaskStatus.done, TaskStatus.cancelled]) {
       expect(studentMoves(s), isEmpty, reason: s.wire);
     }
+    // Self-reviewed tasks skip review: the student finishes them.
+    expect(studentMoves(TaskStatus.inProgress, ReviewMode.self), [TaskStatus.done]);
+    expect(studentMoves(TaskStatus.todo, ReviewMode.self), [TaskStatus.inProgress]);
   });
 }
