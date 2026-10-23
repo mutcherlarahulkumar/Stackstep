@@ -1,0 +1,26 @@
+name: API contract
+
+on:
+  push:
+    branches: [main]
+    paths: [api/**, scripts/check-contract.mjs, redocly.yaml, backend/internal/domain/**, backend/internal/apperr/**, web/src/lib/api/**, mobile/lib/api/**, .github/workflows/contract.yml]
+  pull_request:
+    paths: [api/**, scripts/check-contract.mjs, redocly.yaml, backend/internal/domain/**, backend/internal/apperr/**, web/src/lib/api/**, mobile/lib/api/**, .github/workflows/contract.yml]
+  workflow_call:
+
+permissions:
+  contents: read
+
+jobs:
+  contract:
+    name: OpenAPI lint + enum drift
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+      - run: npx -y @redocly/cli@2.69.0 lint
+      - run: npx -y @redocly/cli@2.69.0 bundle api/openapi.yaml --ext json -o "$RUNNER_TEMP/openapi.json"
+      - name: Go, TypeScript and Dart enums match the contract
+        run: node scripts/check-contract.mjs "$RUNNER_TEMP/openapi.json"

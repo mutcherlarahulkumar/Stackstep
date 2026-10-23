@@ -20,7 +20,13 @@ Json enrollmentJson({String status = 'active', int day = 3}) => {
   'day_number': day,
 };
 
-Json taskJson({String id = 't-1', String status = 'todo', String due = '2026-11-04T12:00:00Z', int version = 1, String title = 'Add filtering'}) => {
+Json taskJson({
+  String id = 't-1',
+  String status = 'todo',
+  String due = '2026-11-04T12:00:00Z',
+  int version = 1,
+  String title = 'Add filtering',
+}) => {
   'id': id,
   'enrollment_id': 'e-1',
   'type': 'feature',
@@ -34,14 +40,13 @@ Json taskJson({String id = 't-1', String status = 'todo', String due = '2026-11-
   'updated_at': '2026-11-04T04:30:00Z',
 };
 
-Json messageJson({String id = 'm-1', String author = 'lead', String body = 'Hi', String sentAt = '2026-11-04T04:30:00Z', String? clientId}) => {
-  'id': id,
-  'author': author,
-  'body': body,
-  'task_id': null,
-  'client_id': clientId,
-  'sent_at': sentAt,
-};
+Json messageJson({
+  String id = 'm-1',
+  String author = 'lead',
+  String body = 'Hi',
+  String sentAt = '2026-11-04T04:30:00Z',
+  String? clientId,
+}) => {'id': id, 'author': author, 'body': body, 'task_id': null, 'client_id': clientId, 'sent_at': sentAt};
 
 Json tokensJson({String access = 'access-1', String refresh = 'refresh-1', String exp = '2999-01-01T00:00:00Z'}) => {
   'access_token': access,

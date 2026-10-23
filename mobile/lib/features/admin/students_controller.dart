@@ -24,7 +24,8 @@ final class StudentsState {
   final bool searching;
 }
 
-final AsyncNotifierProvider<StudentsController, StudentsState> studentsProvider = AsyncNotifierProvider.autoDispose<StudentsController, StudentsState>(StudentsController.new);
+final AsyncNotifierProvider<StudentsController, StudentsState> studentsProvider =
+    AsyncNotifierProvider.autoDispose<StudentsController, StudentsState>(StudentsController.new);
 
 final class StudentsController extends AsyncNotifier<StudentsState> {
   ApiClient get _api => ref.read(apiClientProvider);

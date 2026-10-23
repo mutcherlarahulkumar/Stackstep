@@ -34,11 +34,19 @@ void main() {
     expect(validateSchedule(now: now, scheduledFor: null, dueAt: now.add(const Duration(minutes: 14))).dueAt, isNotNull);
     expect(validateSchedule(now: now, scheduledFor: null, dueAt: null).dueAt, isNotNull);
     expect(
-      validateSchedule(now: now, scheduledFor: now.subtract(const Duration(minutes: 6)), dueAt: now.add(const Duration(hours: 1))).scheduledFor,
+      validateSchedule(
+        now: now,
+        scheduledFor: now.subtract(const Duration(minutes: 6)),
+        dueAt: now.add(const Duration(hours: 1)),
+      ).scheduledFor,
       isNotNull,
     );
     expect(
-      validateSchedule(now: now, scheduledFor: now.subtract(const Duration(minutes: 4)), dueAt: now.add(const Duration(hours: 1))).scheduledFor,
+      validateSchedule(
+        now: now,
+        scheduledFor: now.subtract(const Duration(minutes: 4)),
+        dueAt: now.add(const Duration(hours: 1)),
+      ).scheduledFor,
       isNull,
     );
   });

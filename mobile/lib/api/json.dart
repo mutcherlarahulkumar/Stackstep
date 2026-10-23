@@ -56,10 +56,7 @@ extension type const JsonReader(Json raw) {
     final value = _req<List<Object?>>(key);
     return [
       for (final (i, item) in value.indexed)
-        if (item is Json)
-          decode(JsonReader(item))
-        else
-          throw ContractViolation('$key[$i]', 'object'),
+        if (item is Json) decode(JsonReader(item)) else throw ContractViolation('$key[$i]', 'object'),
     ];
   }
 

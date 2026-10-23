@@ -15,8 +15,7 @@ class SkeletonList extends StatefulWidget {
 }
 
 class _SkeletonListState extends State<SkeletonList> with SingleTickerProviderStateMixin {
-  late final AnimationController _c = AnimationController(vsync: this, duration: const Duration(milliseconds: 1100))
-    ..repeat(reverse: true);
+  late final AnimationController _c = AnimationController(vsync: this, duration: const Duration(milliseconds: 1100))..repeat(reverse: true);
 
   @override
   void dispose() {

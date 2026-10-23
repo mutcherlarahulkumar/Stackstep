@@ -1,0 +1,98 @@
+name: E2E
+
+on:
+  push:
+    branches: [main]
+    paths: [backend/**, web/**, e2e/**, .github/workflows/e2e.yml]
+  pull_request:
+    paths: [backend/**, web/**, e2e/**, .github/workflows/e2e.yml]
+  workflow_call:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-e2e-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  e2e:
+    name: Playwright against API + Postgres
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    services:
+      postgres:
+        image: postgres:18.6-alpine3.24
+        env:
+          POSTGRES_USER: stackstep
+          POSTGRES_PASSWORD: stackstep
+          POSTGRES_DB: stackstep
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U stackstep" --health-interval 2s --health-timeout 3s --health-retries 30
+    env:
+      DATABASE_URL: postgres://stackstep:stackstep@localhost:5432/stackstep?sslmode=disable
+      APP_ENV: test
+      NEXT_TELEMETRY_DISABLED: "1"
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-go@v7
+        with:
+          go-version-file: backend/go.mod
+          cache-dependency-path: backend/go.sum
+      - uses: pnpm/action-setup@v6
+        with:
+          package_json_file: web/package.json
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          cache: pnpm
+          cache-dependency-path: |
+            web/pnpm-lock.yaml
+            e2e/pnpm-lock.yaml
+
+      - name: Build API and seed
+        working-directory: backend
+        run: |
+          go build -o "$RUNNER_TEMP/api" ./cmd/api
+          go build -o "$RUNNER_TEMP/seed" ./cmd/seed
+      - name: Start API
+        run: |
+          LEAD_REPLY_DELAY=3s WEB_BASE_URL=http://localhost:3000 ALLOWED_ORIGINS=http://localhost:3000 \
+          AUTH_RATE_PER_MINUTE=1000 nohup "$RUNNER_TEMP/api" > "$RUNNER_TEMP/api.log" 2>&1 &
+          for i in $(seq 1 60); do curl -sf localhost:8080/readyz && break; sleep 1; done
+          curl -sf localhost:8080/readyz
+
+      - name: Build and start web
+        working-directory: web
+        run: |
+          pnpm install --frozen-lockfile
+          pnpm build
+          API_INTERNAL_URL=http://localhost:8080 PUBLIC_WS_URL=ws://localhost:8080/v1/ws DEV_LOGIN=true \
+          nohup pnpm start > "$RUNNER_TEMP/web.log" 2>&1 &
+          for i in $(seq 1 60); do curl -sf localhost:3000/api/web-config && break; sleep 1; done
+
+      - name: Install Playwright
+        working-directory: e2e
+        run: |
+          pnpm install --frozen-lockfile
+          pnpm exec playwright install --with-deps chromium
+      - name: Run E2E
+        working-directory: e2e
+        env:
+          SEED_CMD: ${{ runner.temp }}/seed -reset
+        run: pnpm test
+
+      - name: Server logs
+        if: failure()
+        run: |
+          echo "::group::api.log"; tail -n 300 "$RUNNER_TEMP/api.log"; echo "::endgroup::"
+          echo "::group::web.log"; tail -n 300 "$RUNNER_TEMP/web.log"; echo "::endgroup::"
+      - uses: actions/upload-artifact@v7
+        if: failure()
+        with:
+          name: playwright-report
+          path: |
+            e2e/playwright-report
+            e2e/test-results
+          retention-days: 7

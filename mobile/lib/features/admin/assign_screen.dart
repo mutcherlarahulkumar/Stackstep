@@ -57,7 +57,10 @@ class StudentPickerScreen extends ConsumerWidget {
     final t = ShadTheme.of(context);
     return CustomScrollView(
       slivers: [
-        const SliverPadding(padding: EdgeInsets.fromLTRB(Space.lg, Space.sm, Space.lg, 0), sliver: SliverToBoxAdapter(child: DesktopNotice())),
+        const SliverPadding(
+          padding: EdgeInsets.fromLTRB(Space.lg, Space.sm, Space.lg, 0),
+          sliver: SliverToBoxAdapter(child: DesktopNotice()),
+        ),
         SliverPadding(
           padding: const EdgeInsets.fromLTRB(Space.lg, Space.lg, Space.lg, Space.sm),
           sliver: SliverToBoxAdapter(
@@ -87,7 +90,10 @@ class StudentPickerScreen extends ConsumerWidget {
             itemBuilder: (context, i) {
               if (i == value.items.length) {
                 unawaited(ref.read(studentsProvider.notifier).loadMore());
-                return const Padding(padding: EdgeInsets.all(Space.lg), child: Center(child: CircularProgressIndicator(strokeWidth: 2)));
+                return const Padding(
+                  padding: EdgeInsets.all(Space.lg),
+                  child: Center(child: CircularProgressIndicator(strokeWidth: 2)),
+                );
               }
               final s = value.items[i];
               final paused = s.enrollment.status != EnrollmentStatus.active;
@@ -283,7 +289,10 @@ class _AssignTaskScreenState extends ConsumerState<AssignTaskScreen> {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(s.user.name, style: t.textTheme.large.copyWith(fontSize: 16)),
-                        Text('Day ${s.enrollment.dayNumber} of ${s.enrollment.program.days} · ${s.openTasks} open · ${s.inReview} in review', style: t.textTheme.muted),
+                        Text(
+                          'Day ${s.enrollment.dayNumber} of ${s.enrollment.program.days} · ${s.openTasks} open · ${s.inReview} in review',
+                          style: t.textTheme.muted,
+                        ),
                       ],
                     ),
                   ),
@@ -291,7 +300,10 @@ class _AssignTaskScreenState extends ConsumerState<AssignTaskScreen> {
               ),
             ),
             const SizedBox(height: Space.xl),
-            if (_formError != null) ...[ErrorAlert(title: "Couldn't assign this task", message: _formError!), const SizedBox(height: Space.lg)],
+            if (_formError != null) ...[
+              ErrorAlert(title: "Couldn't assign this task", message: _formError!),
+              const SizedBox(height: Space.lg),
+            ],
             AppField(
               label: 'Type',
               error: _errors['type'],

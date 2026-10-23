@@ -9,13 +9,7 @@ import 'package:stackstep/api/models.dart';
 
 /// An error the API returned in its envelope.
 final class ApiException implements Exception {
-  const ApiException({
-    required this.status,
-    required this.code,
-    required this.message,
-    this.fields = const {},
-    this.retryAfterSeconds,
-  });
+  const ApiException({required this.status, required this.code, required this.message, this.fields = const {}, this.retryAfterSeconds});
 
   final int status;
 
@@ -74,13 +68,7 @@ final class MemoryTokenStore implements TokenStore {
   Future<void> clear() async => value = null;
 }
 
-typedef CreateTaskInput = ({
-  TaskType type,
-  String title,
-  String brief,
-  DateTime? scheduledFor,
-  DateTime dueAt,
-});
+typedef CreateTaskInput = ({TaskType type, String title, String brief, DateTime? scheduledFor, DateTime dueAt});
 
 final class ApiClient {
   ApiClient({
@@ -154,9 +142,7 @@ final class ApiClient {
   Future<List<Task>> myTasks() async => asObject(await _send('GET', '/v1/me/tasks')).list('items', Task.fromJson);
 
   Future<Page<Message>> messages({String? cursor, int limit = 50}) async {
-    final j = asObject(
-      await _send('GET', '/v1/me/messages', query: {'limit': '$limit', 'cursor': ?cursor}),
-    );
+    final j = asObject(await _send('GET', '/v1/me/messages', query: {'limit': '$limit', 'cursor': ?cursor}));
     return Page(items: j.list('items', Message.fromJson), nextCursor: j.stringOrNull('next_cursor'));
   }
 
@@ -166,11 +152,7 @@ final class ApiClient {
   Future<Task> transition({required String taskId, required TaskStatus to, required int expectedVersion, String note = ''}) async =>
       Task.fromJson(
         asObject(
-          await _send(
-            'POST',
-            '/v1/tasks/$taskId/transitions',
-            body: {'to': to.wire, 'expected_version': expectedVersion, 'note': note},
-          ),
+          await _send('POST', '/v1/tasks/$taskId/transitions', body: {'to': to.wire, 'expected_version': expectedVersion, 'note': note}),
         ),
       );
 
@@ -178,11 +160,7 @@ final class ApiClient {
 
   Future<Page<StudentRow>> students({String query = '', String? cursor, int limit = 30}) async {
     final j = asObject(
-      await _send(
-        'GET',
-        '/v1/admin/students',
-        query: {'limit': '$limit', if (query.isNotEmpty) 'q': query, 'cursor': ?cursor},
-      ),
+      await _send('GET', '/v1/admin/students', query: {'limit': '$limit', if (query.isNotEmpty) 'q': query, 'cursor': ?cursor}),
     );
     return Page(items: j.list('items', StudentRow.fromJson), nextCursor: j.stringOrNull('next_cursor'));
   }

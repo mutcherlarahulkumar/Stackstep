@@ -22,18 +22,27 @@ Future<void> pumpApp(WidgetTester tester, MockClient client, {String? refresh = 
 
 void main() {
   testWidgets('admin lands on task allocation with the desktop notice, never the chat (U2)', (tester) async {
-    final client = MockClient((req) async => switch (req.url.path) {
-      '/v1/auth/refresh' => json(tokensJson()),
-      '/v1/me' => json({'user': userJson(role: 'admin', login: 'admin-demo', name: 'Platform Admin'), 'enrollment': null}),
-      '/v1/admin/students' => json({
-        'items': [
-          {'user': userJson(), 'enrollment': enrollmentJson(), 'open_tasks': 2, 'in_review': 1},
-          {'user': userJson(login: 'kiran-dev', name: 'Kiran Kumar'), 'enrollment': enrollmentJson(status: 'paused'), 'open_tasks': 0, 'in_review': 0},
-        ],
-        'next_cursor': null,
-      }),
-      _ => json({'error': {'code': 'not_found', 'message': ''}}, 404),
-    });
+    final client = MockClient(
+      (req) async => switch (req.url.path) {
+        '/v1/auth/refresh' => json(tokensJson()),
+        '/v1/me' => json({'user': userJson(role: 'admin', login: 'admin-demo', name: 'Platform Admin'), 'enrollment': null}),
+        '/v1/admin/students' => json({
+          'items': [
+            {'user': userJson(), 'enrollment': enrollmentJson(), 'open_tasks': 2, 'in_review': 1},
+            {
+              'user': userJson(login: 'kiran-dev', name: 'Kiran Kumar'),
+              'enrollment': enrollmentJson(status: 'paused'),
+              'open_tasks': 0,
+              'in_review': 0,
+            },
+          ],
+          'next_cursor': null,
+        }),
+        _ => json({
+          'error': {'code': 'not_found', 'message': ''},
+        }, 404),
+      },
+    );
     await pumpApp(tester, client);
 
     expect(find.text('Assign tasks'), findsOneWidget);
@@ -59,11 +68,15 @@ void main() {
   });
 
   testWidgets('student without an internship sees the empty state (C8)', (tester) async {
-    final client = MockClient((req) async => switch (req.url.path) {
-      '/v1/auth/refresh' => json(tokensJson()),
-      '/v1/me' => json({'user': userJson(login: 'nora-dev', name: 'Nora Das'), 'enrollment': null}),
-      _ => json({'error': {'code': 'not_found', 'message': ''}}, 404),
-    });
+    final client = MockClient(
+      (req) async => switch (req.url.path) {
+        '/v1/auth/refresh' => json(tokensJson()),
+        '/v1/me' => json({'user': userJson(login: 'nora-dev', name: 'Nora Das'), 'enrollment': null}),
+        _ => json({
+          'error': {'code': 'not_found', 'message': ''},
+        }, 404),
+      },
+    );
     await pumpApp(tester, client);
     expect(find.text('No active internship'), findsOneWidget);
     expect(find.textContaining('@nora-dev'), findsOneWidget);

@@ -45,12 +45,7 @@ final class Outgoing extends ChatItem {
 }
 
 final class ChatState {
-  const ChatState({
-    required this.delivered,
-    required this.outgoing,
-    required this.nextCursor,
-    this.loadingOlder = false,
-  });
+  const ChatState({required this.delivered, required this.outgoing, required this.nextCursor, this.loadingOlder = false});
 
   /// Newest first, unique by id.
   final List<Message> delivered;
@@ -61,18 +56,14 @@ final class ChatState {
   final bool loadingOlder;
 
   /// Everything to render, newest first (the list view is reversed).
-  List<ChatItem> get items => [
-    ...outgoing.reversed,
-    ...delivered.map(Delivered.new),
-  ];
+  List<ChatItem> get items => [...outgoing.reversed, ...delivered.map(Delivered.new)];
 
-  ChatState copyWith({List<Message>? delivered, List<Outgoing>? outgoing, String? Function()? nextCursor, bool? loadingOlder}) =>
-      ChatState(
-        delivered: delivered ?? this.delivered,
-        outgoing: outgoing ?? this.outgoing,
-        nextCursor: nextCursor != null ? nextCursor() : this.nextCursor,
-        loadingOlder: loadingOlder ?? this.loadingOlder,
-      );
+  ChatState copyWith({List<Message>? delivered, List<Outgoing>? outgoing, String? Function()? nextCursor, bool? loadingOlder}) => ChatState(
+    delivered: delivered ?? this.delivered,
+    outgoing: outgoing ?? this.outgoing,
+    nextCursor: nextCursor != null ? nextCursor() : this.nextCursor,
+    loadingOlder: loadingOlder ?? this.loadingOlder,
+  );
 }
 
 /// Merges pages and live frames: dedupes by id and keeps newest first.
@@ -84,7 +75,9 @@ List<Message> mergeMessages(List<Message> a, List<Message> b) {
   });
 }
 
-final AsyncNotifierProvider<ChatController, ChatState> chatProvider = AsyncNotifierProvider.autoDispose<ChatController, ChatState>(ChatController.new);
+final AsyncNotifierProvider<ChatController, ChatState> chatProvider = AsyncNotifierProvider.autoDispose<ChatController, ChatState>(
+  ChatController.new,
+);
 
 final class ChatController extends AsyncNotifier<ChatState> {
   ApiClient get _api => ref.read(apiClientProvider);
@@ -113,10 +106,7 @@ final class ChatController extends AsyncNotifier<ChatState> {
     if (s == null) return;
     final ids = {for (final m in msgs) m.clientId};
     state = AsyncData(
-      s.copyWith(
-        delivered: mergeMessages(s.delivered, msgs),
-        outgoing: s.outgoing.where((o) => !ids.contains(o.clientId)).toList(),
-      ),
+      s.copyWith(delivered: mergeMessages(s.delivered, msgs), outgoing: s.outgoing.where((o) => !ids.contains(o.clientId)).toList()),
     );
   }
 
@@ -139,11 +129,7 @@ final class ChatController extends AsyncNotifier<ChatState> {
       final now = state.value!;
       if (!ref.mounted) return;
       state = AsyncData(
-        now.copyWith(
-          delivered: mergeMessages(now.delivered, page.items),
-          nextCursor: () => page.nextCursor,
-          loadingOlder: false,
-        ),
+        now.copyWith(delivered: mergeMessages(now.delivered, page.items), nextCursor: () => page.nextCursor, loadingOlder: false),
       );
     } on Exception {
       if (ref.mounted) state = AsyncData(state.value!.copyWith(loadingOlder: false));
@@ -186,6 +172,13 @@ final class ChatController extends AsyncNotifier<ChatState> {
   void _replaceOutgoing(String clientId, Outgoing next) {
     final s = state.value;
     if (s == null) return;
-    state = AsyncData(s.copyWith(outgoing: [for (final x in s.outgoing) if (x.clientId == clientId) next else x]));
+    state = AsyncData(
+      s.copyWith(
+        outgoing: [
+          for (final x in s.outgoing)
+            if (x.clientId == clientId) next else x,
+        ],
+      ),
+    );
   }
 }

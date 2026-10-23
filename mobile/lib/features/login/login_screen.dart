@@ -59,10 +59,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                     style: t.textTheme.lead,
                   ),
                   const SizedBox(height: Space.xxl),
-                  if (_error != null) ...[
-                    ErrorAlert(title: "Couldn't sign you in", message: _error!),
-                    const SizedBox(height: Space.lg),
-                  ],
+                  if (_error != null) ...[ErrorAlert(title: "Couldn't sign you in", message: _error!), const SizedBox(height: Space.lg)],
                   ShadButton(
                     key: const Key('github-sign-in'),
                     size: ShadButtonSize.lg,

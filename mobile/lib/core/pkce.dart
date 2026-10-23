@@ -13,5 +13,4 @@ Pkce createPkce([Random? random]) {
   return (verifier: verifier, challenge: challengeFor(verifier));
 }
 
-String challengeFor(String verifier) =>
-    base64Url.encode(sha256.convert(ascii.encode(verifier)).bytes).replaceAll('=', '');
+String challengeFor(String verifier) => base64Url.encode(sha256.convert(ascii.encode(verifier)).bytes).replaceAll('=', '');

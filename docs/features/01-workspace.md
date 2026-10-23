@@ -71,7 +71,9 @@ Every row is covered by a test; the *Test* column names where.
 | A4 | Mobile one-time code used twice or after 60 s | 401 `invalid_code` | backend `TestExchangeCode*` |
 | A5 | OAuth `state` tampered or older than 10 min | 400 `invalid_state` | backend `TestOAuthState*` |
 | A6 | Dev login called in production | 404 | backend `TestDevLoginDisabledInProd` |
-| A7 | Student calls an `/admin` route | 403 `forbidden` | backend `TestAdminRoutesForbidStudents` |
+| A7 | Student calls an `/admin` route | 403 `forbidden`; web redirects students away from `/admin` | backend `TestAdminRoutesForbidStudents`, E2E |
+| A9 | Too many sign-in attempts from one IP | 429 `rate_limited`, `Retry-After: 60`; token refresh has its own larger bucket | backend `TestSignInRateLimited` |
+| A10 | Concurrent tabs refresh at once | clients share one in-flight refresh (rotating twice would revoke the family) | web + mobile client tests |
 | A8 | College admin touches a student of another college | 404 `not_found` (no existence leak) | backend `TestCollegeAdminScope` |
 | T1 | Title blank, < 3 or > 120 characters (after trim), or has control characters | 422 `validation_failed`, `fields.title` | backend + web + mobile validators |
 | T2 | Brief > 8000 characters | 422 `fields.brief` | same |
@@ -93,5 +95,7 @@ Every row is covered by a test; the *Test* column names where.
 | C6 | Socket drops | client reconnects with backoff (1 s → 30 s cap, jitter) and refetches the latest page; no duplicates (dedupe by id) | web + mobile |
 | C7 | Socket opened without a valid bearer subprotocol | closed with 4401 | backend |
 | C8 | Student has no active enrollment | `/v1/me` returns `enrollment: null`; clients show a "No active internship" empty state; message/task routes return 409 `no_active_enrollment` | backend + E2E |
-| U1 | Admin opens console on < 1024 px | desktop prompt; "Assign a task" stays usable | web E2E (mobile viewport) |
+| U1 | Admin opens console on < 1024 px | desktop prompt; "Assign a task" stays usable | E2E `admin on a phone` |
+| U3 | Paused internship in the admin list | shown with a "Paused" badge; can't be picked on mobile, assign button disabled on web | mobile widget test, E2E |
+| U4 | API enum or field changes shape | client rejects the payload at the boundary (contract violation → "can't reach" state) and CI fails on enum drift | client tests, `contract.yml` |
 | U2 | Admin signs in on the mobile app | lands on Assign task + desktop notice; never sees the student chat | mobile widget test |

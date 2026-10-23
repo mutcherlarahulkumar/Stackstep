@@ -51,9 +51,21 @@ void main() {
 
     test('every server error code is known', () {
       const wire = [
-        'bad_request', 'payload_too_large', 'unauthenticated', 'forbidden', 'not_found', 'validation_failed',
-        'invalid_transition', 'version_conflict', 'enrollment_not_active', 'no_active_enrollment', 'rate_limited',
-        'invalid_state', 'invalid_code', 'not_configured', 'internal',
+        'bad_request',
+        'payload_too_large',
+        'unauthenticated',
+        'forbidden',
+        'not_found',
+        'validation_failed',
+        'invalid_transition',
+        'version_conflict',
+        'enrollment_not_active',
+        'no_active_enrollment',
+        'rate_limited',
+        'invalid_state',
+        'invalid_code',
+        'not_configured',
+        'internal',
       ];
       for (final w in wire) {
         expect(ErrorCode.fromWire(w), isNotNull, reason: w);

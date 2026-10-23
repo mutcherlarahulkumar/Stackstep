@@ -37,3 +37,4 @@ mobile/android/key.properties
 *.jks
 *.keystore
 *.iml
+.openapi.bundle.json

@@ -18,14 +18,9 @@ WebSocketChannel _defaultChannel(Uri uri, List<String> protocols) =>
 /// Every time the socket becomes live again, [onLive] fires so callers refetch
 /// whatever they may have missed while offline.
 final class Realtime {
-  Realtime({
-    required this.wsUrl,
-    required this.token,
-    this.onLive,
-    ChannelFactory? channelFactory,
-    Random? random,
-  }) : _factory = channelFactory ?? _defaultChannel,
-       _random = random ?? Random();
+  Realtime({required this.wsUrl, required this.token, this.onLive, ChannelFactory? channelFactory, Random? random})
+    : _factory = channelFactory ?? _defaultChannel,
+      _random = random ?? Random();
 
   final Uri wsUrl;
   final Future<String?> Function() token;

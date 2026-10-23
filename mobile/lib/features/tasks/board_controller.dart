@@ -36,7 +36,9 @@ Map<BoardColumn, List<Task>> groupBoard(Iterable<Task> tasks) {
   return out;
 }
 
-final AsyncNotifierProvider<BoardController, List<Task>> boardProvider = AsyncNotifierProvider.autoDispose<BoardController, List<Task>>(BoardController.new);
+final AsyncNotifierProvider<BoardController, List<Task>> boardProvider = AsyncNotifierProvider.autoDispose<BoardController, List<Task>>(
+  BoardController.new,
+);
 
 final class BoardController extends AsyncNotifier<List<Task>> {
   ApiClient get _api => ref.read(apiClientProvider);

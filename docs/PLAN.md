@@ -48,7 +48,7 @@ in their college's cohorts. Platform admins (`admin`) see everyone.
 ## 3. Repository layout
 
 ```
-api/openapi.yaml        HTTP contract shared by web and mobile
+api/openapi.yaml        HTTP contract shared by web and mobile (enum drift checked in CI)
 backend/                Go modular monolith (cmd/api, cmd/seed, internal/*)
 web/                    Next.js app: student workspace + admin console
 mobile/                 Flutter app: student chat/tasks + admin task allocation
@@ -89,7 +89,7 @@ Each slice goes **backend → mobile app → web**, with E2E before it is called
 
 | # | Feature | Status |
 |---|---|---|
-| 1 | **Workspace core: sign-in, task allocation, task board, chat with the team lead** | 🚧 this PR — see `docs/features/01-workspace.md` |
+| 1 | **Workspace core: sign-in, task allocation, task board, chat with the team lead** | ✅ built — see `docs/features/01-workspace.md` |
 | 2 | Daily scheduler (program day templates → tasks, surprise items in working hours) | next |
 | 3 | GitHub App ingest + PR pipeline (webhooks, runner, hidden tests, AI review) | |
 | 4 | LLM-backed team lead (two model tiers behind the `lead.Agent` interface) | |
@@ -100,9 +100,8 @@ Each slice goes **backend → mobile app → web**, with E2E before it is called
 
 ## 6. Releases
 
-- Conventional commits on `main`. A tag `vX.Y.Z` runs `release.yml`:
-  backend binaries (linux/darwin, amd64/arm64) + multi-arch Docker images for
-  `backend` and `web` pushed to GHCR, Android APK/AAB and an unsigned iOS build
-  attached to a GitHub Release with generated notes.
+- Conventional Commit PR titles → release-please keeps a release PR open; merging it tags
+  `vX.Y.Z` and `release.yml` re-verifies, then publishes API binaries (linux/darwin,
+  amd64/arm64), multi-arch GHCR images for API and web, Android APK/AAB and an iOS IPA.
 - Signing (Play / App Store) switches on automatically when the signing secrets
   listed in `docs/RELEASING.md` exist.

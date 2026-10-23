@@ -42,7 +42,9 @@ void main() {
       if (req.url.path == '/v1/auth/refresh') return json(tokensJson(access: 'access-2'));
       if (first) {
         first = false;
-        return json({'error': {'code': 'unauthenticated', 'message': 'expired'}}, 401);
+        return json({
+          'error': {'code': 'unauthenticated', 'message': 'expired'},
+        }, 401);
       }
       return json({'items': <Object>[]});
     });
@@ -52,7 +54,11 @@ void main() {
 
   test('a rejected refresh clears the session and reports expiry', () async {
     var expired = false;
-    final client = MockClient((req) async => json({'error': {'code': 'unauthenticated', 'message': 'no'}}, 401));
+    final client = MockClient(
+      (req) async => json({
+        'error': {'code': 'unauthenticated', 'message': 'no'},
+      }, 401),
+    );
     final api = ApiClient(baseUrl: Uri.parse('http://api.test'), tokenStore: store, httpClient: client)
       ..onSessionExpired = () => expired = true;
     expect(await api.restore(), isFalse);
@@ -65,7 +71,12 @@ void main() {
     final client = MockClient((req) async {
       if (req.url.path == '/v1/auth/refresh') return json(tokensJson());
       return json({
-        'error': {'code': 'rate_limited', 'message': 'slow down', 'retry_after_seconds': 120, 'fields': {'body': 'too long'}},
+        'error': {
+          'code': 'rate_limited',
+          'message': 'slow down',
+          'retry_after_seconds': 120,
+          'fields': {'body': 'too long'},
+        },
       }, 429);
     });
     final api = ApiClient(baseUrl: Uri.parse('http://api.test'), tokenStore: store, httpClient: client);

@@ -1,7 +1,7 @@
 name: stackstep
 description: "Stackstep — your internship, step by step."
 publish_to: "none"
-version: 0.1.0+1
+version: 0.1.0+1 # x-release-please-version (build number is set by CI)
 
 environment:
   sdk: ^3.13.0

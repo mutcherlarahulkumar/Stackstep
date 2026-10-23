@@ -1,0 +1,39 @@
+name: PR title
+
+# Release notes and version bumps come from Conventional Commit PR titles (squash merges).
+on:
+  pull_request_target:
+    types: [opened, edited, synchronize, reopened]
+
+permissions:
+  pull-requests: read
+
+jobs:
+  conventional:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: amannn/action-semantic-pull-request@v6
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          types: |
+            feat
+            fix
+            perf
+            refactor
+            docs
+            test
+            build
+            ci
+            chore
+            revert
+          scopes: |
+            backend
+            web
+            mobile
+            api
+            e2e
+            ci
+            deps
+            docs
+          requireScope: false

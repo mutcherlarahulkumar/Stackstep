@@ -57,11 +57,7 @@ class _BoardScreenState extends ConsumerState<BoardScreen> {
     });
     final board = ref.watch(boardProvider);
     return switch (board) {
-      AsyncData(:final value) => _Board(
-        groups: groupBoard(value),
-        column: _column,
-        onColumn: (c) => setState(() => _column = c),
-      ),
+      AsyncData(:final value) => _Board(groups: groupBoard(value), column: _column, onColumn: (c) => setState(() => _column = c)),
       AsyncError(:final error) => ErrorState(message: messageFor(error), onRetry: () => ref.invalidate(boardProvider)),
       _ => const SkeletonList(),
     };
@@ -98,7 +94,9 @@ class _Board extends ConsumerWidget {
           child: RefreshIndicator(
             onRefresh: () => ref.read(boardProvider.notifier).refresh(),
             child: tasks.isEmpty
-                ? ListView(children: [SizedBox(height: 420, child: _EmptyColumn(column: column))])
+                ? ListView(
+                    children: [SizedBox(height: 420, child: _EmptyColumn(column: column))],
+                  )
                 : ListView.separated(
                     padding: const EdgeInsets.all(Space.lg),
                     itemCount: tasks.length,
@@ -127,7 +125,10 @@ class _ColumnChip extends StatelessWidget {
       children: [
         Text(column.label),
         const SizedBox(width: 6),
-        Text('$count', style: const TextStyle(fontFeatures: [FontFeature.tabularFigures()], fontWeight: FontWeight.w400)),
+        Text(
+          '$count',
+          style: const TextStyle(fontFeatures: [FontFeature.tabularFigures()], fontWeight: FontWeight.w400),
+        ),
       ],
     );
     return Semantics(
@@ -193,13 +194,7 @@ class TaskCard extends ConsumerWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Row(
-                  children: [
-                    TypeBadge(task.type),
-                    const Spacer(),
-                    StatusBadge(task.status),
-                  ],
-                ),
+                Row(children: [TypeBadge(task.type), const Spacer(), StatusBadge(task.status)]),
                 const SizedBox(height: Space.md),
                 Text(task.title, style: t.textTheme.large, maxLines: 2, overflow: TextOverflow.ellipsis),
                 const SizedBox(height: Space.sm),
@@ -311,7 +306,13 @@ class _TaskSheetState extends ConsumerState<TaskSheet> {
         controller: scroll,
         padding: const EdgeInsets.fromLTRB(Space.xl, 0, Space.xl, Space.xl),
         children: [
-          Row(children: [TypeBadge(task.type), const SizedBox(width: Space.sm), StatusBadge(task.status)]),
+          Row(
+            children: [
+              TypeBadge(task.type),
+              const SizedBox(width: Space.sm),
+              StatusBadge(task.status),
+            ],
+          ),
           const SizedBox(height: Space.md),
           Text(task.title, style: t.textTheme.h3),
           const SizedBox(height: Space.sm),
@@ -323,7 +324,11 @@ class _TaskSheetState extends ConsumerState<TaskSheet> {
             ],
           ),
           const SizedBox(height: Space.lg),
-          ShadAlert(icon: const Icon(LucideIcons.footprints), title: const Text('Next step'), description: Text(_nextStepHint(task.status))),
+          ShadAlert(
+            icon: const Icon(LucideIcons.footprints),
+            title: const Text('Next step'),
+            description: Text(_nextStepHint(task.status)),
+          ),
           const SizedBox(height: Space.xl),
           Text('Brief', style: t.textTheme.small.copyWith(fontWeight: FontWeight.w600)),
           const SizedBox(height: Space.sm),
@@ -341,7 +346,10 @@ class _TaskSheetState extends ConsumerState<TaskSheet> {
                 enabled: _pending == null,
                 onPressed: () => _move(task, to),
                 leading: _pending == to
-                    ? SizedBox.square(dimension: 16, child: CircularProgressIndicator(strokeWidth: 2, color: t.colorScheme.primaryForeground))
+                    ? SizedBox.square(
+                        dimension: 16,
+                        child: CircularProgressIndicator(strokeWidth: 2, color: t.colorScheme.primaryForeground),
+                      )
                     : null,
                 child: Text(_actionLabel(task.status, to)),
               )

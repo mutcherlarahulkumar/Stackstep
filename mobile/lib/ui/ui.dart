@@ -26,10 +26,7 @@ class AppField extends StatelessWidget {
         Row(
           children: [
             Expanded(
-              child: Text(
-                label,
-                style: t.textTheme.small.copyWith(color: error != null ? t.colorScheme.destructive : null),
-              ),
+              child: Text(label, style: t.textTheme.small.copyWith(color: error != null ? t.colorScheme.destructive : null)),
             ),
             ?trailingLabel,
           ],
@@ -41,11 +38,17 @@ class AppField extends StatelessWidget {
             padding: const EdgeInsets.only(top: 6),
             child: Semantics(
               liveRegion: true,
-              child: Text(error!, style: t.textTheme.small.copyWith(color: t.colorScheme.destructive, fontWeight: FontWeight.w500)),
+              child: Text(
+                error!,
+                style: t.textTheme.small.copyWith(color: t.colorScheme.destructive, fontWeight: FontWeight.w500),
+              ),
             ),
           )
         else if (description != null)
-          Padding(padding: const EdgeInsets.only(top: 6), child: Text(description!, style: t.textTheme.muted)),
+          Padding(
+            padding: const EdgeInsets.only(top: 6),
+            child: Text(description!, style: t.textTheme.muted),
+          ),
       ],
     );
   }
@@ -91,12 +94,7 @@ class StatusBadge extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colors = _statusColors(status, ShadTheme.of(context).colorScheme);
-    return ShadBadge(
-      backgroundColor: colors.bg,
-      hoverBackgroundColor: colors.bg,
-      foregroundColor: colors.fg,
-      child: Text(status.label),
-    );
+    return ShadBadge(backgroundColor: colors.bg, hoverBackgroundColor: colors.bg, foregroundColor: colors.fg, child: Text(status.label));
   }
 }
 
@@ -117,10 +115,7 @@ class TypeBadge extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => ShadBadge.outline(
-    child: Row(
-      mainAxisSize: MainAxisSize.min,
-      children: [Icon(taskTypeIcon(type), size: 12), const SizedBox(width: 4), Text(type.label)],
-    ),
+    child: Row(mainAxisSize: MainAxisSize.min, children: [Icon(taskTypeIcon(type), size: 12), const SizedBox(width: 4), Text(type.label)]),
   );
 }
 

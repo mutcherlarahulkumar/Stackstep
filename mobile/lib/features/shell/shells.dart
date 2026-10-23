@@ -92,10 +92,7 @@ class _StudentShellState extends ConsumerState<StudentShell> {
         actions: [_AccountMenu(user: widget.me.user)],
         bottom: PreferredSize(
           preferredSize: const Size.fromHeight(3),
-          child: ShadProgress(
-            value: e.program.days == 0 ? 0 : (e.dayNumber / e.program.days).clamp(0, 1).toDouble(),
-            minHeight: 3,
-          ),
+          child: ShadProgress(value: e.program.days == 0 ? 0 : (e.dayNumber / e.program.days).clamp(0, 1).toDouble(), minHeight: 3),
         ),
       ),
       body: IndexedStack(
@@ -132,7 +129,13 @@ class AdminShell extends StatelessWidget {
     return Scaffold(
       appBar: AppBar(
         titleSpacing: Space.lg,
-        title: const Row(children: [BrandMark(size: 30), SizedBox(width: Space.md), Text('Assign tasks')]),
+        title: const Row(
+          children: [
+            BrandMark(size: 30),
+            SizedBox(width: Space.md),
+            Text('Assign tasks'),
+          ],
+        ),
         actions: [_AccountMenu(user: me.user)],
       ),
       body: StudentPickerScreen(
@@ -170,6 +173,8 @@ class SplashScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => Scaffold(
-    body: Center(child: Semantics(label: 'Loading Stackstep', child: const BrandMark(size: 64))),
+    body: Center(
+      child: Semantics(label: 'Loading Stackstep', child: const BrandMark(size: 64)),
+    ),
   );
 }

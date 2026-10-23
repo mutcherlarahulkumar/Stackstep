@@ -81,10 +81,8 @@ class _Thread extends ConsumerWidget {
           final newer = i > 0 ? items[i - 1] : null;
           final showDay = older == null || dayLabel(older.at, now) != dayLabel(item.at, now);
           final author = _authorOf(item);
-          final groupedWithNewer =
-              newer != null && _authorOf(newer) == author && newer.at.difference(item.at).inMinutes < 5;
-          final groupedWithOlder =
-              older != null && !showDay && _authorOf(older) == author && item.at.difference(older.at).inMinutes < 5;
+          final groupedWithNewer = newer != null && _authorOf(newer) == author && newer.at.difference(item.at).inMinutes < 5;
+          final groupedWithOlder = older != null && !showDay && _authorOf(older) == author && item.at.difference(older.at).inMinutes < 5;
           return Column(
             children: [
               if (showDay) _DaySeparator(label: dayLabel(item.at, now)),
@@ -109,11 +107,7 @@ class _ThreadStart extends StatelessWidget {
   @override
   Widget build(BuildContext context) => Padding(
     padding: const EdgeInsets.symmetric(vertical: Space.xl),
-    child: Text(
-      'This is the start of your internship chat.',
-      textAlign: TextAlign.center,
-      style: ShadTheme.of(context).textTheme.muted,
-    ),
+    child: Text('This is the start of your internship chat.', textAlign: TextAlign.center, style: ShadTheme.of(context).textTheme.muted),
   );
 }
 
@@ -216,10 +210,7 @@ class _Bubble extends ConsumerWidget {
         if (meta != null)
           Padding(
             padding: const EdgeInsets.only(top: 4, left: 4, right: 4),
-            child: Text(
-              meta,
-              style: t.textTheme.muted.copyWith(fontSize: 12, color: failed ? c.destructive : null),
-            ),
+            child: Text(meta, style: t.textTheme.muted.copyWith(fontSize: 12, color: failed ? c.destructive : null)),
           ),
       ],
     );
@@ -316,11 +307,8 @@ class _ComposerState extends ConsumerState<_Composer> {
                     scrollDirection: Axis.horizontal,
                     itemCount: _quick.length,
                     separatorBuilder: (_, _) => const SizedBox(width: Space.sm),
-                    itemBuilder: (_, i) => ShadButton.outline(
-                      size: ShadButtonSize.sm,
-                      onPressed: () => _send(_quick[i]),
-                      child: Text(_quick[i]),
-                    ),
+                    itemBuilder: (_, i) =>
+                        ShadButton.outline(size: ShadButtonSize.sm, onPressed: () => _send(_quick[i]), child: Text(_quick[i])),
                   ),
                 ),
               if (_text.text.isEmpty) const SizedBox(height: Space.sm),
@@ -355,10 +343,7 @@ class _ComposerState extends ConsumerState<_Composer> {
                   child: Row(
                     children: [
                       Expanded(
-                        child: Text(
-                          _error ?? '',
-                          style: t.textTheme.small.copyWith(color: t.colorScheme.destructive),
-                        ),
+                        child: Text(_error ?? '', style: t.textTheme.small.copyWith(color: t.colorScheme.destructive)),
                       ),
                       if (length > Bounds.messageMax - 500) CharCounter(length: length, max: Bounds.messageMax),
                     ],

@@ -1,0 +1,321 @@
+name: Release
+
+# On every push to main, release-please keeps a "chore(main): release x.y.z" PR up to date
+# from Conventional Commit titles. Merging that PR tags vX.Y.Z, creates the GitHub Release,
+# and the jobs below build and attach every artifact. Re-run artifacts for an existing tag
+# with "Run workflow" and the tag name.
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: Existing tag to (re)build artifacts for, e.g. v0.2.0
+        required: true
+
+permissions:
+  contents: read
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  release-please:
+    name: Release PR / tag
+    if: github.event_name == 'push'
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write
+      pull-requests: write
+      issues: write
+    outputs:
+      created: ${{ steps.rp.outputs.release_created }}
+      tag: ${{ steps.rp.outputs.tag_name }}
+    steps:
+      - id: rp
+        uses: googleapis/release-please-action@v5
+        with:
+          config-file: release-please-config.json
+          manifest-file: .release-please-manifest.json
+
+  meta:
+    name: Resolve version
+    needs: release-please
+    if: always() && (needs.release-please.outputs.created == 'true' || github.event_name == 'workflow_dispatch')
+    runs-on: ubuntu-24.04
+    outputs:
+      tag: ${{ steps.v.outputs.tag }}
+      version: ${{ steps.v.outputs.version }}
+    steps:
+      - id: v
+        env:
+          TAG: ${{ github.event_name == 'workflow_dispatch' && inputs.tag || needs.release-please.outputs.tag }}
+        run: |
+          if ! [[ "$TAG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then echo "::error::'$TAG' is not a vX.Y.Z tag"; exit 1; fi
+          echo "tag=$TAG" >> "$GITHUB_OUTPUT"
+          echo "version=${TAG#v}" >> "$GITHUB_OUTPUT"
+
+  verify-backend:
+    name: Verify backend
+    needs: meta
+    if: always() && needs.meta.result == 'success'
+    uses: ./.github/workflows/backend.yml
+    permissions:
+      contents: read
+
+  verify-web:
+    name: Verify web
+    needs: meta
+    if: always() && needs.meta.result == 'success'
+    uses: ./.github/workflows/web.yml
+    permissions:
+      contents: read
+
+  verify-mobile:
+    name: Verify mobile
+    needs: meta
+    if: always() && needs.meta.result == 'success'
+    uses: ./.github/workflows/mobile.yml
+    permissions:
+      contents: read
+
+  verify-contract:
+    name: Verify contract
+    needs: meta
+    if: always() && needs.meta.result == 'success'
+    uses: ./.github/workflows/contract.yml
+    permissions:
+      contents: read
+
+  verify-e2e:
+    name: Verify e2e
+    needs: meta
+    if: always() && needs.meta.result == 'success'
+    uses: ./.github/workflows/e2e.yml
+    permissions:
+      contents: read
+
+  api-binaries:
+    name: API binaries (${{ matrix.goos }}/${{ matrix.goarch }})
+    needs: [meta, verify-backend, verify-contract, verify-e2e]
+    if: always() && needs.meta.result == 'success' && needs.verify-backend.result == 'success' && needs.verify-contract.result == 'success' && needs.verify-e2e.result == 'success'
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write
+    strategy:
+      matrix:
+        goos: [linux, darwin]
+        goarch: [amd64, arm64]
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ needs.meta.outputs.tag }}
+      - uses: actions/setup-go@v7
+        with:
+          go-version-file: backend/go.mod
+          cache-dependency-path: backend/go.sum
+      - name: Build
+        working-directory: backend
+        env:
+          GOOS: ${{ matrix.goos }}
+          GOARCH: ${{ matrix.goarch }}
+          CGO_ENABLED: "0"
+          VERSION: ${{ needs.meta.outputs.version }}
+        run: |
+          name="stackstep-api_${VERSION}_${GOOS}_${GOARCH}"
+          mkdir -p "dist/$name"
+          go build -trimpath -ldflags "-s -w -X main.version=v${VERSION}" -o "dist/$name/stackstep-api" ./cmd/api
+          go build -trimpath -ldflags "-s -w" -o "dist/$name/stackstep-seed" ./cmd/seed
+          tar -C dist -czf "dist/$name.tar.gz" "$name"
+          (cd dist && sha256sum "$name.tar.gz" > "$name.tar.gz.sha256")
+      - name: Upload to release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release upload "${{ needs.meta.outputs.tag }}" backend/dist/*.tar.gz backend/dist/*.sha256 --clobber
+
+  images:
+    name: Image (${{ matrix.image }})
+    needs: [meta, verify-backend, verify-web, verify-e2e]
+    if: always() && needs.meta.result == 'success' && needs.verify-backend.result == 'success' && needs.verify-web.result == 'success' && needs.verify-e2e.result == 'success'
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+      packages: write
+      id-token: write
+      attestations: write
+    strategy:
+      matrix:
+        include:
+          - image: api
+            context: backend
+          - image: web
+            context: web
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ needs.meta.outputs.tag }}
+      - uses: docker/setup-qemu-action@v4
+      - uses: docker/setup-buildx-action@v4
+      - uses: docker/login-action@v4
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ github.token }}
+      - id: meta
+        uses: docker/metadata-action@v6
+        with:
+          images: ghcr.io/${{ github.repository_owner }}/stackstep-${{ matrix.image }}
+          tags: |
+            type=semver,pattern={{version}},value=${{ needs.meta.outputs.tag }}
+            type=semver,pattern={{major}}.{{minor}},value=${{ needs.meta.outputs.tag }}
+            type=raw,value=latest
+      - id: push
+        uses: docker/build-push-action@v7
+        with:
+          context: ${{ matrix.context }}
+          platforms: linux/amd64,linux/arm64
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          build-args: VERSION=${{ needs.meta.outputs.tag }}
+          cache-from: type=gha,scope=${{ matrix.image }}
+          cache-to: type=gha,mode=max,scope=${{ matrix.image }}
+      - uses: actions/attest-build-provenance@v4
+        with:
+          subject-name: ghcr.io/${{ github.repository_owner }}/stackstep-${{ matrix.image }}
+          subject-digest: ${{ steps.push.outputs.digest }}
+          push-to-registry: true
+
+  android:
+    name: Android (APK + AAB)
+    needs: [meta, verify-mobile, verify-contract]
+    if: always() && needs.meta.result == 'success' && needs.verify-mobile.result == 'success' && needs.verify-contract.result == 'success'
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write
+    defaults:
+      run:
+        working-directory: mobile
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ needs.meta.outputs.tag }}
+      - uses: actions/setup-java@v6
+        with:
+          distribution: temurin
+          java-version: "17"
+          cache: gradle
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: 3.47.7
+          channel: stable
+          cache: true
+      - name: Release keystore (only when signing secrets exist)
+        env:
+          KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+          KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+        run: |
+          if [ -z "$KEYSTORE_BASE64" ]; then echo "::notice::No Android signing secrets; building with the debug key."; exit 0; fi
+          echo "$KEYSTORE_BASE64" | base64 -d > android/app/release.jks
+          printf 'storeFile=release.jks\nstorePassword=%s\nkeyAlias=%s\nkeyPassword=%s\n' "$KEYSTORE_PASSWORD" "$KEY_ALIAS" "$KEY_PASSWORD" > android/key.properties
+      - run: flutter pub get --enforce-lockfile
+      - name: Build
+        env:
+          VERSION: ${{ needs.meta.outputs.version }}
+          API_BASE_URL: ${{ vars.MOBILE_API_BASE_URL }}
+          WEB_CONSOLE_URL: ${{ vars.WEB_CONSOLE_URL }}
+        run: |
+          defines="--dart-define=API_BASE_URL=${API_BASE_URL:-https://api.stackstep.app} --dart-define=WEB_CONSOLE_URL=${WEB_CONSOLE_URL:-https://stackstep.app/admin}"
+          flutter build apk --release --build-name "$VERSION" --build-number "${{ github.run_number }}" $defines
+          flutter build appbundle --release --build-name "$VERSION" --build-number "${{ github.run_number }}" $defines
+          mkdir -p dist
+          cp build/app/outputs/flutter-apk/app-release.apk "dist/stackstep_${VERSION}.apk"
+          cp build/app/outputs/bundle/release/app-release.aab "dist/stackstep_${VERSION}.aab"
+          (cd dist && sha256sum * > SHA256SUMS-android.txt)
+      - name: Upload to release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release upload "${{ needs.meta.outputs.tag }}" dist/* --clobber
+      - if: always()
+        run: rm -f android/key.properties android/app/release.jks
+
+  ios:
+    name: iOS (IPA)
+    needs: [meta, verify-mobile, verify-contract]
+    if: always() && needs.meta.result == 'success' && needs.verify-mobile.result == 'success' && needs.verify-contract.result == 'success'
+    runs-on: macos-15
+    permissions:
+      contents: write
+    defaults:
+      run:
+        working-directory: mobile
+    env:
+      VERSION: ${{ needs.meta.outputs.version }}
+      HAS_SIGNING: ${{ secrets.IOS_P12_BASE64 != '' }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ needs.meta.outputs.tag }}
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: 3.47.7
+          channel: stable
+          cache: true
+      - run: flutter pub get --enforce-lockfile
+      - name: Install signing certificate and profile
+        if: env.HAS_SIGNING == 'true'
+        env:
+          P12_BASE64: ${{ secrets.IOS_P12_BASE64 }}
+          P12_PASSWORD: ${{ secrets.IOS_P12_PASSWORD }}
+          PROFILE_BASE64: ${{ secrets.IOS_PROVISIONING_PROFILE_BASE64 }}
+          TEAM_ID: ${{ secrets.IOS_TEAM_ID }}
+        run: |
+          KEYCHAIN="$RUNNER_TEMP/build.keychain-db"
+          KC_PASS="$(openssl rand -hex 16)"
+          echo "$P12_BASE64" | base64 -d > "$RUNNER_TEMP/cert.p12"
+          echo "$PROFILE_BASE64" | base64 -d > "$RUNNER_TEMP/profile.mobileprovision"
+          security create-keychain -p "$KC_PASS" "$KEYCHAIN"
+          security set-keychain-settings -lut 21600 "$KEYCHAIN"
+          security unlock-keychain -p "$KC_PASS" "$KEYCHAIN"
+          security import "$RUNNER_TEMP/cert.p12" -P "$P12_PASSWORD" -A -t cert -f pkcs12 -k "$KEYCHAIN"
+          security set-key-partition-list -S apple-tool:,apple: -k "$KC_PASS" "$KEYCHAIN"
+          security list-keychain -d user -s "$KEYCHAIN"
+          mkdir -p ~/Library/MobileDevice/Provisioning\ Profiles
+          UUID=$(/usr/libexec/PlistBuddy -c "Print UUID" /dev/stdin <<< "$(security cms -D -i "$RUNNER_TEMP/profile.mobileprovision")")
+          cp "$RUNNER_TEMP/profile.mobileprovision" ~/Library/MobileDevice/Provisioning\ Profiles/"$UUID".mobileprovision
+          cat > "$RUNNER_TEMP/ExportOptions.plist" <<PLIST
+          <?xml version="1.0" encoding="UTF-8"?>
+          <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+          <plist version="1.0"><dict>
+            <key>method</key><string>app-store-connect</string>
+            <key>teamID</key><string>${TEAM_ID}</string>
+            <key>signingStyle</key><string>manual</string>
+            <key>provisioningProfiles</key><dict><key>app.stackstep.stackstep</key><string>${UUID}</string></dict>
+          </dict></plist>
+          PLIST
+      - name: Build
+        env:
+          API_BASE_URL: ${{ vars.MOBILE_API_BASE_URL }}
+          WEB_CONSOLE_URL: ${{ vars.WEB_CONSOLE_URL }}
+        run: |
+          defines="--dart-define=API_BASE_URL=${API_BASE_URL:-https://api.stackstep.app} --dart-define=WEB_CONSOLE_URL=${WEB_CONSOLE_URL:-https://stackstep.app/admin}"
+          mkdir -p dist
+          if [ "$HAS_SIGNING" = "true" ]; then
+            flutter build ipa --release --build-name "$VERSION" --build-number "${{ github.run_number }}" \
+              --export-options-plist "$RUNNER_TEMP/ExportOptions.plist" $defines
+            cp build/ios/ipa/*.ipa "dist/stackstep_${VERSION}.ipa"
+          else
+            echo "::notice::No iOS signing secrets; attaching an unsigned build for simulator/QA re-signing."
+            flutter build ios --release --no-codesign --build-name "$VERSION" --build-number "${{ github.run_number }}" $defines
+            (cd build/ios/iphoneos && mkdir -p Payload && cp -R Runner.app Payload/ && zip -qr "$GITHUB_WORKSPACE/mobile/dist/stackstep_${VERSION}_unsigned.ipa" Payload)
+          fi
+          (cd dist && shasum -a 256 * > SHA256SUMS-ios.txt)
+      - name: Upload to release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release upload "${{ needs.meta.outputs.tag }}" dist/* --clobber
+      - if: always() && env.HAS_SIGNING == 'true'
+        run: security delete-keychain "$RUNNER_TEMP/build.keychain-db" || true
