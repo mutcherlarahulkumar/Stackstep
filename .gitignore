@@ -36,3 +36,4 @@ mobile/android/local.properties
 mobile/android/key.properties
 *.jks
 *.keystore
+*.iml

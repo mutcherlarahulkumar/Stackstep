@@ -11,11 +11,13 @@ rules every feature must follow.
 | API | Go + Gin, pgx, JWT, WebSocket (`coder/websocket`) | Go 1.27, Gin 1.12 |
 | Database | PostgreSQL | 18 |
 | Web | Next.js (App Router) + React + Tailwind CSS + Zod | Next 16.4, React 19.3, Tailwind 4.3, Zod 4 |
+| Web UI kit | shadcn/ui (Radix primitives, components copied into `web/src/components/ui` and owned by us) + Lucide icons + Geist font | shadcn CLI 4.22 |
 | Web language | TypeScript, `strict` + `noUncheckedIndexedAccess` | 6.0 (TS 7 is out but `typescript-eslint` supports only `<6.1` today) |
-| Mobile | Flutter (iOS + Android) + Riverpod + go_router | Flutter 3.47, Dart 3.12 |
+| Mobile | Flutter (iOS + Android) + Riverpod | Flutter 3.47, Dart 3.13 |
+| Mobile UI kit | shadcn_ui (Flutter port of shadcn: same violet palette, Geist font, Lucide icons) + our components in `mobile/lib/ui` | 0.57 |
 | E2E | Playwright against the real API + Postgres | 1.64 |
 | CI/CD | GitHub Actions, GHCR images, GitHub Releases | — |
-| UI tooling | Orshot MCP (`.mcp.json`) for generated visuals: OG images, certificates, store screenshots | — |
+| UI MCP servers | `shadcn` MCP (browse/add registry components from Claude) and Orshot MCP (generated visuals: OG images, certificates, store screenshots), both in `.mcp.json` | — |
 
 Versions are pinned exactly (no `^`/`latest`) and bumped by Dependabot PRs.
 
@@ -56,6 +58,8 @@ docs/                   Plan + one spec per feature
 ```
 
 ## 4. Engineering rules (apply to every feature)
+
+**One look everywhere.** Web and mobile share the shadcn violet palette, Geist type, Lucide icons and the same component names (Button, Badge, Card, Alert, Sheet, Toast). Screens compose our own components (`components/app/*` on web, `lib/ui/*` on mobile) instead of styling primitives ad hoc.
 
 **Typing.** No `any` in TypeScript (lint error), every API response is parsed with
 Zod before use. Dart runs `strict-casts`, `strict-inference`, `strict-raw-types`;

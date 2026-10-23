@@ -1,0 +1,417 @@
+openapi: 3.1.0
+info:
+  title: Stackstep API
+  version: 0.1.0
+  description: |
+    Workspace core (feature 01). All timestamps are RFC 3339 UTC. All errors use the
+    `Error` envelope; clients switch on `error.code`, never on `message`.
+  license:
+    name: MIT
+    identifier: MIT
+servers:
+  - url: http://localhost:8080
+    description: Local API
+  - url: http://localhost:3000/api
+    description: Through the Next.js proxy
+security:
+  - bearer: []
+tags:
+  - name: auth
+    description: Sign-in, token rotation and sign-out
+  - name: student
+    description: The student workspace (board and chat)
+  - name: admin
+    description: Task allocation and review for admins and college admins
+paths:
+  /v1/auth/dev-login:
+    post:
+      tags: [auth]
+      operationId: devLogin
+      summary: Sign in as a seeded user (development and test only; 404 in production)
+      security: []
+      parameters: [{ $ref: "#/components/parameters/XClient" }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [github_login]
+              properties:
+                github_login: { type: string, minLength: 1, maxLength: 39 }
+      responses:
+        "200": { $ref: "#/components/responses/Tokens" }
+        "400": { $ref: "#/components/responses/Error" }
+        "404": { $ref: "#/components/responses/Error" }
+        "422": { $ref: "#/components/responses/Error" }
+        "429": { $ref: "#/components/responses/Error" }
+  /v1/auth/github/start:
+    get:
+      tags: [auth]
+      operationId: githubStart
+      summary: Redirect to GitHub. Mobile must send a PKCE S256 challenge.
+      security: []
+      parameters:
+        - { name: client, in: query, required: true, schema: { $ref: "#/components/schemas/Client" } }
+        - { name: code_challenge, in: query, schema: { type: string, minLength: 43, maxLength: 43 } }
+        - { name: code_challenge_method, in: query, schema: { type: string, enum: [S256] } }
+      responses:
+        "302": { description: Redirect to GitHub }
+        "422": { $ref: "#/components/responses/Error" }
+        "503": { $ref: "#/components/responses/Error" }
+  /v1/auth/github/callback:
+    get:
+      tags: [auth]
+      operationId: githubCallback
+      summary: GitHub redirects here. Web → /auth/complete with refresh cookie; mobile → stackstep://auth?code=…
+      security: []
+      parameters:
+        - { name: state, in: query, required: true, schema: { type: string } }
+        - { name: code, in: query, schema: { type: string } }
+      responses:
+        "302": { description: "Redirect back to the client; carries an error query parameter on failure" }
+        "400": { $ref: "#/components/responses/Error" }
+  /v1/auth/exchange:
+    post:
+      tags: [auth]
+      operationId: exchangeCode
+      summary: Mobile trades the one-time code (60 s) and PKCE verifier for tokens
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [code, code_verifier]
+              properties:
+                code: { type: string, maxLength: 256 }
+                code_verifier: { type: string, minLength: 43, maxLength: 128 }
+      responses:
+        "200": { $ref: "#/components/responses/Tokens" }
+        "401": { $ref: "#/components/responses/Error" }
+  /v1/auth/refresh:
+    post:
+      tags: [auth]
+      operationId: refresh
+      summary: Rotate the refresh token. Web sends the HttpOnly cookie; mobile sends it in the body.
+      security: []
+      parameters: [{ $ref: "#/components/parameters/XClient" }]
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [refresh_token]
+              properties:
+                refresh_token: { type: string, maxLength: 256 }
+      responses:
+        "200": { $ref: "#/components/responses/Tokens" }
+        "401": { $ref: "#/components/responses/Error" }
+  /v1/auth/logout:
+    post:
+      tags: [auth]
+      operationId: logout
+      summary: Revoke the refresh token family
+      security: []
+      parameters: [{ $ref: "#/components/parameters/XClient" }]
+      responses:
+        "204": { description: Signed out }
+  /v1/me:
+    get:
+      tags: [student]
+      operationId: getMe
+      summary: Current user and open enrollment
+      responses:
+        "200":
+          description: The signed-in user and, for students, their open enrollment
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Me" }
+        "401": { $ref: "#/components/responses/Error" }
+  /v1/me/tasks:
+    get:
+      tags: [student]
+      operationId: listMyTasks
+      summary: Visible tasks (scheduled_for ≤ now), excluding cancelled, earliest due first
+      responses:
+        "200":
+          description: Board
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [items]
+                properties:
+                  items: { type: array, items: { $ref: "#/components/schemas/Task" } }
+        "403": { $ref: "#/components/responses/Error" }
+        "409": { $ref: "#/components/responses/Error" }
+  /v1/me/messages:
+    get:
+      tags: [student]
+      operationId: listMyMessages
+      summary: Chat page, newest first
+      parameters:
+        - $ref: "#/components/parameters/Limit"
+        - $ref: "#/components/parameters/Cursor"
+      responses:
+        "200":
+          description: Page
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [items, next_cursor]
+                properties:
+                  items: { type: array, items: { $ref: "#/components/schemas/Message" } }
+                  next_cursor: { type: [string, "null"] }
+        "409": { $ref: "#/components/responses/Error" }
+        "422": { $ref: "#/components/responses/Error" }
+    post:
+      tags: [student]
+      operationId: sendMessage
+      summary: Send a message. Same client_id → 200 with the original message.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [client_id, body]
+              properties:
+                client_id: { type: string, format: uuid }
+                body: { type: string, minLength: 1, maxLength: 4000 }
+      responses:
+        "200": { description: Retry of an existing message, content: { application/json: { schema: { $ref: "#/components/schemas/Message" } } } }
+        "201": { description: Created, content: { application/json: { schema: { $ref: "#/components/schemas/Message" } } } }
+        "409": { $ref: "#/components/responses/Error" }
+        "422": { $ref: "#/components/responses/Error" }
+        "429": { $ref: "#/components/responses/Error" }
+  /v1/tasks/{id}/transitions:
+    post:
+      tags: [student, admin]
+      operationId: transitionTask
+      summary: Move a task along the status graph
+      parameters: [{ $ref: "#/components/parameters/Id" }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [to, expected_version]
+              properties:
+                to: { $ref: "#/components/schemas/TaskStatus" }
+                expected_version: { type: integer, minimum: 1 }
+                note: { type: string, maxLength: 2000, description: Required when to = changes_requested }
+      responses:
+        "200": { description: Moved, content: { application/json: { schema: { $ref: "#/components/schemas/Task" } } } }
+        "404": { $ref: "#/components/responses/Error" }
+        "409": { $ref: "#/components/responses/Error" }
+        "422": { $ref: "#/components/responses/Error" }
+  /v1/admin/students:
+    get:
+      tags: [admin]
+      operationId: listStudents
+      summary: Students the caller manages
+      parameters:
+        - { name: q, in: query, schema: { type: string, maxLength: 100 } }
+        - $ref: "#/components/parameters/Limit"
+        - $ref: "#/components/parameters/Cursor"
+      responses:
+        "200":
+          description: Students with an open enrollment, by name
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [items, next_cursor]
+                properties:
+                  items: { type: array, items: { $ref: "#/components/schemas/Student" } }
+                  next_cursor: { type: [string, "null"] }
+        "403": { $ref: "#/components/responses/Error" }
+        "422": { $ref: "#/components/responses/Error" }
+  /v1/admin/enrollments/{id}/tasks:
+    get:
+      tags: [admin]
+      operationId: listEnrollmentTasks
+      summary: All tasks of one enrollment
+      parameters: [{ $ref: "#/components/parameters/Id" }]
+      responses:
+        "200":
+          description: Every task, including future and cancelled
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [enrollment, items]
+                properties:
+                  enrollment: { $ref: "#/components/schemas/Enrollment" }
+                  items: { type: array, items: { $ref: "#/components/schemas/Task" } }
+        "404": { $ref: "#/components/responses/Error" }
+    post:
+      tags: [admin]
+      operationId: createTask
+      summary: Assign a task to a student
+      parameters: [{ $ref: "#/components/parameters/Id" }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [type, title, due_at]
+              properties:
+                type: { $ref: "#/components/schemas/TaskType" }
+                title: { type: string, minLength: 3, maxLength: 120 }
+                brief: { type: string, maxLength: 8000 }
+                scheduled_for: { type: [string, "null"], format: date-time, description: Defaults to now (or the internship start) }
+                due_at: { type: string, format: date-time, description: "At least scheduled_for + 15 min and no later than the end of the last day" }
+      responses:
+        "201": { description: Created, content: { application/json: { schema: { $ref: "#/components/schemas/Task" } } } }
+        "404": { $ref: "#/components/responses/Error" }
+        "422": { $ref: "#/components/responses/Error" }
+  /v1/ws:
+    get:
+      tags: [student]
+      operationId: websocket
+      summary: |
+        WebSocket. Offer subprotocols `stackstep.v1` and `bearer.<access token>`.
+        Frames are `Frame` JSON. Close codes: 4401 unauthenticated, 4409 no enrollment, 4429 too many sockets.
+      security: []
+      responses:
+        "101": { description: Switching protocols }
+        "400": { $ref: "#/components/responses/Error" }
+components:
+  securitySchemes:
+    bearer: { type: http, scheme: bearer, bearerFormat: JWT }
+  parameters:
+    XClient: { name: X-Client, in: header, required: true, schema: { $ref: "#/components/schemas/Client" } }
+    Id: { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+    Limit: { name: limit, in: query, schema: { type: integer, minimum: 1, maximum: 100, default: 50 } }
+    Cursor: { name: cursor, in: query, schema: { type: string, maxLength: 512 } }
+  responses:
+    Tokens:
+      description: Session tokens. refresh_* are present only for X-Client mobile.
+      content:
+        application/json:
+          schema:
+            type: object
+            required: [access_token, access_expires_at]
+            properties:
+              access_token: { type: string }
+              access_expires_at: { type: string, format: date-time }
+              refresh_token: { type: string }
+              refresh_expires_at: { type: string, format: date-time }
+    Error:
+      description: Error envelope
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/Error" }
+  schemas:
+    Client: { type: string, enum: [web, mobile] }
+    Role: { type: string, enum: [student, college_admin, admin] }
+    TaskType: { type: string, enum: [feature, bug_fix, dsa, doc_reading, quiz, git_chore, code_review, standup] }
+    TaskStatus: { type: string, enum: [todo, in_progress, in_review, changes_requested, done, cancelled] }
+    EnrollmentStatus: { type: string, enum: [active, paused, completed, cancelled] }
+    Author: { type: string, enum: [student, lead] }
+    ErrorCode:
+      type: string
+      enum: [bad_request, payload_too_large, unauthenticated, forbidden, not_found, validation_failed, invalid_transition,
+        version_conflict, enrollment_not_active, no_active_enrollment, rate_limited, invalid_state, invalid_code, not_configured, internal]
+    Error:
+      type: object
+      required: [error]
+      properties:
+        error:
+          type: object
+          required: [code, message]
+          properties:
+            code: { $ref: "#/components/schemas/ErrorCode" }
+            message: { type: string }
+            fields: { type: object, additionalProperties: { type: string } }
+            retry_after_seconds: { type: integer, minimum: 1 }
+            request_id: { type: string }
+    User:
+      type: object
+      required: [id, github_login, name, email, avatar_url, role, college_id]
+      properties:
+        id: { type: string, format: uuid }
+        github_login: { type: string }
+        name: { type: string }
+        email: { type: [string, "null"] }
+        avatar_url: { type: [string, "null"] }
+        role: { $ref: "#/components/schemas/Role" }
+        college_id: { type: [string, "null"], format: uuid }
+    Enrollment:
+      type: object
+      required: [id, program, start_date, end_date, timezone, status, day_number]
+      properties:
+        id: { type: string, format: uuid }
+        program:
+          type: object
+          required: [slug, days, track]
+          properties:
+            slug: { type: string }
+            days: { type: integer, enum: [30, 60] }
+            track: { type: string, enum: [frontend, fullstack] }
+        start_date: { type: string, format: date }
+        end_date: { type: string, format: date }
+        timezone: { type: string }
+        status: { $ref: "#/components/schemas/EnrollmentStatus" }
+        day_number: { type: integer, minimum: 0, maximum: 60 }
+    Me:
+      type: object
+      required: [user, enrollment]
+      properties:
+        user: { $ref: "#/components/schemas/User" }
+        enrollment:
+          oneOf:
+            - $ref: "#/components/schemas/Enrollment"
+            - type: "null"
+    Task:
+      type: object
+      required: [id, enrollment_id, type, title, brief, status, scheduled_for, due_at, version, created_at, updated_at]
+      properties:
+        id: { type: string, format: uuid }
+        enrollment_id: { type: string, format: uuid }
+        type: { $ref: "#/components/schemas/TaskType" }
+        title: { type: string }
+        brief: { type: string }
+        status: { $ref: "#/components/schemas/TaskStatus" }
+        scheduled_for: { type: string, format: date-time }
+        due_at: { type: string, format: date-time }
+        version: { type: integer, minimum: 1 }
+        created_at: { type: string, format: date-time }
+        updated_at: { type: string, format: date-time }
+    Message:
+      type: object
+      required: [id, author, body, task_id, client_id, sent_at]
+      properties:
+        id: { type: string, format: uuid }
+        author: { $ref: "#/components/schemas/Author" }
+        body: { type: string }
+        task_id: { type: [string, "null"], format: uuid }
+        client_id: { type: [string, "null"], format: uuid }
+        sent_at: { type: string, format: date-time }
+    Student:
+      type: object
+      required: [user, enrollment, open_tasks, in_review]
+      properties:
+        user: { $ref: "#/components/schemas/User" }
+        enrollment: { $ref: "#/components/schemas/Enrollment" }
+        open_tasks: { type: integer, minimum: 0 }
+        in_review: { type: integer, minimum: 0 }
+    Frame:
+      type: object
+      required: [type]
+      properties:
+        type: { type: string, enum: [ready, message, task] }
+        message: { $ref: "#/components/schemas/Message" }
+        task: { $ref: "#/components/schemas/Task" }
