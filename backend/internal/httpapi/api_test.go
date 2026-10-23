@@ -602,3 +602,16 @@ func TestMethodAndRouteErrors(t *testing.T) {
 	e.expect(e.do("GET", "/healthz", "", nil), 200)
 	e.expect(e.do("GET", "/readyz", "", nil), 200)
 }
+
+func TestSignInRateLimited(t *testing.T) {
+	e := newEnv(t, func(c *config.Config) { c.AuthRatePerMinute = 3 })
+	for range 3 {
+		e.expect(e.do("POST", "/v1/auth/dev-login", "", map[string]string{"github_login": seed.StudentLogin}, "X-Client", "mobile"), 200)
+	}
+	r := e.expect(e.do("POST", "/v1/auth/dev-login", "", map[string]string{"github_login": seed.StudentLogin}, "X-Client", "mobile"), 429)
+	if r.Header.Get("Retry-After") != "60" {
+		t.Fatalf("Retry-After = %q", r.Header.Get("Retry-After"))
+	}
+	// Refresh has its own, larger bucket, so a throttled sign-in doesn't lock out signed-in users.
+	e.expect(e.do("POST", "/v1/auth/refresh", "", map[string]string{"refresh_token": "nope"}, "X-Client", "mobile"), 401)
+}

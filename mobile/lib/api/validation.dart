@@ -14,8 +14,8 @@ abstract final class Bounds {
   static const backdateGrace = Duration(minutes: 5);
 }
 
-final _control = RegExp('[\u0000-\u0008\u000B\u000C\u000E-\u001F\u007F-\u009F  ]');
-final _controlInLine = RegExp('[\u0000-\u001F\u007F-\u009F  ]');
+final _control = RegExp('[\u0000-\u0008\u000B\u000C\u000E-\u001F\u007F-\u009F\u2028\u2029]');
+final _controlInLine = RegExp('[\u0000-\u001F\u007F-\u009F\u2028\u2029]');
 
 /// Collapses whitespace runs like the server's NormalizeText.
 String normalizeLine(String s) => s.trim().split(RegExp(r'\s+')).where((p) => p.isNotEmpty).join(' ');

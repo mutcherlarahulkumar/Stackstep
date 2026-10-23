@@ -95,7 +95,7 @@ func newEnv(t *testing.T, opts ...envOpt) *env {
 	cfg := config.Config{
 		Env: config.EnvTest, JWTSecret: bytes.Repeat([]byte("j"), 32), StateSecret: bytes.Repeat([]byte("s"), 32),
 		WebBaseURL: web, MobileRedirectURL: mobile, AllowedOrigins: []string{"http://web.test"},
-		LeadReplyDelay: 30 * time.Second, DeliveryInterval: time.Second,
+		LeadReplyDelay: 30 * time.Second, DeliveryInterval: time.Second, AuthRatePerMinute: 1000,
 		BootstrapAdminLogins: map[string]struct{}{},
 	}
 	for _, o := range opts {

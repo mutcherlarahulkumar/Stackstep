@@ -272,7 +272,7 @@ func hasBadControl(s string, multiline bool) bool {
 		if multiline && (r == '\n' || r == '\t' || r == '\r') {
 			continue
 		}
-		if unicode.IsControl(r) || r == ' ' || r == ' ' {
+		if unicode.IsControl(r) || r == '\u2028' || r == '\u2029' {
 			return true
 		}
 	}

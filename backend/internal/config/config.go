@@ -50,6 +50,7 @@ type Config struct {
 	GitHubAPIBaseURL     string
 	BootstrapAdminLogins map[string]struct{}
 	LeadReplyDelay       time.Duration
+	AuthRatePerMinute    int
 	DeliveryInterval     time.Duration
 }
 
@@ -145,6 +146,12 @@ func Load() (Config, error) {
 		if l = strings.ToLower(strings.TrimSpace(l)); l != "" {
 			cfg.BootstrapAdminLogins[l] = struct{}{}
 		}
+	}
+
+	if n, err := strconv.Atoi(get("AUTH_RATE_PER_MINUTE", "30")); err != nil || n < 1 || n > 100000 {
+		errs = append(errs, errors.New("AUTH_RATE_PER_MINUTE must be 1-100000"))
+	} else {
+		cfg.AuthRatePerMinute = n
 	}
 
 	cfg.LeadReplyDelay = parseDuration("LEAD_REPLY_DELAY", "45s", 0, 2*time.Hour)

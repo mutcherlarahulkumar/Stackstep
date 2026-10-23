@@ -37,17 +37,18 @@ const (
 
 // Server wires dependencies into handlers.
 type Server struct {
-	cfg       config.Config
-	store     *store.Store
-	clock     clock.Clock
-	signer    *auth.Signer
-	states    *auth.StateSigner
-	github    *auth.GitHub
-	sessions  *app.Sessions
-	workspace *app.Workspace
-	hub       *realtime.Hub
-	log       *slog.Logger
-	authLimit *ipLimiter
+	cfg          config.Config
+	store        *store.Store
+	clock        clock.Clock
+	signer       *auth.Signer
+	states       *auth.StateSigner
+	github       *auth.GitHub
+	sessions     *app.Sessions
+	workspace    *app.Workspace
+	hub          *realtime.Hub
+	log          *slog.Logger
+	signInLimit  *ipLimiter
+	refreshLimit *ipLimiter
 }
 
 // Deps are the server's collaborators.
@@ -69,7 +70,9 @@ func New(d Deps) *Server {
 	return &Server{
 		cfg: d.Config, store: d.Store, clock: d.Clock, signer: d.Signer, states: d.States, github: d.GitHub,
 		sessions: d.Sessions, workspace: d.Workspace, hub: d.Hub, log: d.Log,
-		authLimit: newIPLimiter(rate.Every(3*time.Second), 20),
+		// Sign-in is the brute-force target; refresh runs on every page load, so it gets more room.
+		signInLimit:  newIPLimiter(perMinute(d.Config.AuthRatePerMinute), d.Config.AuthRatePerMinute),
+		refreshLimit: newIPLimiter(perMinute(4*d.Config.AuthRatePerMinute), 4*d.Config.AuthRatePerMinute),
 	}
 }
 
@@ -94,13 +97,14 @@ func (s *Server) Handler() http.Handler {
 	r.GET("/readyz", s.ready)
 
 	v1 := r.Group("/v1")
-	a := v1.Group("/auth", s.limitAuth)
-	a.POST("/dev-login", s.devLogin)
-	a.GET("/github/start", s.githubStart)
-	a.GET("/github/callback", s.githubCallback)
-	a.POST("/exchange", s.exchange)
-	a.POST("/refresh", s.refresh)
-	a.POST("/logout", s.logout)
+	a := v1.Group("/auth")
+	signIn, session := s.limit(s.signInLimit), s.limit(s.refreshLimit)
+	a.POST("/dev-login", signIn, s.devLogin)
+	a.GET("/github/start", signIn, s.githubStart)
+	a.GET("/github/callback", signIn, s.githubCallback)
+	a.POST("/exchange", signIn, s.exchange)
+	a.POST("/refresh", session, s.refresh)
+	a.POST("/logout", session, s.logout)
 
 	authed := v1.Group("", s.authenticate)
 	authed.GET("/me", s.me)
@@ -206,13 +210,17 @@ func (s *Server) strictQuery(c *gin.Context) {
 	c.Next()
 }
 
-func (s *Server) limitAuth(c *gin.Context) {
-	if !s.authLimit.allow(clientIP(c.Request, s.cfg.TrustedProxies)) {
-		s.fail(c, &apperr.Error{Code: apperr.CodeRateLimited, Message: "Too many sign-in attempts. Try again in a minute.", RetryAfterSeconds: 60})
-		return
+func (s *Server) limit(l *ipLimiter) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		if !l.allow(clientIP(c.Request, s.cfg.TrustedProxies)) {
+			s.fail(c, &apperr.Error{Code: apperr.CodeRateLimited, Message: "Too many attempts. Try again in a minute.", RetryAfterSeconds: 60})
+			return
+		}
+		c.Next()
 	}
-	c.Next()
 }
+
+func perMinute(n int) rate.Limit { return rate.Limit(float64(max(n, 1)) / 60) }
 
 func (s *Server) authenticate(c *gin.Context) {
 	raw, ok := strings.CutPrefix(c.GetHeader("Authorization"), "Bearer ")
