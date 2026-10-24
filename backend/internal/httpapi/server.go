@@ -4,6 +4,7 @@ package httpapi
 import (
 	"context"
 	"crypto/rand"
+	"crypto/subtle"
 	"encoding/hex"
 	"errors"
 	"log/slog"
@@ -275,7 +276,7 @@ func (s *Server) strictQuery(c *gin.Context) {
 
 func (s *Server) limit(l *ipLimiter) gin.HandlerFunc {
 	return func(c *gin.Context) {
-		if !l.allow(clientIP(c.Request, s.cfg.TrustedProxies)) {
+		if !l.allow(clientIP(c.Request, s.cfg.TrustedProxies, s.cfg.ProxySecret)) {
 			s.fail(c, &apperr.Error{Code: apperr.CodeRateLimited, Message: "Too many attempts. Try again in a minute.", RetryAfterSeconds: 60})
 			return
 		}
@@ -337,7 +338,14 @@ func pathUUID(c *gin.Context, key string) (uuid.UUID, error) {
 
 // clientIP returns the caller's IP. X-Forwarded-For is honoured only when the direct peer is a
 // trusted proxy, and then the right-most address that isn't itself a trusted proxy wins.
-func clientIP(r *http.Request, trusted []netip.Prefix) string {
+func clientIP(r *http.Request, trusted []netip.Prefix, proxySecret string) string {
+	// The web app's own proxy vouches for the visitor's address with a shared secret, so
+	// students behind it don't all share one rate-limit bucket.
+	if proxySecret != "" && subtle.ConstantTimeCompare([]byte(r.Header.Get("X-Proxy-Secret")), []byte(proxySecret)) == 1 {
+		if a, err := netip.ParseAddr(strings.TrimSpace(r.Header.Get("X-Client-IP"))); err == nil {
+			return a.Unmap().String()
+		}
+	}
 	host, _, err := net.SplitHostPort(r.RemoteAddr)
 	if err != nil {
 		host = r.RemoteAddr

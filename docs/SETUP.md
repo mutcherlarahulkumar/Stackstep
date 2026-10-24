@@ -128,6 +128,7 @@ every problem. Template: [`backend/.env.example`](../backend/.env.example).
 | `ALLOWED_ORIGINS` | origin of `WEB_BASE_URL` | Comma-separated origins allowed to call the API and open the WebSocket. |
 | `MOBILE_REDIRECT_URL` | `stackstep://auth` | Where GitHub sign-in returns to the app. |
 | `TRUSTED_PROXIES` | `127.0.0.1/32,::1/128` | CIDRs whose `X-Forwarded-For` is trusted (for rate limits and logs). Include the web server / load balancer. |
+| `PROXY_SHARED_SECRET` | empty | ≥ 32 characters. Set the **same value on the web app**; its proxy then passes each visitor's IP so rate limits are per student, not per proxy. Needed when the web app and API are on different hosts (e.g. Vercel + Render). |
 | `AUTH_RATE_PER_MINUTE` | `30` | Per-IP limit for sign-in and public certificate checks. Raise (e.g. `1000`) for E2E. |
 | `LEAD_REPLY_DELAY` | `45s` | How long the scripted team lead waits before replying (0–2h). |
 | `DELIVERY_INTERVAL` | `1s` | How often scheduled messages are delivered (100ms–1m). |
