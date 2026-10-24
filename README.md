@@ -30,9 +30,23 @@ Each has a spec with every edge case and the test that covers it, in [`docs/feat
 5. **Certificates** — progress against a 70% bar, issued by hand, public `/verify` page and a
    printable certificate.
 6. **Placement overview** — cohort table, CSV export and nudges for inactive students.
+7. **People** — enroll by GitHub login, roster CSV import, colleges, cohorts, internship status
+   and staff roles.
+8. **Account** — consent at first sign-in, privacy and terms pages, a first-run guide,
+   honest persona tags and "Download my data".
+9. **Task notes** — private Markdown notes per task, optionally shared with the reviewer.
+10. **DSA practice pad** — run a JavaScript solution against example tests in your own browser.
+11. **Review rubrics** — what the reviewer checks, up front, and which criteria were met.
+12. **Weekly report** — per-cohort week summary for placement cells (print and CSV) and a
+    "This week" recap for students.
+13. **Notifications** — opt-in browser notifications while a tab is in the background, and an
+    unread count in the tab title.
+
+Also: a review queue with hand-in authenticity warnings, and hand-ins posted in the assigning
+persona's chat with an acknowledgement.
 
 Coming soon (labelled in the UI, nothing faked): Razorpay payments, GitHub PR checks,
-AI review suggestions, Orshot certificate artwork.
+AI review suggestions, push notifications on phones, Orshot certificate artwork.
 
 ## Who uses what
 

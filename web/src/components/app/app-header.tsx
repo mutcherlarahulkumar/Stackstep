@@ -1,6 +1,6 @@
 "use client";
 
-import { Download, FileText, LogOut, ShieldCheck } from "lucide-react";
+import { Bell, BellOff, Download, FileText, LogOut, ShieldCheck } from "lucide-react";
 import Link from "next/link";
 import { type ReactNode } from "react";
 import { toast } from "sonner";
@@ -18,6 +18,7 @@ import {
 import { messageFor } from "@/lib/api/errors";
 import { type User } from "@/lib/api/schemas";
 import { saveBlob } from "@/lib/download";
+import { useNotificationToggle } from "@/lib/use-notifications";
 import { initials } from "@/lib/format";
 import { useSession } from "@/lib/session";
 
@@ -28,6 +29,13 @@ const ROLE_LABEL: Record<User["role"], string> = { student: "Intern", college_ad
 
 export function AppHeader({ user, children }: { user: User; children?: ReactNode }) {
   const { api, signOut } = useSession();
+  const notifications = useNotificationToggle();
+  const toggleNotifications = async () => {
+    const next = await notifications.toggle();
+    if (next === "on") toast.success("Notifications on. You'll hear about messages and reviews while Stackstep is in the background.");
+    else if (next === "blocked") toast.error("Your browser blocks notifications for Stackstep. Allow them in the site settings, then try again.");
+    else toast("Notifications off.");
+  };
   const exportData = async () => {
     const id = toast.loading("Preparing your data…");
     try {
@@ -62,6 +70,15 @@ export function AppHeader({ user, children }: { user: User; children?: ReactNode
             </span>
           </DropdownMenuLabel>
           <DropdownMenuSeparator />
+          {notifications.state === "unsupported" ? null : (
+            <DropdownMenuItem onSelect={() => void toggleNotifications()} data-testid="toggle-notifications">
+              {notifications.state === "on" ? <Bell aria-hidden /> : <BellOff aria-hidden />}
+              <span className="flex flex-col">
+                Notifications: {notifications.state === "on" ? "on" : notifications.state === "blocked" ? "blocked" : "off"}
+                <span className="text-muted-foreground text-xs">While this tab is in the background</span>
+              </span>
+            </DropdownMenuItem>
+          )}
           <DropdownMenuItem onSelect={() => void exportData()} data-testid="export-my-data">
             <Download aria-hidden /> Download my data
           </DropdownMenuItem>

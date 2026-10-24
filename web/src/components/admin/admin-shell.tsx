@@ -15,6 +15,9 @@ import { ConnectionBanner } from "../app/connection-banner";
 import { RequireSession } from "../app/guard";
 import { DesktopGate } from "./desktop-gate";
 import { useIsDesktop } from "@/lib/use-desktop";
+import { useBrowserNotifications, useUnreadTitle } from "@/lib/use-notifications";
+
+import { personaMap, useAllPersonas } from "./catalog-queries";
 
 export type Section = "report" | "overview" | "people" | "reviews" | "students" | "inbox" | "flows" | "library" | "personas" | "assign";
 
@@ -62,6 +65,9 @@ function Frame({ me, section, phone, children }: { me: Me; section: Section; pho
   const inbox = useStaffThreads(false);
   const unread = totalUnread(inbox.data?.pages.flatMap((p) => p.items) ?? []);
   const nav = desktop ? DESKTOP_NAV : PHONE_NAV;
+  const personas = personaMap(useAllPersonas().data);
+  useUnreadTitle(unread);
+  useBrowserNotifications("staff", (id) => personas.get(id)?.name);
   return (
     <div className="flex h-dvh flex-col print:h-auto">
       <AppHeader user={me.user}>

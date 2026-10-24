@@ -1,7 +1,7 @@
 "use client";
 
 import { useQueryClient } from "@tanstack/react-query";
-import { useCallback, useEffect, useReducer } from "react";
+import { useCallback, useEffect, useReducer, useRef } from "react";
 
 import { messageFor } from "@/lib/api/errors";
 import { type Frame, type Message } from "@/lib/api/schemas";
@@ -109,13 +109,29 @@ export function useConversation(target: ChatTarget) {
     void markRead();
   }, [load, markRead]);
 
+  const unseen = useRef(false);
+  useEffect(() => {
+    const onVisible = () => {
+      if (!document.hidden && unseen.current) {
+        unseen.current = false;
+        void markRead();
+      }
+    };
+    document.addEventListener("visibilitychange", onVisible);
+    return () => document.removeEventListener("visibilitychange", onVisible);
+  }, [markRead]);
+
   useFrames(
     useCallback(
       (f: Frame) => {
         if (f.type === "ready") void load();
         else if (f.type === "message" && belongsTo({ personaId, enrollmentId }, f.message)) {
           dispatch({ type: "received", items: [f.message] });
-          if (!isMine({ personaId, enrollmentId }, f.message)) void markRead();
+          // Only count it as read once someone can actually see it.
+          if (!isMine({ personaId, enrollmentId }, f.message)) {
+            if (document.hidden) unseen.current = true;
+            else void markRead();
+          }
         }
       },
       [load, markRead, personaId, enrollmentId],

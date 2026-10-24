@@ -11,6 +11,7 @@ import { useStudentThreads } from "@/lib/inbox-queries";
 import { RealtimeProvider, useSocketStatus } from "@/lib/realtime-context";
 import { useSession } from "@/lib/session";
 import { useIsDesktop } from "@/lib/use-desktop";
+import { useBrowserNotifications, useUnreadTitle } from "@/lib/use-notifications";
 
 import { AppHeader } from "../app/app-header";
 import { ConnectionBanner } from "../app/connection-banner";
@@ -73,6 +74,8 @@ function Workspace({ me, enrollment }: { me: Me; enrollment: Enrollment }) {
   const tasks = ws.state.tasks.status === "ready" ? ws.state.tasks.data : [];
   const phonePersona = phoneThread ? (byId.get(phoneThread) ?? null) : null;
   const unread = totalUnread(threads.data ?? []);
+  useUnreadTitle(unread);
+  useBrowserNotifications("student", (id) => byId.get(id)?.name);
 
   const openFromChat = (id: string) => {
     setOpenTask(id);
