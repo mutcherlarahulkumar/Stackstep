@@ -1,6 +1,6 @@
 "use client";
 
-import { Check, ExternalLink, FileCheck2, Send, X } from "lucide-react";
+import { Check, Code2, ExternalLink, FileCheck2, Send, X } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
 
@@ -16,6 +16,7 @@ import { ApiError, messageFor } from "@/lib/api/errors";
 import { type Resource, type Submission, type Task } from "@/lib/api/schemas";
 import { ContentBounds, needsLink, validateSubmission } from "@/lib/content";
 import { dateTimeLabel } from "@/lib/format";
+import { handInNote, loadDraft } from "@/lib/practice";
 import { useSession } from "@/lib/session";
 import { cn } from "@/lib/utils";
 import { runeLength } from "@/lib/validation";
@@ -132,7 +133,29 @@ export function HandInDialog({
             {errors.url ? <FieldError>{errors.url}</FieldError> : null}
           </Field>
           <Field data-invalid={!!errors.note}>
-            <FieldLabel htmlFor="hand-in-note">{linkFirst ? "Note (optional)" : "Solution or note"}</FieldLabel>
+            <div className="flex items-center justify-between gap-2">
+              <FieldLabel htmlFor="hand-in-note">{linkFirst ? "Note (optional)" : "Solution or note"}</FieldLabel>
+              {task.content.practice ? (
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="outline"
+                  onClick={() => {
+                    const d = loadDraft(task.id);
+                    const p = task.content.practice;
+                    if (!d || !p) {
+                      setErrors((e) => ({ ...e, note: "Nothing in the practice pad yet. Write your solution there first." }));
+                      return;
+                    }
+                    setNote(handInNote(d.code, d.result, p.tests.length, ContentBounds.submissionNoteMax));
+                    setErrors((e) => ({ ...e, note: "" }));
+                  }}
+                  data-testid="insert-practice"
+                >
+                  <Code2 data-icon="inline-start" aria-hidden /> Insert my practice code
+                </Button>
+              ) : null}
+            </div>
             <Textarea
               id="hand-in-note"
               rows={linkFirst ? 3 : 7}

@@ -16,7 +16,7 @@ import { choiceItem } from "../app/choice";
 import { PersonaAvatar } from "../app/persona-avatar";
 import { TYPE_ICON } from "../app/task-badges";
 import { REVIEW_HINT, REVIEW_LABEL } from "./assign-task-form";
-import { QuizEditor, ResourcesEditor } from "./content-editors";
+import { PracticeEditor, QuizEditor, ResourcesEditor } from "./content-editors";
 
 /** A task spec as the admin edits it: quiz answers are always set. */
 export type SpecDraft = TemplateInput;
@@ -45,6 +45,7 @@ export function withType(s: SpecDraft, type: TaskType): SpecDraft {
     next.review_mode = "self";
     next.content = { ...s.content, quiz: s.content.quiz ?? { pass_percent: ContentBounds.passDefault, questions: [blankQuestion()] } };
   } else next.content = { ...s.content, quiz: null };
+  if (type !== "dsa") next.content = { ...next.content, practice: null };
   return next;
 }
 
@@ -212,6 +213,9 @@ export function SpecFields({
         <QuizEditor value={value.content.quiz} onChange={(quiz) => set("content", { ...value.content, quiz })} errors={errors} idPrefix={id("quiz")} />
       ) : null}
       {errors.quiz ? <FieldError>{errors.quiz}</FieldError> : null}
+      {value.type === "dsa" ? (
+        <PracticeEditor value={value.content.practice} onChange={(practice) => set("content", { ...value.content, practice })} errors={errors} idPrefix={id("practice")} />
+      ) : null}
       <ResourcesEditor value={value.content.resources} onChange={(resources) => set("content", { ...value.content, resources })} errors={errors} idPrefix={id("links")} />
       <div className="grid gap-4 sm:grid-cols-2">
         <Field data-invalid={!!errors.release_time}>

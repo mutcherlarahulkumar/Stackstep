@@ -49,6 +49,30 @@ void main() {
       expect(() => Me.fromJson(JsonReader({'user': userJson(), 'enrollment': null})), throwsA(isA<ContractViolation>()));
     });
 
+    test('practice tests decode with any JSON and label calls (DP2)', () {
+      final c = TaskContent.fromJson(
+        const JsonReader({
+          'resources': <Object?>[],
+          'quiz': null,
+          'practice': {
+            'function_name': 'twoSum',
+            'starter': '',
+            'tests': [
+              {
+                'args': [
+                  [2, 7],
+                  9,
+                ],
+                'expected': [0, 1],
+              },
+            ],
+          },
+        }),
+      );
+      expect(c.practice?.label(0), 'twoSum([2,7], 9) → [0,1]');
+      expect(TaskContent.fromJson(const JsonReader({'resources': <Object?>[], 'quiz': null, 'practice': null})).practice, isNull);
+    });
+
     test('persona tag says who is behind a persona (PT1)', () {
       expect(personaTag(Persona.fromJson(JsonReader({...personaJson(), 'auto_reply': true}))), 'Mentor · some replies automatic');
       expect(personaTag(Persona.fromJson(JsonReader({...personaJson(), 'auto_reply': false}))), 'Played by a mentor');

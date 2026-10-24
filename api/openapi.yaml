@@ -1,7 +1,7 @@
 openapi: 3.1.0
 info:
   title: Stackstep API
-  version: 0.10.0
+  version: 0.11.0
   description: |
     Workspace core (feature 01). All timestamps are RFC 3339 UTC. All errors use the
     `Error` envelope; clients switch on `error.code`, never on `message`.
@@ -1428,6 +1428,25 @@ components:
       properties:
         resources: { type: array, maxItems: 5, items: { $ref: "#/components/schemas/Resource" } }
         quiz: { oneOf: [{ $ref: "#/components/schemas/Quiz" }, { type: "null" }], description: Only (and always) on quiz tasks }
+        practice:
+          description: DSA tasks only. Example tests the student runs in their own browser; responses always include it (null when absent).
+          oneOf: [{ $ref: "#/components/schemas/Practice" }, { type: "null" }]
+    Practice:
+      type: object
+      required: [function_name, starter, tests]
+      properties:
+        function_name: { type: string, pattern: "^[A-Za-z_$][A-Za-z0-9_$]{0,39}$" }
+        starter: { type: string, maxLength: 4000 }
+        tests:
+          type: array
+          minItems: 1
+          maxItems: 10
+          items:
+            type: object
+            required: [args, expected]
+            properties:
+              args: { type: array, description: "Arguments as JSON (≤ 2000 characters compact)" }
+              expected: { description: "Expected return value: any JSON (≤ 2000 characters compact)" }
     SubmissionInput:
       type: object
       additionalProperties: false

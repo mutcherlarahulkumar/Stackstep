@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'package:stackstep/api/json.dart';
 
 enum Role {
@@ -370,16 +372,41 @@ final class Quiz {
 }
 
 final class TaskContent {
-  const TaskContent({required this.resources, required this.quiz});
+  const TaskContent({required this.resources, required this.quiz, this.practice});
   factory TaskContent.fromJson(JsonReader j) => TaskContent(
     resources: j.list('resources', Resource.fromJson),
     quiz: switch (j.objectOrNull('quiz')) {
       final q? => Quiz.fromJson(q),
       null => null,
     },
+    practice: switch (j.objectOrNull('practice')) {
+      final p? => Practice.fromJson(p),
+      null => null,
+    },
   );
   final List<Resource> resources;
   final Quiz? quiz;
+
+  /// DSA example tests. The app shows them; running code happens in the web app.
+  final Practice? practice;
+}
+
+final class Practice {
+  const Practice({required this.functionName, required this.starter, required this.tests});
+  factory Practice.fromJson(JsonReader j) => Practice(
+    functionName: j.string('function_name'),
+    starter: j.string('starter'),
+    tests: j.list('tests', (t) => (args: t.anyList('args'), expected: t.raw['expected'])),
+  );
+  final String functionName;
+  final String starter;
+  final List<({List<Object?> args, Object? expected})> tests;
+
+  /// "twoSum([2,7,11,15], 9) → [0,1]"
+  String label(int i) {
+    final t = tests[i];
+    return '$functionName(${t.args.map(jsonEncode).join(', ')}) → ${jsonEncode(t.expected)}';
+  }
 }
 
 final class Submission {

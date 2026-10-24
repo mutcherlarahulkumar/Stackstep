@@ -1,6 +1,7 @@
 package httpapi
 
 import (
+	"encoding/json"
 	"time"
 
 	"github.com/google/uuid"
@@ -132,10 +133,44 @@ type quizDTO struct {
 type contentDTO struct {
 	Resources []resourceDTO `json:"resources"`
 	Quiz      *quizDTO      `json:"quiz"`
+	Practice  *practiceDTO  `json:"practice"`
+}
+
+type practiceDTO struct {
+	FunctionName string            `json:"function_name"`
+	Starter      string            `json:"starter"`
+	Tests        []practiceTestDTO `json:"tests"`
+}
+
+type practiceTestDTO struct {
+	Args     json.RawMessage `json:"args"`
+	Expected json.RawMessage `json:"expected"`
+}
+
+func toPractice(p *domain.Practice) *practiceDTO {
+	if p == nil {
+		return nil
+	}
+	out := &practiceDTO{FunctionName: p.FunctionName, Starter: p.Starter, Tests: make([]practiceTestDTO, len(p.Tests))}
+	for i, t := range p.Tests {
+		out.Tests[i] = practiceTestDTO(t)
+	}
+	return out
+}
+
+func (p *practiceDTO) input() *domain.Practice {
+	if p == nil {
+		return nil
+	}
+	out := &domain.Practice{FunctionName: p.FunctionName, Starter: p.Starter, Tests: make([]domain.PracticeTest, len(p.Tests))}
+	for i, t := range p.Tests {
+		out.Tests[i] = domain.PracticeTest(t)
+	}
+	return out
 }
 
 func toContent(c domain.TaskContent, showAnswers bool) contentDTO {
-	out := contentDTO{Resources: make([]resourceDTO, len(c.Resources))}
+	out := contentDTO{Resources: make([]resourceDTO, len(c.Resources)), Practice: toPractice(c.Practice)}
 	for i, r := range c.Resources {
 		out.Resources[i] = resourceDTO(r)
 	}
@@ -155,7 +190,7 @@ func toContent(c domain.TaskContent, showAnswers bool) contentDTO {
 
 // input converts a request body; a missing answer becomes -1 so validation flags it.
 func (c contentDTO) input() domain.TaskContent {
-	out := domain.TaskContent{Resources: make([]domain.Resource, len(c.Resources))}
+	out := domain.TaskContent{Resources: make([]domain.Resource, len(c.Resources)), Practice: c.Practice.input()}
 	for i, r := range c.Resources {
 		out.Resources[i] = domain.Resource(r)
 	}

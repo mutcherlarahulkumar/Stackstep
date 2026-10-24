@@ -399,6 +399,7 @@ class _TaskSheetState extends ConsumerState<TaskSheet> {
               ),
             const SizedBox(height: Space.sm),
           ],
+          if (task.content.practice case final p? when task.type == TaskType.dsa) PracticeCard(practice: p),
           TaskNotesSection(taskId: task.id),
           const SizedBox(height: Space.xl),
         ],

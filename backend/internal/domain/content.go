@@ -33,6 +33,7 @@ type Quiz struct {
 type TaskContent struct {
 	Resources []Resource `json:"resources"`
 	Quiz      *Quiz      `json:"quiz"`
+	Practice  *Practice  `json:"practice,omitempty"`
 }
 
 // Bounds for task content (mirrored in clients).
@@ -103,6 +104,16 @@ func ValidateContent(c TaskContent, typ TaskType, review ReviewMode, prefix stri
 			errs[k] = v
 		}
 		out.Quiz = &q
+	}
+	switch {
+	case typ != TaskDSA && c.Practice != nil:
+		errs[prefix+"practice"] = "Only DSA tasks have a practice pad."
+	case c.Practice != nil:
+		p, pErrs := validatePractice(*c.Practice, prefix+"practice")
+		for k, v := range pErrs {
+			errs[k] = v
+		}
+		out.Practice = &p
 	}
 	return out, errs
 }

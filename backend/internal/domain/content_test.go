@@ -117,3 +117,44 @@ func TestSurpriseOffset(t *testing.T) {
 		t.Fatal("offset must be stable")
 	}
 }
+
+func TestValidatePractice(t *testing.T) {
+	good := func() *Practice {
+		return &Practice{FunctionName: "twoSum", Starter: "function twoSum(nums, target) {}", Tests: []PracticeTest{{Args: []byte(`[ [2,7], 9 ]`), Expected: []byte(`[0, 1]`)}}}
+	}
+	out, errs := ValidateContent(TaskContent{Practice: good()}, TaskDSA, ReviewManual, "")
+	if len(errs) != 0 {
+		t.Fatalf("errs = %v", errs)
+	}
+	// DP1: JSON is stored compact.
+	if string(out.Practice.Tests[0].Args) != "[[2,7],9]" || string(out.Practice.Tests[0].Expected) != "[0,1]" {
+		t.Fatalf("not compacted: %s %s", out.Practice.Tests[0].Args, out.Practice.Tests[0].Expected)
+	}
+	cases := map[string]struct {
+		edit  func(p *Practice)
+		typ   TaskType
+		field string
+	}{
+		"not a DSA task":   {func(*Practice) {}, TaskFeature, "practice"},
+		"bad name":         {func(p *Practice) { p.FunctionName = "two sum" }, TaskDSA, "practice.function_name"},
+		"reserved name":    {func(p *Practice) { p.FunctionName = "return" }, TaskDSA, "practice.function_name"},
+		"no tests":         {func(p *Practice) { p.Tests = nil }, TaskDSA, "practice.tests"},
+		"eleven tests":     {func(p *Practice) { p.Tests = make([]PracticeTest, 11) }, TaskDSA, "practice.tests"},
+		"args not array":   {func(p *Practice) { p.Tests[0].Args = []byte(`{"a":1}`) }, TaskDSA, "practice.tests[0].args"},
+		"args invalid":     {func(p *Practice) { p.Tests[0].Args = []byte(`[1,`) }, TaskDSA, "practice.tests[0].args"},
+		"expected missing": {func(p *Practice) { p.Tests[0].Expected = nil }, TaskDSA, "practice.tests[0].expected"},
+		"huge args":        {func(p *Practice) { p.Tests[0].Args = []byte("[\"" + strings.Repeat("a", 2001) + "\"]") }, TaskDSA, "practice.tests[0].args"},
+		"long starter":     {func(p *Practice) { p.Starter = strings.Repeat("x", 4001) }, TaskDSA, "practice.starter"},
+		"control in code":  {func(p *Practice) { p.Starter = "a\x07" }, TaskDSA, "practice.starter"},
+	}
+	for name, c := range cases {
+		t.Run(name, func(t *testing.T) {
+			p := good()
+			c.edit(p)
+			_, errs := ValidateContent(TaskContent{Practice: p}, c.typ, ReviewManual, "")
+			if errs[c.field] == "" {
+				t.Fatalf("want error on %s, got %v", c.field, errs)
+			}
+		})
+	}
+}

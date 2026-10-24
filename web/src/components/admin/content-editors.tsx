@@ -1,13 +1,13 @@
 "use client";
 
-import { Link2, Plus, Trash2 } from "lucide-react";
+import { Code2, Link2, Plus, Trash2 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Field, FieldDescription, FieldError, FieldLabel } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { type ContentInput } from "@/lib/api/client";
-import { blankQuestion, ContentBounds } from "@/lib/content";
+import { blankPractice, blankQuestion, ContentBounds } from "@/lib/content";
 import { cn } from "@/lib/utils";
 
 type Errors = Record<string, string | undefined>;
@@ -194,6 +194,129 @@ export function QuizEditor({ value, onChange, errors, idPrefix }: { value: Quiz;
         </Button>
       ) : null}
       <FieldDescription>Mark the right option with the circle. Students see the answers only after they finish.</FieldDescription>
+    </fieldset>
+  );
+}
+
+/** Optional example tests for a DSA task. Students run them in their own browser; they're data, never code. */
+export function PracticeEditor({
+  value,
+  onChange,
+  errors,
+  idPrefix,
+}: {
+  value: ContentInput["practice"];
+  onChange: (next: ContentInput["practice"]) => void;
+  errors: Errors;
+  idPrefix: string;
+}) {
+  if (!value) {
+    return (
+      <Field>
+        <FieldLabel>Practice pad</FieldLabel>
+        <FieldDescription>Optional: give example tests and the student can run a JavaScript solution in their browser before handing in.</FieldDescription>
+        <Button type="button" variant="outline" size="sm" className="self-start" onClick={() => onChange(blankPractice())} data-testid={`${idPrefix}-add`}>
+          <Code2 data-icon="inline-start" aria-hidden /> Add practice pad
+        </Button>
+      </Field>
+    );
+  }
+  const p = value;
+  const setTest = (i: number, patch: Partial<{ args: string; expected: string }>) => onChange({ ...p, tests: p.tests.map((t, j) => (j === i ? { ...t, ...patch } : t)) });
+  return (
+    <fieldset className="flex flex-col gap-3 rounded-lg border p-3">
+      <div className="flex items-center justify-between">
+        <legend className="text-sm font-medium">Practice pad</legend>
+        <Button type="button" variant="ghost" size="sm" onClick={() => onChange(null)}>
+          <Trash2 data-icon="inline-start" aria-hidden /> Remove
+        </Button>
+      </div>
+      <Field data-invalid={!!errors["practice.function_name"]}>
+        <FieldLabel htmlFor={`${idPrefix}-fn`}>Function name</FieldLabel>
+        <Input
+          id={`${idPrefix}-fn`}
+          className="font-mono"
+          value={p.function_name}
+          onChange={(e) => onChange({ ...p, function_name: e.target.value })}
+          aria-invalid={!!errors["practice.function_name"]}
+          autoComplete="off"
+          spellCheck={false}
+        />
+        {errors["practice.function_name"] ? <FieldError>{errors["practice.function_name"]}</FieldError> : <FieldDescription>The student defines this function, e.g. twoSum.</FieldDescription>}
+      </Field>
+      <Field data-invalid={!!errors["practice.starter"]}>
+        <FieldLabel htmlFor={`${idPrefix}-starter`}>Starter code</FieldLabel>
+        <Textarea
+          id={`${idPrefix}-starter`}
+          rows={4}
+          className="font-mono text-[0.82rem]"
+          value={p.starter}
+          onChange={(e) => onChange({ ...p, starter: e.target.value })}
+          spellCheck={false}
+          aria-invalid={!!errors["practice.starter"]}
+        />
+        {errors["practice.starter"] ? <FieldError>{errors["practice.starter"]}</FieldError> : null}
+      </Field>
+      <div className="flex flex-col gap-2">
+        <div className="flex items-baseline justify-between">
+          <span className="text-sm font-medium">Example tests</span>
+          <span className="text-muted-foreground text-xs tabular-nums">
+            {p.tests.length} / {ContentBounds.practiceTests}
+          </span>
+        </div>
+        <p className="text-muted-foreground text-xs">Arguments as a JSON array, the expected return value as JSON. Students see these.</p>
+        <ul className="flex flex-col gap-2">
+          {p.tests.map((t, i) => {
+            const argsErr = errors[`practice.tests[${i}].args`];
+            const expErr = errors[`practice.tests[${i}].expected`];
+            return (
+              <li key={i} className="flex flex-col gap-1">
+                <div className="flex items-start gap-2">
+                  <Input
+                    aria-label={`Test ${i + 1} arguments`}
+                    className="font-mono text-xs"
+                    value={t.args}
+                    placeholder="[[2,7,11,15], 9]"
+                    aria-invalid={!!argsErr}
+                    onChange={(e) => setTest(i, { args: e.target.value })}
+                    spellCheck={false}
+                  />
+                  <span className="text-muted-foreground mt-2 text-xs" aria-hidden>
+                    →
+                  </span>
+                  <Input
+                    aria-label={`Test ${i + 1} expected result`}
+                    className="w-36 shrink-0 font-mono text-xs"
+                    value={t.expected}
+                    placeholder="[0,1]"
+                    aria-invalid={!!expErr}
+                    onChange={(e) => setTest(i, { expected: e.target.value })}
+                    spellCheck={false}
+                  />
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon"
+                    aria-label={`Remove test ${i + 1}`}
+                    disabled={p.tests.length === 1}
+                    onClick={() => onChange({ ...p, tests: p.tests.filter((_, j) => j !== i) })}
+                  >
+                    <Trash2 aria-hidden />
+                  </Button>
+                </div>
+                {argsErr || expErr ? <FieldError>{argsErr ?? expErr}</FieldError> : null}
+              </li>
+            );
+          })}
+        </ul>
+        {errors["practice.tests"] ? <FieldError>{errors["practice.tests"]}</FieldError> : null}
+        {p.tests.length < ContentBounds.practiceTests ? (
+          <Button type="button" variant="outline" size="sm" className="self-start" onClick={() => onChange({ ...p, tests: [...p.tests, { args: "[]", expected: "null" }] })}>
+            <Plus data-icon="inline-start" aria-hidden /> Add test
+          </Button>
+        ) : null}
+      </div>
+      {errors.practice ? <FieldError>{errors.practice}</FieldError> : null}
     </fieldset>
   );
 }

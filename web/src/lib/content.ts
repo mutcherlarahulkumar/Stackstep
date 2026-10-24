@@ -1,5 +1,5 @@
 /** Client mirror of backend/internal/domain/content.go. The server stays the authority. */
-import { type ContentInput, type SubmissionInput } from "./api/client";
+import { type ContentInput, type PracticeDraft, type SubmissionInput } from "./api/client";
 import { type TaskContent, type TaskType } from "./api/schemas";
 import { normalizeLine, runeLength } from "./validation";
 
@@ -17,9 +17,30 @@ export const ContentBounds = {
   attempts: 3,
   windowMax: 480,
   submissionNoteMax: 4000,
+  practiceTests: 10,
+  practiceStarterMax: 4000,
+  practiceJsonMax: 2000,
 } as const;
 
-export const emptyContent = (): ContentInput => ({ resources: [], quiz: null });
+export const emptyContent = (): ContentInput => ({ resources: [], quiz: null, practice: null });
+
+export const blankPractice = (): PracticeDraft => ({ function_name: "solve", starter: "function solve(input) {\n  \n}\n", tests: [{ args: "[]", expected: "null" }] });
+
+const JS_IDENT = /^[A-Za-z_$][A-Za-z0-9_$]{0,39}$/;
+const JS_RESERVED = new Set(
+  "break case catch class const continue debugger default delete do else export extends finally for function if import in instanceof new return super switch this throw try typeof var void while with yield let static enum await null true false".split(
+    " ",
+  ),
+);
+
+/** JSON text → compact JSON, or null when it isn't JSON. */
+export function compactJson(text: string): string | null {
+  try {
+    return JSON.stringify(JSON.parse(text));
+  } catch {
+    return null;
+  }
+}
 
 export const blankQuestion = () => ({ prompt: "", options: ["", ""], answer: 0 });
 
@@ -28,6 +49,13 @@ export function contentForEdit(c: TaskContent): ContentInput {
   return {
     resources: c.resources.map((r) => ({ ...r })),
     quiz: c.quiz ? { pass_percent: c.quiz.pass_percent, questions: c.quiz.questions.map((q) => ({ prompt: q.prompt, options: [...q.options], answer: q.answer ?? -1 })) } : null,
+    practice: c.practice
+      ? {
+          function_name: c.practice.function_name,
+          starter: c.practice.starter,
+          tests: c.practice.tests.map((t) => ({ args: JSON.stringify(t.args), expected: JSON.stringify(t.expected) })),
+        }
+      : null,
   };
 }
 
@@ -90,6 +118,23 @@ export function validateContent(c: ContentInput, type: TaskType): Record<string,
       if (qq.answer < 0 || qq.answer >= opts.length) e[`${k}.answer`] = "Mark the right option.";
     });
   }
+  const p = c.practice;
+  if (p && type !== "dsa") e.practice = "Only DSA tasks have a practice pad.";
+  if (p && type === "dsa") {
+    if (!JS_IDENT.test(p.function_name) || JS_RESERVED.has(p.function_name)) e["practice.function_name"] = "Use a JavaScript function name like twoSum.";
+    if (runeLength(p.starter) > ContentBounds.practiceStarterMax) e["practice.starter"] = `Starter code can be at most ${ContentBounds.practiceStarterMax} characters.`;
+    if (p.tests.length === 0) e["practice.tests"] = "Add at least one example test.";
+    if (p.tests.length > ContentBounds.practiceTests) e["practice.tests"] = `Add at most ${ContentBounds.practiceTests} example tests.`;
+    p.tests.forEach((t, i) => {
+      const k = `practice.tests[${i}]`;
+      const args = compactJson(t.args);
+      if (args === null || !args.startsWith("[")) e[`${k}.args`] = "Arguments must be a JSON array, like [[2,7,11,15], 9].";
+      else if (args.length > ContentBounds.practiceJsonMax) e[`${k}.args`] = `Keep arguments under ${ContentBounds.practiceJsonMax} characters.`;
+      const exp = compactJson(t.expected);
+      if (exp === null) e[`${k}.expected`] = "Expected result must be JSON, like [0,1] or true.";
+      else if (exp.length > ContentBounds.practiceJsonMax) e[`${k}.expected`] = `Keep the expected result under ${ContentBounds.practiceJsonMax} characters.`;
+    });
+  }
   return e;
 }
 
@@ -99,6 +144,7 @@ export function cleanContent(c: ContentInput): ContentInput {
     quiz: c.quiz
       ? { pass_percent: c.quiz.pass_percent, questions: c.quiz.questions.map((q) => ({ prompt: q.prompt.trim(), options: q.options.map(normalizeLine), answer: q.answer })) }
       : null,
+    practice: c.practice ? { ...c.practice, function_name: c.practice.function_name.trim() } : null,
   };
 }
 

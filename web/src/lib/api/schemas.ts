@@ -113,7 +113,15 @@ export type QuizQuestion = z.output<typeof QuizQuestion>;
 export const Quiz = z.object({ questions: z.array(QuizQuestion).min(1).max(20), pass_percent: z.int().min(1).max(100) });
 export type Quiz = z.output<typeof Quiz>;
 
-export const TaskContent = z.object({ resources: z.array(Resource).max(5), quiz: Quiz.nullable() });
+export const PracticeTest = z.object({ args: z.array(z.unknown()), expected: z.unknown() });
+export const Practice = z.object({
+  function_name: z.string().regex(/^[A-Za-z_$][A-Za-z0-9_$]{0,39}$/),
+  starter: z.string().max(4000),
+  tests: z.array(PracticeTest).min(1).max(10),
+});
+export type Practice = z.output<typeof Practice>;
+
+export const TaskContent = z.object({ resources: z.array(Resource).max(5), quiz: Quiz.nullable(), practice: Practice.nullable().default(null) });
 export type TaskContent = z.output<typeof TaskContent>;
 
 export const HAND_IN_CHECK_CODES = ["foreign_repo", "reused_link"] as const;

@@ -3,6 +3,7 @@ package seed
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"time"
 
@@ -190,7 +191,9 @@ func seedCatalog(ctx context.Context, q store.Q, admin uuid.UUID, now time.Time)
 	tasks := []seedTask{
 		{1, domain.TaskStandup, "Introduce yourself to the team", "Post a short intro: your college, what you want to build, and one thing you want to learn.", domain.DefaultPersonaID, domain.ReviewSelf, "10:00", 240, 0, domain.TaskContent{}},
 		{1, domain.TaskGitChore, "Set up Git and open your first PR", "Clone the starter repo, add your name to README.md on branch `chore/intro`, and open a PR.", DeliveryManagerID, domain.ReviewManual, "11:00", 480, 0, domain.TaskContent{}},
-		{2, domain.TaskDSA, "Two Sum", "Solve Two Sum in O(n). Explain your approach in two sentences.", EngineeringManagerID, domain.ReviewManual, "10:30", 360, 0, domain.TaskContent{}},
+		{2, domain.TaskDSA, "Two Sum", "Solve Two Sum in O(n). Explain your approach in two sentences.", EngineeringManagerID, domain.ReviewManual, "10:30", 360, 0,
+			domain.TaskContent{Practice: practice("twoSum", "function twoSum(nums, target) {\n  // Return the indices of the two numbers that add up to target.\n}\n",
+				"[[2,7,11,15],9]", "[0,1]", "[[3,2,4],6]", "[1,2]", "[[3,3],6]", "[0,1]")}},
 		{2, domain.TaskFeature, "Build the portfolio hero section", "Name, title, a short bio and links. Mobile first. Branch: `feat/hero`.", DeliveryManagerID, domain.ReviewManual, "11:00", 1440, 0, domain.TaskContent{}},
 		{3, domain.TaskDocReading, "Read MDN: Flexbox", "Read the MDN Flexbox guide and note three properties you will use this week.", DeliveryManagerID, domain.ReviewSelf, "09:30", 240, 0,
 			domain.TaskContent{Resources: []domain.Resource{{Title: "MDN: Basic concepts of flexbox", URL: "https://developer.mozilla.org/en-US/docs/Web/CSS/CSS_flexible_box_layout/Basic_concepts_of_flexbox"}}}},
@@ -202,10 +205,14 @@ func seedCatalog(ctx context.Context, q store.Q, admin uuid.UUID, now time.Time)
 				{Prompt: "What does a pull request ask for?", Options: []string{"A review before merging", "A copy of the repo", "Admin access"}, Answer: 0},
 				{Prompt: "What does `git status` show?", Options: []string{"Commit history", "Changed and staged files", "Remote branches"}, Answer: 1},
 			}}}},
-		{3, domain.TaskDSA, "Valid Anagram", "Use a frequency map. Mention the time and space complexity.", EngineeringManagerID, domain.ReviewManual, "12:00", 360, 0, domain.TaskContent{}},
+		{3, domain.TaskDSA, "Valid Anagram", "Use a frequency map. Mention the time and space complexity.", EngineeringManagerID, domain.ReviewManual, "12:00", 360, 0,
+			domain.TaskContent{Practice: practice("isAnagram", "function isAnagram(s, t) {\n  // true when t uses exactly the letters of s.\n}\n",
+				`["anagram","nagaram"]`, "true", `["rat","car"]`, "false", `["a","ab"]`, "false")}},
 		{3, domain.TaskBlog, "Write: what I learned in week one", "300–500 words on your setup, your first PR and one mistake you fixed. Publish on Hashnode or dev.to.", ContentLeadID, domain.ReviewManual, "15:00", 2880, 0, domain.TaskContent{}},
 		{4, domain.TaskFeature, "Projects grid with filters", "Show your projects as cards with tag filters. Branch: `feat/projects`.", DeliveryManagerID, domain.ReviewManual, "10:00", 1440, 0, domain.TaskContent{}},
-		{4, domain.TaskDSA, "Best Time to Buy and Sell Stock", "One pass, constant space.", EngineeringManagerID, domain.ReviewManual, "12:00", 360, 0, domain.TaskContent{}},
+		{4, domain.TaskDSA, "Best Time to Buy and Sell Stock", "One pass, constant space.", EngineeringManagerID, domain.ReviewManual, "12:00", 360, 0,
+			domain.TaskContent{Practice: practice("maxProfit", "function maxProfit(prices) {\n  // Best profit from one buy and one later sell, or 0.\n}\n",
+				"[[7,1,5,3,6,4]]", "5", "[[7,6,4,3,1]]", "0", "[[2,4,1]]", "2")}},
 		{5, domain.TaskStandup, "Friday standup", "What shipped this week, what's blocked, what's next.", domain.DefaultPersonaID, domain.ReviewSelf, "15:00", 120, 120, domain.TaskContent{}},
 	}
 	if _, err := q.Exec(ctx, `INSERT INTO flows (id, name, stream, description, days, created_by, created_at, updated_at)
@@ -239,4 +246,13 @@ func seedCatalog(ctx context.Context, q store.Q, admin uuid.UUID, now time.Time)
 		perDay[t.day]++
 	}
 	return store.InsertFlowItems(ctx, q, versionID, items)
+}
+
+// practice builds a seeded practice pad from (args, expected) JSON pairs.
+func practice(fn, starter string, pairs ...string) *domain.Practice {
+	p := &domain.Practice{FunctionName: fn, Starter: starter}
+	for i := 0; i+1 < len(pairs); i += 2 {
+		p.Tests = append(p.Tests, domain.PracticeTest{Args: json.RawMessage(pairs[i]), Expected: json.RawMessage(pairs[i+1])})
+	}
+	return p
 }

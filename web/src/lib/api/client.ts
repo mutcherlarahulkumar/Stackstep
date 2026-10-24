@@ -21,7 +21,28 @@ export type CreateTaskInput = {
 };
 
 /** Content as sent: quiz answers are always set by the author. */
-export type ContentInput = { resources: S.Resource[]; quiz: { questions: { prompt: string; options: string[]; answer: number }[]; pass_percent: number } | null };
+/** Example tests are edited as JSON text and parsed when sent (see wireContent). */
+export type PracticeDraft = { function_name: string; starter: string; tests: { args: string; expected: string }[] };
+export type ContentInput = {
+  resources: S.Resource[];
+  quiz: { questions: { prompt: string; options: string[]; answer: number }[]; pass_percent: number } | null;
+  practice: PracticeDraft | null;
+};
+
+/** Parses practice test text into JSON for the API. Validation (validateContent) runs first. */
+export function wireContent(c: ContentInput) {
+  const parse = (s: string): unknown => {
+    try {
+      return JSON.parse(s) as unknown;
+    } catch {
+      return s; // the server rejects it with a field error
+    }
+  };
+  return {
+    ...c,
+    practice: c.practice ? { ...c.practice, tests: c.practice.tests.map((t) => ({ args: parse(t.args), expected: parse(t.expected) })) } : null,
+  };
+}
 export type SubmissionInput = { url: string; note: string };
 export type AIQuestionInput = { task_id: string | null; goal: string; tried: string; error: string; code: string };
 export type AIFollowUpInput = { tried_since: string; body: string };
@@ -315,7 +336,7 @@ export class ApiClient {
         brief: input.brief,
         scheduled_for: input.scheduled_for?.toISOString() ?? null,
         due_at: input.due_at.toISOString(),
-        content: input.content,
+        content: wireContent(input.content),
       },
     });
   }
@@ -381,11 +402,11 @@ export class ApiClient {
   }
 
   createTemplate(input: TemplateInput) {
-    return this.send("POST", "/v1/admin/task-templates", S.TaskTemplate, { body: input });
+    return this.send("POST", "/v1/admin/task-templates", S.TaskTemplate, { body: { ...input, content: wireContent(input.content) } });
   }
 
   updateTemplate(id: string, input: TemplateInput & { archived: boolean }, expectedVersion: number) {
-    return this.send("PATCH", `/v1/admin/task-templates/${seg(id)}`, S.TaskTemplate, { body: { ...input, expected_version: expectedVersion } });
+    return this.send("PATCH", `/v1/admin/task-templates/${seg(id)}`, S.TaskTemplate, { body: { ...input, content: wireContent(input.content), expected_version: expectedVersion } });
   }
 
   async flows(includeArchived = false) {
@@ -406,7 +427,9 @@ export class ApiClient {
 
   /** Replaces the draft's items. `expectedRevision` 0 starts a new draft from the published version. */
   saveDraft(id: string, expectedRevision: number, items: DraftItemInput[]) {
-    return this.send("PUT", `/v1/admin/flows/${seg(id)}/draft`, S.FlowDetail, { body: { expected_revision: expectedRevision, items } });
+    return this.send("PUT", `/v1/admin/flows/${seg(id)}/draft`, S.FlowDetail, {
+      body: { expected_revision: expectedRevision, items: items.map((i) => ({ ...i, content: wireContent(i.content) })) },
+    });
   }
 
   publishFlow(id: string, expectedRevision: number) {

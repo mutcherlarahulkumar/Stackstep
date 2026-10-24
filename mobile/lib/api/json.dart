@@ -70,6 +70,9 @@ extension type const JsonReader(Json raw) {
     throw ContractViolation(key, 'object or null');
   }
 
+  /// A JSON array of any values (practice test arguments).
+  List<Object?> anyList(String key) => _req<List<Object?>>(key);
+
   List<T> list<T>(String key, T Function(JsonReader) decode) {
     final value = _req<List<Object?>>(key);
     return [

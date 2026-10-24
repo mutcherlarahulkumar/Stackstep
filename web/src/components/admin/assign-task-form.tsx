@@ -25,7 +25,7 @@ import { Bounds, normalizeLine, runeLength, validateBrief, validateSchedule, val
 
 import { choiceItem } from "../app/choice";
 import { PersonaAvatar } from "../app/persona-avatar";
-import { QuizEditor, ResourcesEditor } from "./content-editors";
+import { PracticeEditor, QuizEditor, ResourcesEditor } from "./content-editors";
 import { TYPE_ICON } from "../app/task-badges";
 
 type DuePreset = "2h" | "today" | "tomorrow" | "custom";
@@ -66,6 +66,7 @@ export function AssignTaskForm({ student, onAssigned }: { student: Student; onAs
       setReviewMode("self");
       setContent((c) => ({ ...c, quiz: c.quiz ?? { pass_percent: ContentBounds.passDefault, questions: [blankQuestion()] } }));
     } else setContent((c) => ({ ...c, quiz: null }));
+    if (t !== "dsa") setContent((c) => ({ ...c, practice: null }));
   };
   const personaList = personas.data ?? [];
   // The admin's pick, else the default team lead, else the first persona; null lets the server decide.
@@ -115,7 +116,7 @@ export function AssignTaskForm({ student, onAssigned }: { student: Student; onAs
       });
       setTitle("");
       setBrief("");
-      setContent({ resources: [], quiz: type === "quiz" ? { pass_percent: ContentBounds.passDefault, questions: [blankQuestion()] } : null });
+      setContent({ resources: [], quiz: type === "quiz" ? { pass_percent: ContentBounds.passDefault, questions: [blankQuestion()] } : null, practice: null });
       onAssigned(task);
     } catch (e) {
       if (e instanceof ApiError && e.code === "validation_failed" && Object.keys(e.fields).length) setErrors(e.fields as Errors);
@@ -268,6 +269,9 @@ export function AssignTaskForm({ student, onAssigned }: { student: Student; onAs
         </Field>
         {content.quiz ? (
           <QuizEditor value={content.quiz} onChange={(quiz) => setContent((c) => ({ ...c, quiz }))} errors={errors} idPrefix="assign-quiz" />
+        ) : null}
+        {type === "dsa" ? (
+          <PracticeEditor value={content.practice} onChange={(practice) => setContent((c) => ({ ...c, practice }))} errors={errors} idPrefix="assign-practice" />
         ) : null}
         <ResourcesEditor value={content.resources} onChange={(resources) => setContent((c) => ({ ...c, resources }))} errors={errors} idPrefix="assign-links" />
         <Field data-invalid={!!errors.scheduled_for}>

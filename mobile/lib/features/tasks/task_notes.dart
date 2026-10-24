@@ -4,9 +4,11 @@ import 'package:flutter_riverpod/misc.dart';
 import 'package:shadcn_ui/shadcn_ui.dart';
 import 'package:stackstep/api/api_client.dart';
 import 'package:stackstep/api/models.dart';
+import 'package:stackstep/core/config.dart';
 import 'package:stackstep/core/providers.dart';
 import 'package:stackstep/core/theme.dart';
 import 'package:stackstep/features/ai/markdown_view.dart';
+import 'package:stackstep/features/tasks/task_work.dart';
 import 'package:stackstep/shared/errors.dart';
 import 'package:stackstep/shared/format.dart';
 import 'package:stackstep/ui/ui.dart';
@@ -170,6 +172,53 @@ class _EditorState extends ConsumerState<_Editor> {
           ],
         ),
       ],
+    );
+  }
+}
+
+/// DSA example tests. Code runs in the web app's practice pad, so the app links there.
+class PracticeCard extends StatelessWidget {
+  const PracticeCard({required this.practice, super.key});
+  final Practice practice;
+
+  @override
+  Widget build(BuildContext context) {
+    final t = ShadTheme.of(context);
+    return Padding(
+      padding: const EdgeInsets.only(top: Space.xl),
+      child: ShadCard(
+        key: const Key('practice-card'),
+        padding: const EdgeInsets.all(Space.lg),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Icon(LucideIcons.code, size: 16, color: t.colorScheme.mutedForeground),
+                const SizedBox(width: Space.sm),
+                Semantics(
+                  header: true,
+                  child: Text('Practice pad', style: t.textTheme.small.copyWith(fontWeight: FontWeight.w600)),
+                ),
+              ],
+            ),
+            const SizedBox(height: Space.sm),
+            Text('Examples your solution should pass:', style: t.textTheme.muted),
+            const SizedBox(height: Space.xs),
+            for (var i = 0; i < practice.tests.length; i++)
+              Padding(
+                padding: const EdgeInsets.only(top: Space.xs),
+                child: SelectableText(practice.label(i), style: const TextStyle(fontFamily: 'monospace', fontSize: 12)),
+              ),
+            const SizedBox(height: Space.md),
+            ShadButton.outline(
+              onPressed: () => openLink(context, AppConfig.webUrl('/workspace')),
+              leading: const Icon(LucideIcons.externalLink, size: 16),
+              child: const Text('Run them on the web'),
+            ),
+          ],
+        ),
+      ),
     );
   }
 }
