@@ -7,10 +7,23 @@ export type SeedUser = "asha-dev" | "ravi-dev" | "meera-dev" | "nora-dev" | "ani
  * lets /login send them home like a real GitHub sign-in would.
  */
 export async function signIn(page: Page, login: SeedUser) {
+  reportBrowserErrors(page, login);
   const res = await page.request.post("/api/v1/auth/dev-login", { data: { github_login: login }, headers: { "X-Client": "web" } });
   expect(res.ok()).toBeTruthy();
   await page.goto("/login");
   await page.waitForURL(/\/(workspace|admin)/);
+}
+
+const watched = new WeakSet<Page>();
+
+/** Prints uncaught page errors and console errors to the test output, so CI logs show the cause. */
+export function reportBrowserErrors(page: Page, label: string) {
+  if (watched.has(page)) return;
+  watched.add(page);
+  page.on("pageerror", (e) => console.log(`[browser ${label}] page error: ${e.stack ?? e.message}`));
+  page.on("console", (m) => {
+    if (m.type() === "error") console.log(`[browser ${label}] console error: ${m.text()}`);
+  });
 }
 
 export const unique = (prefix: string) => `${prefix} ${Date.now().toString(36)}`;
