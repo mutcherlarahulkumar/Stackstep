@@ -14,8 +14,8 @@ import { cn } from "@/lib/utils";
 
 import { PERSONA_DOT, PersonaAvatar, PersonAvatar } from "../app/persona-avatar";
 import { AIAvatar } from "../ai/ai-helper";
-import { EmptyState, ErrorState, ListSkeleton } from "../app/state";
-import { stagger } from "../app/loading";
+import { EmptyState, ErrorState } from "../app/state";
+import { RowsSkeleton, stagger } from "../app/loading";
 
 /** The last message, prefixed with who said it. Staff see the persona's name, since
  *  persona messages may be automatic (the lead's scripted replies), not their own. */
@@ -120,7 +120,7 @@ export function StudentThreadList({ selected, onSelect, onAI }: { selected: stri
       <AIRow selected={selected === AI_THREAD} onSelect={onAI} />
     </li>
   );
-  if (q.isPending) return <ListSkeleton rows={4} className="h-16" />;
+  if (q.isPending) return <RowsSkeleton rows={4} />;
   if (q.isError) return <ErrorState message={messageFor(q.error)} onRetry={() => void q.refetch()} />;
   if (q.data.length === 0) {
     return (
@@ -158,7 +158,7 @@ export function StudentThreadList({ selected, onSelect, onAI }: { selected: stri
 export function StaffThreadList({ unreadOnly, selected, onSelect }: { unreadOnly: boolean; selected: string | null; onSelect: (t: StaffThread) => void }) {
   const q = useStaffThreads(unreadOnly);
   const items = q.data?.pages.flatMap((p) => p.items) ?? [];
-  if (q.isPending) return <ListSkeleton rows={6} className="h-16" />;
+  if (q.isPending) return <RowsSkeleton rows={6} />;
   if (q.isError) return <ErrorState message={messageFor(q.error)} onRetry={() => void q.refetch()} />;
   if (items.length === 0) {
     return (

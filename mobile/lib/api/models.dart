@@ -430,6 +430,7 @@ final class QuizStats {
     required this.bestScore,
     required this.passed,
     required this.lastCorrect,
+    required this.lastAnswers,
   });
   factory QuizStats.fromJson(JsonReader j) => QuizStats(
     attempts: j.integer('attempts'),
@@ -437,12 +438,16 @@ final class QuizStats {
     bestScore: j.integer('best_score'),
     passed: j.boolean('passed'),
     lastCorrect: j.values<bool>('last_correct'),
+    lastAnswers: j.values<int>('last_answers'),
   );
   final int attempts;
   final int attemptsLeft;
   final int bestScore;
   final bool passed;
   final List<bool> lastCorrect;
+
+  /// The options picked in the latest attempt.
+  final List<int> lastAnswers;
 }
 
 final class QuizAttemptResult {

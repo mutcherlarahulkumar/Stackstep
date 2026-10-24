@@ -143,6 +143,7 @@ export const QuizStats = z.object({
   best_score: z.int().min(0).max(100),
   passed: z.boolean(),
   last_correct: z.array(z.boolean()),
+  last_answers: z.array(z.int().min(0)),
 });
 export type QuizStats = z.output<typeof QuizStats>;
 

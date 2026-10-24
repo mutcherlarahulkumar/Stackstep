@@ -12,7 +12,8 @@ import { isMine, isStaffTarget, type ChatTarget } from "@/lib/inbox";
 import { cn } from "@/lib/utils";
 import { Bounds, runeLength } from "@/lib/validation";
 
-import { EmptyState, ErrorState, ListSkeleton } from "../app/state";
+import { ChatSkeleton } from "../app/loading";
+import { EmptyState, ErrorState } from "../app/state";
 import { useConversation, type Conversation, type Outgoing } from "./use-conversation";
 
 type Row = { key: string; at: Date; mine: boolean; body: string; taskId: string | null; outgoing: Outgoing | null };
@@ -45,7 +46,7 @@ export function ConversationView({ target, other, onOpenTask }: { target: ChatTa
   if (state.messages.status === "loading") {
     return (
       <div className="p-4">
-        <ListSkeleton rows={6} className="h-12" />
+        <ChatSkeleton />
       </div>
     );
   }

@@ -199,6 +199,7 @@ export function QuizPlayer({ task, onGraded, disabled }: { task: Task; onGraded:
   if (!quiz) return null;
   const unanswered = answers.filter((a) => a === null).length;
   const lastCorrect = stats?.last_correct ?? [];
+  const lastAnswers = stats?.last_answers ?? [];
 
   const submit = async () => {
     if (unanswered > 0) {
@@ -255,6 +256,7 @@ export function QuizPlayer({ task, onGraded, disabled }: { task: Task; onGraded:
                   {q.options.map((o, oi) => {
                     const id = `q${i}-o${oi}`;
                     const key = finished && q.answer === oi;
+                    const mine = finished && lastAnswers[i] === oi;
                     return (
                       <label
                         key={oi}
@@ -262,6 +264,7 @@ export function QuizPlayer({ task, onGraded, disabled }: { task: Task; onGraded:
                         className={cn(
                           "hover:bg-muted/60 flex cursor-pointer items-center gap-2.5 rounded-md border px-3 py-2 text-sm has-[:checked]:border-primary has-[:checked]:bg-primary/5",
                           key && "border-success bg-success/10",
+                          mine && !key && "border-destructive bg-destructive/10",
                           finished && "cursor-default",
                         )}
                       >
@@ -274,7 +277,8 @@ export function QuizPlayer({ task, onGraded, disabled }: { task: Task; onGraded:
                           onChange={() => setAnswers((a) => a.map((x, j) => (j === i ? oi : x)))}
                         />
                         <span className="flex-1">{o}</span>
-                        {key ? <Check className="text-success size-4" aria-label="Right answer" /> : null}
+                        {mine ? <span className="text-muted-foreground text-xs">Your answer</span> : null}
+                        {key ? <Check className="text-success size-4" aria-label="Right answer" /> : mine ? <X className="text-destructive size-4" aria-label="Wrong" /> : null}
                       </label>
                     );
                   })}

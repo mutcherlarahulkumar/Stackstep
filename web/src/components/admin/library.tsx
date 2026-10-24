@@ -26,8 +26,10 @@ import { useSession } from "@/lib/session";
 import { cn } from "@/lib/utils";
 import { Bounds, durationLabel } from "@/lib/validation";
 
+import { PAGE, PageHeader } from "../app/page-header";
 import { PersonaAvatar } from "../app/persona-avatar";
-import { EmptyState, ErrorState, ListSkeleton } from "../app/state";
+import { TableSkeleton } from "../app/loading";
+import { EmptyState, ErrorState } from "../app/state";
 import { TypeBadge } from "../app/task-badges";
 import { AdminShell } from "./admin-shell";
 import { personaMap, useAllPersonas, useTemplates } from "./catalog-queries";
@@ -59,18 +61,14 @@ function Library({ canEdit }: { canEdit: boolean }) {
   const filtered = q !== "" || type !== null || personaId !== null;
 
   return (
-    <div className="mx-auto flex min-h-0 w-full max-w-6xl flex-1 flex-col overflow-y-auto p-6">
-      <div className="mb-5 flex items-start justify-between gap-4">
-        <div>
-          <h1 className="text-xl font-semibold">Task library</h1>
-          <p className="text-muted-foreground text-sm">Reusable tasks. Add them to any flow; flows keep their own copy, so editing here never changes a published flow.</p>
-        </div>
+    <div className={cn(PAGE, "min-h-0 flex-1 overflow-y-auto")}>
+      <PageHeader title="Task library" description="Reusable tasks. Add them to any flow; flows keep their own copy, so editing here never changes a published flow." className="mb-5">
         {canEdit ? (
           <Button onClick={() => setEditing("new")} data-testid="new-template">
             <Plus data-icon="inline-start" aria-hidden /> New task
           </Button>
         ) : null}
-      </div>
+      </PageHeader>
       <div className="mb-4 flex flex-wrap items-center gap-2">
         <InputGroup className="w-72">
           <InputGroupAddon>
@@ -112,7 +110,7 @@ function Library({ canEdit }: { canEdit: boolean }) {
         </div>
       </div>
       {templates.isPending ? (
-        <ListSkeleton rows={6} className="h-12" />
+        <TableSkeleton rows={6} cols={4} />
       ) : templates.isError ? (
         <ErrorState message={messageFor(templates.error)} onRetry={() => void templates.refetch()} />
       ) : items.length === 0 ? (

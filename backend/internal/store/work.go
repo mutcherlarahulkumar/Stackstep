@@ -121,7 +121,9 @@ func EnrichTasks(ctx context.Context, q Q, tasks []domain.Task) error {
 		t := &tasks[idx[id]]
 		if quiz := t.Content.Quiz; quiz != nil {
 			st.LastCorrect = make([]bool, len(last))
+			st.LastAnswers = make([]int, len(last))
 			for i, a := range last {
+				st.LastAnswers[i] = int(a)
 				st.LastCorrect[i] = i < len(quiz.Questions) && int(a) == quiz.Questions[i].Answer
 			}
 		}

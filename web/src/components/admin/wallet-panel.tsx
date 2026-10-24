@@ -11,6 +11,7 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Field, FieldDescription, FieldError, FieldGroup, FieldLabel } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "@/components/ui/sheet";
+import { Skeleton } from "@/components/ui/skeleton";
 import { Spinner } from "@/components/ui/spinner";
 import { ApiError, messageFor } from "@/lib/api/errors";
 import { type CreditReason, type Student } from "@/lib/api/schemas";
@@ -21,6 +22,7 @@ import { normalizeLine } from "@/lib/validation";
 
 import { AITurns } from "../ai/ai-helper";
 import { ErrorState, ListSkeleton } from "../app/state";
+import { StatTile } from "../app/stat-tile";
 
 export const REASON_LABEL: Record<CreditReason, string> = {
   welcome: "Starting credits",
@@ -31,35 +33,28 @@ export const REASON_LABEL: Record<CreditReason, string> = {
   ai_refund: "AI refund",
 };
 
-/** A student's points, credits and AI use, with manual credit changes. */
+/** A student's points, credits and AI use as stat tiles. Credits and AI open their history. */
 export function WalletPanel({ student }: { student: Student }) {
   const { api } = useSession();
   const key = ["staff-wallet", student.enrollment.id];
   const w = useQuery({ queryKey: key, queryFn: () => api.staffWallet(student.enrollment.id) });
-  const [adjust, setAdjust] = useState(false);
   const [history, setHistory] = useState(false);
   const [ai, setAI] = useState(false);
-  if (w.isPending) return <ListSkeleton rows={1} className="h-12" />;
-  if (w.isError) return <p className="text-destructive text-sm">{messageFor(w.error)}</p>;
+  if (w.isPending) return <Skeleton className="col-span-3 h-[5.5rem] rounded-xl" />;
+  if (w.isError) return <p className="text-destructive col-span-3 text-sm">{messageFor(w.error)}</p>;
   const d = w.data;
   return (
-    <div className="flex flex-wrap items-center gap-2 text-sm" data-testid="wallet-panel">
-      <span className="bg-muted inline-flex items-center gap-1.5 rounded-full px-3 py-1 tabular-nums">
-        <Trophy className="text-warning size-4" aria-hidden /> {d.points.total} points
-        <span className="text-muted-foreground">
-          · {d.points.finished} done, {d.points.on_time} on time
-        </span>
-      </span>
-      <button type="button" onClick={() => setHistory(true)} className="bg-muted hover:bg-muted/70 inline-flex items-center gap-1.5 rounded-full px-3 py-1 tabular-nums">
-        <Coins className="text-primary size-4" aria-hidden /> {d.credits.balance} credits
-      </button>
-      <button type="button" onClick={() => setAI(true)} className="bg-muted hover:bg-muted/70 inline-flex items-center gap-1.5 rounded-full px-3 py-1 tabular-nums">
-        <Sparkles className="size-4 text-fuchsia-600" aria-hidden /> {d.ai.used_today}/{d.ai.daily_limit} AI today
-      </button>
-      <Button size="sm" variant="outline" onClick={() => setAdjust(true)} data-testid="open-credits">
-        Adjust credits
-      </Button>
-      <AdjustDialog key={adjust ? "open" : "closed"} open={adjust} student={student} balance={d.credits.balance} onClose={() => setAdjust(false)} />
+    <>
+      <StatTile icon={Trophy} iconClassName="text-warning" label="Points" value={d.points.total} detail={`${d.points.finished} done · ${d.points.on_time} on time`} testId="wallet-panel" />
+      <StatTile icon={Coins} iconClassName="text-primary" label="Credits" value={d.credits.balance} detail="See history" onClick={() => setHistory(true)} />
+      <StatTile
+        icon={Sparkles}
+        iconClassName="text-fuchsia-600"
+        label="AI helper today"
+        value={`${d.ai.used_today}/${d.ai.daily_limit}`}
+        detail="Read their questions"
+        onClick={() => setAI(true)}
+      />
       <Sheet open={history} onOpenChange={setHistory}>
         <SheetContent className="w-full overflow-y-auto sm:max-w-md">
           <SheetHeader>
@@ -85,8 +80,15 @@ export function WalletPanel({ student }: { student: Student }) {
         </SheetContent>
       </Sheet>
       <AIConversationsSheet open={ai} onOpenChange={setAI} student={student} />
-    </div>
+    </>
   );
+}
+
+/** Adjust credits from the student's "More" menu; reads the cached wallet for the balance. */
+export function AdjustCredits({ open, student, onClose }: { open: boolean; student: Student; onClose: () => void }) {
+  const { api } = useSession();
+  const w = useQuery({ queryKey: ["staff-wallet", student.enrollment.id], queryFn: () => api.staffWallet(student.enrollment.id), enabled: open });
+  return <AdjustDialog key={open ? "open" : "closed"} open={open && w.isSuccess} student={student} balance={w.data?.credits.balance ?? 0} onClose={onClose} />;
 }
 
 function AdjustDialog({ open, student, balance, onClose }: { open: boolean; student: Student; balance: number; onClose: () => void }) {

@@ -30,7 +30,10 @@ import { ApiError, messageFor } from "@/lib/api/errors";
 import { type CohortKind, type Me, type StaffMember } from "@/lib/api/schemas";
 import { normalizeLogin, TIMEZONES, todayISO, validLogin } from "@/lib/people";
 import { useSession } from "@/lib/session";
+import { cn } from "@/lib/utils";
 
+import { DatePicker } from "../app/date-picker";
+import { PAGE, PageHeader } from "../app/page-header";
 import { EmptyState, ErrorState, ListSkeleton } from "../app/state";
 import { AdminShell } from "./admin-shell";
 import { splitError } from "./form-errors";
@@ -47,13 +50,8 @@ function People({ me }: { me: Me }) {
   const [tab, setTab] = useState<Tab>("enroll");
   return (
     <div className="min-h-0 flex-1 overflow-y-auto">
-      <div className="mx-auto flex max-w-7xl flex-col gap-6 p-6">
-        <div>
-          <h1 className="text-xl font-semibold">People</h1>
-          <p className="text-muted-foreground text-sm">
-            {isAdmin ? "Enroll students, set up colleges and cohorts, and manage who has admin access." : "Enroll students into your college's cohorts."}
-          </p>
-        </div>
+      <div className={cn(PAGE, "gap-6")}>
+        <PageHeader title="People" description={isAdmin ? "Enroll students, set up colleges and cohorts, and manage who has admin access." : "Enroll students into your college's cohorts."} />
         <Tabs value={tab} onValueChange={(v) => setTab(v === "cohorts" || v === "staff" ? v : "enroll")} className="gap-6">
           <TabsList>
             <TabsTrigger value="enroll">
@@ -396,7 +394,7 @@ function NewCohortDialog({ open, onClose }: { open: boolean; onClose: () => void
             <div className="grid gap-4 sm:grid-cols-2">
               <Field data-invalid={!!errors.start_date}>
                 <FieldLabel htmlFor={`${id}-start`}>Start date</FieldLabel>
-                <Input id={`${id}-start`} type="date" value={start} onChange={(e) => setStart(e.target.value)} aria-invalid={!!errors.start_date} />
+                <DatePicker id={`${id}-start`} value={start} onChange={setStart} invalid={!!errors.start_date} />
                 {errors.start_date ? <FieldError>{errors.start_date}</FieldError> : null}
               </Field>
               <Field data-invalid={!!errors.timezone}>

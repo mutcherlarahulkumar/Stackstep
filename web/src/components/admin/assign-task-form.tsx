@@ -24,6 +24,7 @@ import { cn } from "@/lib/utils";
 import { Bounds, normalizeLine, runeLength, validateBrief, validateSchedule, validateTitle } from "@/lib/validation";
 
 import { choiceItem } from "../app/choice";
+import { DateTimePicker } from "../app/date-picker";
 import { PersonaAvatar } from "../app/persona-avatar";
 import { PracticeEditor, QuizEditor, ResourcesEditor } from "./content-editors";
 import { TYPE_ICON } from "../app/task-badges";
@@ -291,16 +292,15 @@ export function AssignTaskForm({ student, onAssigned }: { student: Student; onAs
             <ToggleGroupItem value="later" className={choiceItem}>Later</ToggleGroupItem>
           </ToggleGroup>
           {later ? (
-            <Input
-              type="datetime-local"
-              aria-label="Start time"
+            <DateTimePicker
+              aria-label="Start"
               value={startAt}
               min={toLocalInput(now)}
-              onChange={(e) => {
-                setStartAt(e.target.value);
+              onChange={(v) => {
+                setStartAt(v);
                 clear("scheduled_for");
               }}
-              aria-invalid={!!errors.scheduled_for}
+              invalid={!!errors.scheduled_for}
             />
           ) : null}
           {errors.scheduled_for ? (
@@ -328,16 +328,15 @@ export function AssignTaskForm({ student, onAssigned }: { student: Student; onAs
             <ToggleGroupItem value="custom" className={choiceItem}>Pick…</ToggleGroupItem>
           </ToggleGroup>
           {preset === "custom" ? (
-            <Input
-              type="datetime-local"
-              aria-label="Due time"
+            <DateTimePicker
+              aria-label="Due"
               value={customDue}
               min={toLocalInput(now)}
-              onChange={(e) => {
-                setCustomDue(e.target.value);
+              onChange={(v) => {
+                setCustomDue(v);
                 clear("due_at");
               }}
-              aria-invalid={!!errors.due_at}
+              invalid={!!errors.due_at}
             />
           ) : null}
           {errors.due_at ? <FieldError>{errors.due_at}</FieldError> : due ? <FieldDescription>{dateTimeLabel(due)}</FieldDescription> : null}

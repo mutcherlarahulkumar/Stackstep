@@ -146,6 +146,8 @@ type QuizStats struct {
 	Passed    bool
 	// LastCorrect marks which questions the latest attempt got right.
 	LastCorrect []bool
+	// LastAnswers are the options picked in the latest attempt (the student's own answers).
+	LastAnswers []int
 }
 
 // Finished reports whether the quiz accepts no more attempts.

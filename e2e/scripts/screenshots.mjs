@@ -16,11 +16,29 @@ async function shoot(name, login, path, { width = 1440, height = 900, dark = fal
   await page.screenshot({ path: `${out}/${name}.png` });
   await ctx.close();
 }
+// Setup through the API so every shot has something to show: a DSA task with a practice pad,
+// and one finished task so a certificate can be issued.
+async function api(login, method, path, body) {
+  const t = await (await fetch("http://localhost:3000/api/v1/auth/dev-login", { method: "POST", headers: { "Content-Type": "application/json", "X-Client": "web" }, body: JSON.stringify({ github_login: login }) })).json();
+  const res = await fetch(`http://localhost:3000/api${path}`, { method, headers: { Authorization: `Bearer ${t.access_token}`, "Content-Type": "application/json", "X-Client": "web" }, body: body ? JSON.stringify(body) : undefined });
+  if (!res.ok) throw new Error(`${method} ${path}: ${res.status} ${await res.text()}`);
+  return res.json();
+}
+const asha = (await api("admin-demo", "GET", "/v1/admin/students?q=asha")).items[0].enrollment.id;
+const due = () => new Date(Date.now() + 3 * 3600e3).toISOString();
+await api("admin-demo", "POST", `/v1/admin/enrollments/${asha}/tasks`, {
+  type: "dsa", title: "Two Sum", brief: "Solve Two Sum in O(n). Explain your approach in two sentences.", due_at: due(),
+  content: { resources: [], quiz: null, practice: { function_name: "twoSum", starter: "function twoSum(nums, target) {\n}\n", tests: [{ args: [[2, 7, 11, 15], 9], expected: [0, 1] }, { args: [[3, 2, 4], 6], expected: [1, 2] }] } },
+});
+const warm = await api("admin-demo", "POST", `/v1/admin/enrollments/${asha}/tasks`, { type: "standup", title: "Say hello to the team", brief: "One line about you.", review_mode: "self", due_at: due() });
+await api("asha-dev", "POST", `/v1/tasks/${warm.id}/transitions`, { to: "in_progress", expected_version: warm.version, note: "" });
+await api("asha-dev", "POST", `/v1/tasks/${warm.id}/transitions`, { to: "done", expected_version: warm.version + 1, note: "" });
+
 await shoot("01-landing", null, "/");
 await shoot("02-login", null, "/login");
 await shoot("03-workspace", "asha-dev", "/workspace");
 await shoot("04-workspace-dark", "asha-dev", "/workspace", { dark: true });
-await shoot("05-task-sheet", "asha-dev", "/workspace", { before: async (p) => { await p.getByRole("region", { name: "Task board" }).getByRole("radio", { name: /Done/ }).click(); await p.waitForTimeout(300); const b = p.getByRole("region", { name: "Task board" }).locator("li button").first(); if (await b.count()) { await b.click(); await p.waitForTimeout(500);} } });
+await shoot("05-task-sheet", "asha-dev", "/workspace", { before: async (p) => { await p.getByRole("region", { name: "Task board" }).getByRole("button", { name: "Two Sum", exact: true }).click(); await p.getByTestId("practice-run").click(); await p.waitForTimeout(800); } });
 await shoot("06-admin", "admin-demo", "/admin", { before: async (p) => { await p.getByTestId("student-asha-dev").click(); await p.waitForTimeout(800); } });
 await shoot("07-admin-assign-sheet", "admin-demo", "/admin", { before: async (p) => { await p.getByTestId("student-asha-dev").click(); await p.getByTestId("open-assign").click(); await p.getByTestId("assign-submit").click(); await p.waitForTimeout(500); } });
 await shoot("08-admin-phone-gate", "anits-tpo", "/admin", { width: 390, height: 844 });
@@ -51,12 +69,13 @@ await shoot("23-ai-answer", "meera-dev", "/workspace", {
 });
 await shoot("24-ai-phone", "meera-dev", "/workspace", { width: 390, height: 844, dark: true, before: async (p) => { await p.getByTestId("thread-ai").click(); await p.waitForTimeout(300); } });
 await shoot("25-progress", "asha-dev", "/workspace", { before: async (p) => { await p.getByTestId("open-progress").click(); await p.waitForTimeout(500); } });
-await shoot("26-issue-certificate", "admin-demo", "/admin", { before: async (p) => { await p.getByTestId("student-asha-dev").click(); await p.getByTestId("open-issue").click(); await p.waitForTimeout(500); } });
+await shoot("26-issue-certificate", "admin-demo", "/admin", { before: async (p) => { await p.getByTestId("student-asha-dev").click(); await p.getByTestId("student-more").click(); await p.getByTestId("open-issue").click(); await p.waitForTimeout(500); } });
 // Issue one so the public pages have something to show.
 let code = "";
 await shoot("27-certificate-issued", "admin-demo", "/admin", {
   before: async (p) => {
     await p.getByTestId("student-asha-dev").click();
+    await p.getByTestId("student-more").click();
     await p.getByTestId("open-issue").click();
     await p.getByTestId("confirm-issue").click();
     code = (await p.getByTestId("view-certificate").innerText()).trim();

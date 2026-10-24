@@ -1,7 +1,7 @@
 openapi: 3.1.0
 info:
   title: Stackstep API
-  version: 0.11.0
+  version: 0.12.0
   description: |
     Workspace core (feature 01). All timestamps are RFC 3339 UTC. All errors use the
     `Error` envelope; clients switch on `error.code`, never on `message`.
@@ -1471,13 +1471,14 @@ components:
         message: { type: string }
     QuizStats:
       type: object
-      required: [attempts, attempts_left, best_score, passed, last_correct]
+      required: [attempts, attempts_left, best_score, passed, last_correct, last_answers]
       properties:
         attempts: { type: integer, minimum: 0, maximum: 3 }
         attempts_left: { type: integer, minimum: 0, maximum: 3 }
         best_score: { type: integer, minimum: 0, maximum: 100 }
         passed: { type: boolean }
         last_correct: { type: array, items: { type: boolean } }
+        last_answers: { type: array, items: { type: integer, minimum: 0 }, description: Options picked in the latest attempt }
     QuizAttemptResult:
       type: object
       required: [attempt, score, passed, correct, attempts_left]

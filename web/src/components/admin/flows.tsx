@@ -15,6 +15,7 @@ import { messageFor } from "@/lib/api/errors";
 import { type Flow, type FlowSummary } from "@/lib/api/schemas";
 import { cn } from "@/lib/utils";
 
+import { PAGE, PageHeader } from "../app/page-header";
 import { EmptyState, ErrorState, ListSkeleton } from "../app/state";
 import { AdminShell } from "./admin-shell";
 import { useFlows } from "./catalog-queries";
@@ -51,12 +52,8 @@ function Flows({ canEdit }: { canEdit: boolean }) {
   for (const f of q.data ?? []) byStream.set(f.stream, [...(byStream.get(f.stream) ?? []), f]);
 
   return (
-    <div className="mx-auto flex min-h-0 w-full max-w-6xl flex-1 flex-col overflow-y-auto p-6">
-      <div className="mb-5 flex items-start justify-between gap-4">
-        <div>
-          <h1 className="text-xl font-semibold">Flows</h1>
-          <p className="text-muted-foreground text-sm">Courses per stream. Each one schedules its tasks day by day for every student on it.</p>
-        </div>
+    <div className={cn(PAGE, "min-h-0 flex-1 overflow-y-auto")}>
+      <PageHeader title="Flows" description="Courses per stream. Each one schedules its tasks day by day for every student on it." className="mb-5">
         <div className="flex items-center gap-4">
           <div className="flex items-center gap-2">
             <Switch id="flows-archived" checked={archived} onCheckedChange={setArchived} />
@@ -70,7 +67,7 @@ function Flows({ canEdit }: { canEdit: boolean }) {
             </Button>
           ) : null}
         </div>
-      </div>
+      </PageHeader>
       {q.isPending ? (
         <ListSkeleton rows={4} className="h-14" />
       ) : q.isError ? (

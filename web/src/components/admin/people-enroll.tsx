@@ -20,6 +20,8 @@ import { type Cohort, type ImportResult, type Me } from "@/lib/api/schemas";
 import { MAX_IMPORT_ROWS, normalizeLogin, parseRoster, TIMEZONES, todayISO, validLogin, type ImportRow } from "@/lib/people";
 import { useSession } from "@/lib/session";
 
+import { DatePicker } from "../app/date-picker";
+import { FileDrop } from "../app/file-drop";
 import { ListSkeleton } from "../app/state";
 import { useFlows } from "./catalog-queries";
 import { splitError } from "./form-errors";
@@ -145,13 +147,13 @@ function SettingsFields({
       <div className="grid gap-4 sm:grid-cols-2">
         <Field data-invalid={!!errors.start_date}>
           <FieldLabel htmlFor={`${idPrefix}-start`}>Start date</FieldLabel>
-          <Input
+          <DatePicker
             id={`${idPrefix}-start`}
-            type="date"
             value={value.startDate}
             min={minStart}
-            onChange={(e) => set({ startDate: e.target.value })}
-            aria-invalid={!!errors.start_date}
+            onChange={(v) => set({ startDate: v })}
+            invalid={!!errors.start_date}
+            placeholder={cohort ? "Cohort's start date" : "Pick a date"}
           />
           {errors.start_date ? <FieldError>{errors.start_date}</FieldError> : <FieldDescription>{cohort ? "Leave empty to use the cohort's date." : "Day 1 of the internship."}</FieldDescription>}
         </Field>
@@ -418,13 +420,9 @@ function ImportRoster({ me, cohorts }: { me: Me; cohorts: readonly Cohort[] }) {
                 aria-invalid={!!errors.rows}
               />
               <div className="flex flex-wrap items-center justify-between gap-2">
-                <Input
-                  type="file"
-                  accept=".csv,text/csv,text/plain"
-                  className="max-w-64"
-                  aria-label="Upload a CSV file"
-                  onChange={(e) => void readFile(e.target.files?.[0])}
-                />
+                <div className="min-w-64 flex-1">
+                  <FileDrop accept=".csv,text/csv,text/plain" label="Choose CSV" hint="Drop a CSV here, or paste above" onFile={(f) => void readFile(f)} />
+                </div>
                 {rows.length > 0 ? (
                   <span className="text-muted-foreground text-xs tabular-nums" data-testid="roster-count">
                     {good.length} ready{rows.length > good.length ? `, ${rows.length - good.length} to fix` : ""}

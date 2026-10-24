@@ -1,12 +1,14 @@
 "use client";
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Ban, Check, ClipboardList, MessageSquareWarning, Plus, Route, TriangleAlert } from "lucide-react";
+import { Ban, BadgeCheck, Check, ClipboardList, Coins, Ellipsis, FileBadge, FileX, MessageSquareWarning, Plus, Route, Sparkles, TriangleAlert } from "lucide-react";
+import Link from "next/link";
 import { useState } from "react";
 import { toast } from "sonner";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Field, FieldDescription, FieldError, FieldLabel } from "@/components/ui/field";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -15,20 +17,88 @@ import { Spinner } from "@/components/ui/spinner";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Textarea } from "@/components/ui/textarea";
 import { ApiError, messageFor } from "@/lib/api/errors";
-import { type Persona, type Student, type Task, type TaskStatus } from "@/lib/api/schemas";
+import { type Certificate, type Persona, type Student, type Task, type TaskStatus } from "@/lib/api/schemas";
+import { formatCode, verifyPath } from "@/lib/certificate";
 import { dateTimeLabel, dueLabel, firstName } from "@/lib/format";
 import { useSession } from "@/lib/session";
 import { Bounds, runeLength, staffMoves, validateNote } from "@/lib/validation";
 
-import { EmptyState, ErrorState, ListSkeleton } from "../app/state";
+import { TableSkeleton } from "../app/loading";
+import { EmptyState, ErrorState } from "../app/state";
 import { PersonaAvatar } from "../app/persona-avatar";
 import { StatusBadge, TypeBadge } from "../app/task-badges";
 import { SharedNote } from "../workspace/task-notes";
 import { AssignTaskForm } from "./assign-task-form";
-import { CertificatePanel } from "./certificate-panel";
+import { CertificateDialogs, CertificatePanel, useCertificateState } from "./certificate-panel";
 import { InternshipStatus } from "./internship-status";
-import { WalletPanel } from "./wallet-panel";
+import { AdjustCredits, WalletPanel } from "./wallet-panel";
 import { personaMap, useAllPersonas, useFlows } from "./catalog-queries";
+
+/** Less frequent actions: credits and the certificate. */
+function MoreActions({ student }: { student: Student }) {
+  const { state } = useSession();
+  const isAdmin = state.status === "signed_in" && state.me.user.role === "admin";
+  const cert = useCertificateState(student);
+  const [adjust, setAdjust] = useState(false);
+  const [issuing, setIssuing] = useState(false);
+  const [revoking, setRevoking] = useState<Certificate | null>(null);
+  return (
+    <>
+      <DropdownMenu>
+        <DropdownMenuTrigger asChild>
+          <Button variant="outline" size="icon" aria-label="More actions" data-testid="student-more">
+            <Ellipsis aria-hidden />
+          </Button>
+        </DropdownMenuTrigger>
+        <DropdownMenuContent align="end" className="w-64">
+          <DropdownMenuItem onSelect={() => setAdjust(true)} data-testid="open-credits">
+            <Coins aria-hidden /> Adjust credits
+          </DropdownMenuItem>
+          <DropdownMenuSeparator />
+          {cert.certificate ? (
+            <>
+              <DropdownMenuItem asChild>
+                <Link href={verifyPath(cert.certificate.code)} target="_blank">
+                  <BadgeCheck aria-hidden /> View certificate {formatCode(cert.certificate.code)}
+                </Link>
+              </DropdownMenuItem>
+              {isAdmin ? (
+                <DropdownMenuItem variant="destructive" onSelect={() => setRevoking(cert.certificate)} data-testid="open-revoke">
+                  <FileX aria-hidden /> Revoke certificate…
+                </DropdownMenuItem>
+              ) : null}
+            </>
+          ) : (
+            <DropdownMenuItem disabled={!cert.canIssue} onSelect={() => setIssuing(true)} data-testid="open-issue">
+              <FileBadge aria-hidden />
+              <span className="flex flex-col">
+                Issue certificate…
+                {cert.issueHint ? <span className="text-muted-foreground text-xs">{cert.issueHint}</span> : null}
+              </span>
+            </DropdownMenuItem>
+          )}
+          <DropdownMenuSeparator />
+          <DropdownMenuItem disabled>
+            <Sparkles aria-hidden /> AI review suggestions
+            <Badge variant="outline" className="ml-auto">
+              Coming soon
+            </Badge>
+          </DropdownMenuItem>
+        </DropdownMenuContent>
+      </DropdownMenu>
+      <AdjustCredits open={adjust} student={student} onClose={() => setAdjust(false)} />
+      <CertificateDialogs
+        student={student}
+        issuing={issuing}
+        revoking={revoking}
+        onClose={() => {
+          setIssuing(false);
+          setRevoking(null);
+        }}
+      />
+    </>
+  );
+}
 
 const ORDER: Record<TaskStatus, number> = { in_review: 0, changes_requested: 1, in_progress: 2, todo: 3, done: 4, cancelled: 5 };
 
@@ -65,45 +135,50 @@ export function StudentDetail({ student }: { student: Student }) {
 
   return (
     <div className="flex min-h-0 flex-1 flex-col">
-      <div className="flex items-start justify-between gap-4 border-b px-6 py-4">
-        <div className="min-w-0">
-          <h2 className="truncate text-lg font-semibold">{student.user.name}</h2>
-          <p className="text-muted-foreground text-sm">
-            @{student.user.github_login} · {student.enrollment.program.slug} · Day {student.enrollment.day_number} of {student.enrollment.program.days}
-          </p>
-          <p className="text-muted-foreground mt-1 flex items-center gap-1.5 text-sm">
-            <Route className="size-4" aria-hidden />
-            {enrollment.flow ? (
+      <div className="flex flex-col gap-4 border-b px-6 py-4">
+        <div className="flex flex-wrap items-start justify-between gap-3">
+          <div className="min-w-0">
+            <h2 className="truncate text-lg font-semibold">{student.user.name}</h2>
+            <p className="text-muted-foreground flex flex-wrap items-center gap-x-2 text-sm">
+              <span>@{student.user.github_login}</span>
+              <span aria-hidden>·</span>
+              <span>{student.enrollment.program.slug}</span>
+              <span aria-hidden>·</span>
               <span>
-                On <span className="text-foreground font-medium">{enrollment.flow.name}</span> · v{enrollment.flow.version}
+                Day {student.enrollment.day_number} of {student.enrollment.program.days}
               </span>
-            ) : (
-              <span>No flow yet</span>
-            )}
-          </p>
+              <span aria-hidden>·</span>
+              <span className="inline-flex items-center gap-1">
+                <Route className="size-3.5" aria-hidden />
+                {enrollment.flow ? (
+                  <span>
+                    <span className="text-foreground font-medium">{enrollment.flow.name}</span> v{enrollment.flow.version}
+                  </span>
+                ) : (
+                  "No flow yet"
+                )}
+              </span>
+            </p>
+          </div>
+          <div className="flex shrink-0 flex-wrap items-center gap-2">
+            <InternshipStatus key={enrollment.status} student={student} enrollment={enrollment} />
+            <Button variant="outline" onClick={() => setFlowOpen(true)} disabled={student.enrollment.status !== "active"} data-testid="open-assign-flow">
+              <Route data-icon="inline-start" aria-hidden /> {enrollment.flow ? "Change flow" : "Assign flow"}
+            </Button>
+            <Button onClick={() => setAssignOpen(true)} disabled={student.enrollment.status !== "active"} data-testid="open-assign">
+              <Plus data-icon="inline-start" aria-hidden /> Assign task
+            </Button>
+            <MoreActions student={student} />
+          </div>
         </div>
-        <div className="flex shrink-0 gap-2">
-          <InternshipStatus key={enrollment.status} student={student} enrollment={enrollment} />
-          <Button variant="outline" onClick={() => setFlowOpen(true)} disabled={student.enrollment.status !== "active"} data-testid="open-assign-flow">
-            <Route data-icon="inline-start" aria-hidden /> {enrollment.flow ? "Change flow" : "Assign flow"}
-          </Button>
-          <Button onClick={() => setAssignOpen(true)} disabled={student.enrollment.status !== "active"} data-testid="open-assign">
-            <Plus data-icon="inline-start" aria-hidden /> Assign task
-          </Button>
-        </div>
-      </div>
-      <div className="flex flex-wrap items-center justify-between gap-3 border-b px-6 py-3">
-        <div className="flex flex-col gap-2">
-          <WalletPanel student={student} />
+        <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
           <CertificatePanel student={student} />
+          <WalletPanel student={student} />
         </div>
-        <span className="text-muted-foreground inline-flex items-center gap-1.5 text-xs" title="Reviews are done by hand for now">
-          AI review suggestions <Badge variant="outline">Coming soon</Badge>
-        </span>
       </div>
       <div className="min-h-0 flex-1 overflow-y-auto p-6">
         {tasks.isPending ? (
-          <ListSkeleton rows={5} className="h-11" />
+          <TableSkeleton rows={5} cols={4} />
         ) : tasks.isError ? (
           <ErrorState message={messageFor(tasks.error)} onRetry={() => void tasks.refetch()} />
         ) : sorted.length === 0 ? (

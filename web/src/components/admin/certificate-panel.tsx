@@ -1,7 +1,7 @@
 "use client";
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { BadgeCheck, FileBadge, TriangleAlert } from "lucide-react";
+import { BadgeCheck, Gauge, TriangleAlert } from "lucide-react";
 import Link from "next/link";
 import { useState } from "react";
 import { toast } from "sonner";
@@ -10,78 +10,81 @@ import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Field, FieldError, FieldLabel } from "@/components/ui/field";
+import { Progress } from "@/components/ui/progress";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Spinner } from "@/components/ui/spinner";
 import { Textarea } from "@/components/ui/textarea";
 import { ApiError, messageFor } from "@/lib/api/errors";
-import { type Certificate, type Progress, type Student } from "@/lib/api/schemas";
+import { type Certificate, type Progress as ProgressData, type Student } from "@/lib/api/schemas";
 import { certificatePath, formatCode, verifyPath } from "@/lib/certificate";
 import { firstName } from "@/lib/format";
 import { useSession } from "@/lib/session";
 import { normalizeLine, runeLength } from "@/lib/validation";
 
+import { StatTile } from "../app/stat-tile";
+
 const REASON_MAX = 300;
 
-/** Progress toward the certificate, and issuing or revoking it. */
+/** Progress toward the certificate as a stat tile, with the certificate if there is one. */
 export function CertificatePanel({ student }: { student: Student }) {
-  const { api, state } = useSession();
-  const isAdmin = state.status === "signed_in" && state.me.user.role === "admin";
-  const key = ["staff-progress", student.enrollment.id];
-  const q = useQuery({ queryKey: key, queryFn: () => api.staffProgress(student.enrollment.id) });
-  const [issuing, setIssuing] = useState(false);
-  const [revoking, setRevoking] = useState<Certificate | null>(null);
-
-  if (q.isPending) return <Skeleton className="h-8 w-56" />;
+  const { api } = useSession();
+  const q = useQuery({ queryKey: ["staff-progress", student.enrollment.id], queryFn: () => api.staffProgress(student.enrollment.id) });
+  if (q.isPending) return <Skeleton className="h-[5.5rem] rounded-xl" />;
   if (q.isError) return <p className="text-destructive text-sm">{messageFor(q.error)}</p>;
   const p = q.data;
   return (
-    <div className="flex flex-wrap items-center gap-2 text-sm" data-testid="certificate-panel">
-      <span className="bg-muted inline-flex items-center gap-1.5 rounded-full px-3 py-1 tabular-nums" title={`Bar: ${p.bar_percent}% of released tasks`}>
-        {p.completion_percent}% done
-        <span className="text-muted-foreground">
-          · {p.done}/{p.released}
-          {p.overdue > 0 ? `, ${p.overdue} overdue` : ""}
-        </span>
-      </span>
+    <StatTile
+      icon={Gauge}
+      label="Progress"
+      value={`${p.completion_percent}%`}
+      detail={`${p.done} of ${p.released} released done${p.overdue > 0 ? ` · ${p.overdue} overdue` : ""}`}
+      testId="certificate-panel"
+    >
+      <Progress value={p.completion_percent} className="mt-1 h-1.5" aria-label={`Bar for a certificate: ${p.bar_percent}%`} />
       {p.certificate ? (
-        <>
-          <Button asChild size="sm" variant="outline" data-testid="view-certificate">
-            <Link href={verifyPath(p.certificate.code)} target="_blank">
-              <BadgeCheck data-icon="inline-start" className="text-success" aria-hidden /> {formatCode(p.certificate.code)}
-            </Link>
-          </Button>
-          {isAdmin ? (
-            <Button size="sm" variant="ghost" className="text-destructive" onClick={() => setRevoking(p.certificate)} data-testid="open-revoke">
-              Revoke
-            </Button>
-          ) : null}
-        </>
-      ) : (
-        <>
-          <Button
-            size="sm"
-            variant="outline"
-            onClick={() => setIssuing(true)}
-            disabled={student.enrollment.status === "cancelled" || p.done === 0}
-            aria-describedby={p.done === 0 ? "issue-hint" : undefined}
-            data-testid="open-issue"
-          >
-            <FileBadge data-icon="inline-start" aria-hidden /> Issue certificate
-          </Button>
-          {p.done === 0 ? (
-            <span id="issue-hint" className="text-muted-foreground text-xs">
-              Available once they finish a task
-            </span>
-          ) : null}
-        </>
-      )}
-      <IssueDialog open={issuing} student={student} progress={p} onClose={() => setIssuing(false)} />
-      <RevokeDialog key={revoking?.code ?? "none"} cert={revoking} student={student} onClose={() => setRevoking(null)} />
-    </div>
+        <Link href={verifyPath(p.certificate.code)} target="_blank" className="text-primary mt-1 inline-flex items-center gap-1 text-xs font-medium underline-offset-4 hover:underline" data-testid="view-certificate">
+          <BadgeCheck className="text-success size-3.5" aria-hidden /> {formatCode(p.certificate.code)}
+        </Link>
+      ) : null}
+    </StatTile>
   );
 }
 
-function IssueDialog({ open, student, progress: p, onClose }: { open: boolean; student: Student; progress: Progress; onClose: () => void }) {
+/** What the "More" menu offers for the certificate right now. */
+export function useCertificateState(student: Student) {
+  const { api } = useSession();
+  const q = useQuery({ queryKey: ["staff-progress", student.enrollment.id], queryFn: () => api.staffProgress(student.enrollment.id) });
+  const p = q.data;
+  return {
+    progress: p,
+    certificate: p?.certificate ?? null,
+    canIssue: !!p && !p.certificate && p.done > 0 && student.enrollment.status !== "cancelled",
+    issueHint: !p ? "Loading…" : p.done === 0 ? "Available once they finish a task" : student.enrollment.status === "cancelled" ? "The internship was cancelled" : null,
+  };
+}
+
+/** Issue and revoke dialogs, opened from the student's "More" menu. */
+export function CertificateDialogs({
+  student,
+  issuing,
+  revoking,
+  onClose,
+}: {
+  student: Student;
+  issuing: boolean;
+  revoking: Certificate | null;
+  onClose: () => void;
+}) {
+  const { progress } = useCertificateState(student);
+  return (
+    <>
+      {progress ? <IssueDialog open={issuing} student={student} progress={progress} onClose={onClose} /> : null}
+      <RevokeDialog key={revoking?.code ?? "none"} cert={revoking} student={student} onClose={onClose} />
+    </>
+  );
+}
+
+function IssueDialog({ open, student, progress: p, onClose }: { open: boolean; student: Student; progress: ProgressData; onClose: () => void }) {
   const { api } = useSession();
   const qc = useQueryClient();
   const name = firstName(student.user.name);

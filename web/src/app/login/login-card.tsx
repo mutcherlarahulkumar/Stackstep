@@ -48,7 +48,9 @@ export function LoginCard() {
     <Card className="w-full max-w-sm">
       <CardHeader className="gap-3">
         <BrandMark className="size-10" />
-        <CardTitle className="text-2xl font-semibold tracking-tight">Welcome to Stackstep</CardTitle>
+        <CardTitle className="text-2xl font-semibold tracking-tight">
+          <h1>Welcome to Stackstep</h1>
+        </CardTitle>
         <CardDescription>Sign in with the GitHub account you&apos;ll use for your internship.</CardDescription>
       </CardHeader>
       <CardContent className="flex flex-col gap-4">

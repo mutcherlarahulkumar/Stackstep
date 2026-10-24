@@ -32,7 +32,8 @@ test("certificates: issued by hand, verified publicly without signing in, revoke
   await admin.getByLabel("Search students").fill("meera");
   await admin.getByTestId("student-meera-dev").click();
   const panel = admin.getByTestId("certificate-panel");
-  await panel.getByTestId("open-issue").click();
+  await admin.getByTestId("student-more").click();
+  await admin.getByTestId("open-issue").click();
   const issue = admin.getByRole("dialog");
   await expect(issue.getByRole("heading", { name: /Issue a certificate to/ })).toBeVisible();
   await issue.getByTestId("confirm-issue").click();
@@ -61,14 +62,18 @@ test("certificates: issued by hand, verified publicly without signing in, revoke
   await expect(student.getByTestId("progress-details")).toContainText(shown);
 
   // Revoking needs a reason, which the public page then shows.
-  await panel.getByTestId("open-revoke").click();
+  await admin.getByTestId("student-more").click();
+  await admin.getByTestId("open-revoke").click();
   const revoke = admin.getByRole("dialog");
   await revoke.getByTestId("confirm-revoke").click();
   await expect(revoke.getByText("Say why it's being revoked.")).toBeVisible();
   await revoke.getByLabel("Reason (shown publicly)").fill("Issued to the wrong student by mistake");
   await revoke.getByTestId("confirm-revoke").click();
   await expectToast(admin, "Certificate revoked");
-  await expect(panel.getByTestId("open-issue")).toBeVisible();
+  await expect(panel.getByTestId("view-certificate")).toHaveCount(0);
+  await admin.getByTestId("student-more").click();
+  await expect(admin.getByTestId("open-issue")).toBeEnabled();
+  await admin.keyboard.press("Escape");
 
   await visitor.goto(`/verify/${shown}`);
   await expect(visitor.getByTestId("certificate-revoked")).toContainText("Issued to the wrong student by mistake");

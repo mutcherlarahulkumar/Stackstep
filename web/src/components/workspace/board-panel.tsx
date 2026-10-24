@@ -19,13 +19,13 @@ import { studentMoves } from "@/lib/validation";
 
 import { choiceItem } from "../app/choice";
 import { PersonaAvatar } from "../app/persona-avatar";
-import { EmptyState, ErrorState, ListSkeleton } from "../app/state";
+import { EmptyState, ErrorState } from "../app/state";
 import { StatusBadge, TypeBadge } from "../app/task-badges";
 import { PracticePad } from "./practice-pad";
 import { TaskNotes } from "./task-notes";
 import { HandInDialog, QuizPlayer, ResourceList, SubmissionCard } from "./task-work";
 import { type useWorkspace } from "./use-workspace";
-import { stagger } from "../app/loading";
+import { BoardSkeleton, stagger } from "../app/loading";
 
 type Workspace = ReturnType<typeof useWorkspace>;
 
@@ -78,7 +78,7 @@ export function BoardPanel({
   if (tasks.status === "loading") {
     return (
       <div className="p-4">
-        <ListSkeleton />
+        <BoardSkeleton />
       </div>
     );
   }

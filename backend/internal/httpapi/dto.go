@@ -227,6 +227,7 @@ type quizStatsDTO struct {
 	BestScore    int    `json:"best_score"`
 	Passed       bool   `json:"passed"`
 	LastCorrect  []bool `json:"last_correct"`
+	LastAnswers  []int  `json:"last_answers"`
 }
 
 // toTask renders a task. Students see a quiz's answers only once it is finished.
@@ -253,7 +254,7 @@ func toTask(t domain.Task, staff bool) taskDTO {
 	}
 	if q := t.Quiz; q != nil {
 		dto.QuizResult = &quizStatsDTO{Attempts: q.Attempts, AttemptsLeft: max(0, domain.MaxQuizAttempts-q.Attempts), BestScore: q.BestScore,
-			Passed: q.Passed, LastCorrect: q.LastCorrect}
+			Passed: q.Passed, LastCorrect: q.LastCorrect, LastAnswers: q.LastAnswers}
 		if q.Passed {
 			dto.QuizResult.AttemptsLeft = 0
 		}

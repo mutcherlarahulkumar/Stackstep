@@ -16,6 +16,7 @@ import { firstName } from "@/lib/format";
 import { useSession } from "@/lib/session";
 import { cn } from "@/lib/utils";
 
+import { PAGE, PageHeader } from "../app/page-header";
 import { stagger } from "../app/loading";
 import { EmptyState, ErrorState, ListSkeleton } from "../app/state";
 import { TypeBadge } from "../app/task-badges";
@@ -70,14 +71,8 @@ function Reviews() {
 
   return (
     <div className="min-h-0 flex-1 overflow-y-auto">
-      <div className="mx-auto flex max-w-5xl flex-col gap-6 p-6">
-        <div className="flex flex-wrap items-end justify-between gap-4">
-          <div>
-            <h1 className="text-xl font-semibold">Reviews</h1>
-            <p className="text-muted-foreground text-sm">
-              Every hand-in waiting on you, oldest first. Aim to review within {q.data?.sla_hours ?? 24} hours — students are waiting to move on.
-            </p>
-          </div>
+      <div className={cn(PAGE, "gap-6")}>
+        <PageHeader title="Reviews" description={<>Every hand-in waiting on you, oldest first. Aim to review within {q.data?.sla_hours ?? 24} hours — students are waiting to move on.</>}>
           <Select value={persona} onValueChange={setPersona}>
             <SelectTrigger className="w-56" aria-label="Filter by persona">
               <SelectValue />
@@ -93,7 +88,7 @@ function Reviews() {
                 ))}
             </SelectContent>
           </Select>
-        </div>
+        </PageHeader>
 
         {q.isPending ? (
           <ListSkeleton rows={4} className="h-28" />

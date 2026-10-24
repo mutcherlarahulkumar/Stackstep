@@ -20,7 +20,8 @@ type Size = "sm" | "default" | "lg";
 
 export function PersonaAvatar({ persona, size = "default", className }: { persona: { name: string; color: PersonaColor }; size?: Size; className?: string }) {
   return (
-    <Avatar size={size} className={className}>
+    // Decorative: the persona's name is always shown next to it, so initials would only repeat it.
+    <Avatar size={size} className={className} aria-hidden>
       <AvatarFallback className={cn("font-medium text-white", PERSONA_BG[persona.color])}>{initials(persona.name, "?")}</AvatarFallback>
     </Avatar>
   );

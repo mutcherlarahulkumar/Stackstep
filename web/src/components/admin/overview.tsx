@@ -24,8 +24,10 @@ import { useSession } from "@/lib/session";
 import { cn } from "@/lib/utils";
 import { Bounds } from "@/lib/validation";
 
+import { PAGE, PageHeader } from "../app/page-header";
 import { choiceItem } from "../app/choice";
-import { EmptyState, ErrorState, ListSkeleton } from "../app/state";
+import { TableSkeleton } from "../app/loading";
+import { EmptyState, ErrorState } from "../app/state";
 import { AdminShell } from "./admin-shell";
 import { BroadcastDialog } from "./broadcast-dialog";
 import { StudentDetail } from "./review";
@@ -65,12 +67,8 @@ function OverviewPage() {
 
   return (
     <div className="min-h-0 flex-1 overflow-y-auto">
-      <div className="mx-auto flex max-w-7xl flex-col gap-6 p-6">
-        <div className="flex flex-wrap items-end justify-between gap-4">
-          <div>
-            <h1 className="text-xl font-semibold">Placement overview</h1>
-            <p className="text-muted-foreground text-sm">Every student you manage, with progress, activity and certificates.</p>
-          </div>
+      <div className={cn(PAGE, "gap-6")}>
+        <PageHeader title="Placement overview" description="Every student you manage, with progress, activity and certificates.">
           <div className="flex flex-wrap items-center gap-2">
             <InputGroup className="w-64">
               <InputGroupAddon>
@@ -93,10 +91,10 @@ function OverviewPage() {
               <BellRing data-icon="inline-start" aria-hidden /> Nudge {inactive.length > 0 ? inactive.length : ""} inactive
             </Button>
           </div>
-        </div>
+        </PageHeader>
 
         {data.isPending ? (
-          <ListSkeleton rows={6} className="h-12" />
+          <TableSkeleton rows={6} cols={6} />
         ) : data.isError ? (
           <ErrorState message={messageFor(data.error)} onRetry={() => void data.refetch()} />
         ) : o ? (

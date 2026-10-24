@@ -143,6 +143,7 @@ void main() {
               'best_score': 0,
               'passed': false,
               'last_correct': [false],
+              'last_answers': [1],
             },
           ),
         ),

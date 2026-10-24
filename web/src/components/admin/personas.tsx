@@ -23,6 +23,7 @@ import { useSession } from "@/lib/session";
 import { cn } from "@/lib/utils";
 import { Bounds, normalizeLine, validateLine } from "@/lib/validation";
 
+import { PAGE, PageHeader } from "../app/page-header";
 import { PERSONA_BG, PersonaAvatar } from "../app/persona-avatar";
 import { EmptyState, ErrorState, ListSkeleton } from "../app/state";
 import { AdminShell } from "./admin-shell";
@@ -43,20 +44,14 @@ function Personas({ canEdit }: { canEdit: boolean }) {
   const [editing, setEditing] = useState<Persona | "new" | null>(null);
   const q = useQuery({ queryKey: ALL_KEY, queryFn: () => api.personas(true) });
   return (
-          <div className="mx-auto flex w-full max-w-5xl min-h-0 flex-1 flex-col overflow-y-auto p-6">
-            <div className="mb-6 flex items-start justify-between gap-4">
-              <div>
-                <h1 className="text-xl font-semibold">Personas</h1>
-                <p className="text-muted-foreground text-sm">
-                  The managers students chat with. Each task is posted by one, so a student&apos;s chat feels like a real team.
-                </p>
-              </div>
+          <div className={cn(PAGE, "min-h-0 flex-1 overflow-y-auto")}>
+            <PageHeader title="Personas" description={<>The managers students chat with. Each task is posted by one, so a student&apos;s chat feels like a real team.</>} className="mb-6">
               {canEdit ? (
                 <Button onClick={() => setEditing("new")} data-testid="new-persona">
                   <Plus data-icon="inline-start" aria-hidden /> New persona
                 </Button>
               ) : null}
-            </div>
+            </PageHeader>
             {q.isPending ? (
               <ListSkeleton rows={4} className="h-12" />
             ) : q.isError ? (
