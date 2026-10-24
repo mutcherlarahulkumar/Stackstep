@@ -89,6 +89,10 @@ jobs:
         run: |
           echo "::group::api.log"; tail -n 300 "$RUNNER_TEMP/api.log"; echo "::endgroup::"
           echo "::group::web.log"; tail -n 300 "$RUNNER_TEMP/web.log"; echo "::endgroup::"
+          echo "::group::groq.log"; tail -n 50 "$RUNNER_TEMP/groq.log"; echo "::endgroup::"
+          find e2e/test-results -name error-context.md -print0 | while IFS= read -r -d '' f; do
+            echo "::group::$f"; head -c 20000 "$f"; echo; echo "::endgroup::"
+          done
       - uses: actions/upload-artifact@v7
         if: failure()
         with:

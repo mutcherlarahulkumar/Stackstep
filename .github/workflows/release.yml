@@ -7,14 +7,15 @@ name: Release
 #     because "Allow GitHub Actions to create and approve pull requests" is off), the same
 #     artifacts are published to a rolling "latest-main" pre-release instead.
 # Tests run in the regular CI workflows on every push; they don't gate artifact builds here.
-# Re-run artifacts for an existing tag with "Run workflow" and the tag name.
+# "Run workflow" with a tag name (e.g. v0.2.0) builds that tag. If the tag doesn't exist yet it
+# is created at the commit of the branch you run from (usually main).
 on:
   push:
     branches: [main]
   workflow_dispatch:
     inputs:
       tag:
-        description: Existing tag to (re)build artifacts for, e.g. v0.2.0
+        description: Version tag to build, e.g. v0.2.0 (created at this branch's commit if new)
         required: true
 
 permissions:
@@ -65,6 +66,7 @@ jobs:
       - id: v
         env:
           DISPATCH_TAG: ${{ inputs.tag }}
+          GH_TOKEN: ${{ github.token }}
           RP_CREATED: ${{ needs.release-please.outputs.created }}
           RP_TAG: ${{ needs.release-please.outputs.tag }}
         run: |
@@ -72,7 +74,17 @@ jobs:
           elif [ "$RP_CREATED" = "true" ]; then TAG="$RP_TAG"
           else TAG=""; fi
           if [ -n "$TAG" ]; then
-            if ! [[ "$TAG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then echo "::error::'$TAG' is not a vX.Y.Z tag"; exit 1; fi
+            if ! [[ "$TAG" =~ ^v(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$ ]]; then
+              echo "::error::'$TAG' is not a version tag like v1.2.3 (no leading zeros, e.g. v0.1.1 not v0.1.01)"; exit 1
+            fi
+            if [ "$GITHUB_EVENT_NAME" = "workflow_dispatch" ] && ! git ls-remote --exit-code --tags origin "refs/tags/$TAG" >/dev/null; then
+              git tag "$TAG" "$GITHUB_SHA"
+              git push origin "refs/tags/$TAG"
+              echo "::notice::Created tag $TAG at ${GITHUB_SHA::7}"
+            fi
+            if [ "$GITHUB_EVENT_NAME" = "workflow_dispatch" ] && ! gh release view "$TAG" >/dev/null 2>&1; then
+              gh release create "$TAG" --verify-tag --title "$TAG" --generate-notes
+            fi
             { echo "tag=$TAG"; echo "ref=$TAG"; echo "version=${TAG#v}"; echo "name=${TAG#v}"; echo "rolling=false"; } >> "$GITHUB_OUTPUT"
           else
             VERSION="$(tr -d '[:space:]' < version.txt)"

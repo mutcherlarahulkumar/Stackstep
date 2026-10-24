@@ -16,7 +16,8 @@ Conventional Commit PR titles (enforced by `pr-title.yml`; use squash merges).
 | `stackstep_<v>.apk`, `stackstep_<v>.aab` | Release assets |
 | `stackstep_<v>.ipa` (signed) or `stackstep_<v>_unsigned.ipa` | Release assets |
 
-To rebuild artifacts for an existing tag: Actions → Release → Run workflow → `vX.Y.Z`.
+To cut or rebuild a release by hand: Actions → Release → Run workflow → `vX.Y.Z` (e.g. `v0.1.1`, no
+leading zeros). A new tag is created at the commit of the branch you run from, with its GitHub Release.
 
 ### Every push to `main`: the `latest-main` pre-release
 

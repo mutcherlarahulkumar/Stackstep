@@ -25,9 +25,11 @@ test("AI helper: explain it in one go, get hints in Markdown, wait before follow
   await helper.getByLabel("Relevant code (optional)").fill("const shown = tasks.filter(t => t.status === status)");
   await helper.getByTestId("ai-ask").click();
 
+  // The answer turn holds the rendered Markdown; matching its text (not one heading element)
+  // keeps this independent of how headings render, and a failure prints what did arrive.
   const answer = helper.getByTestId("ai-answer").first();
-  await expect(answer.getByText("What's going on", { exact: true })).toBeVisible();
-  await expect(answer.getByText("Asking tip", { exact: true })).toBeVisible();
+  await expect(answer).toContainText("What's going on", { timeout: 15_000 });
+  await expect(answer).toContainText("Asking tip");
   await expect(answer.locator("code", { hasText: "shown" })).toBeVisible();
   await expect(chips.getByLabel("19 credits")).toBeVisible();
   // Follow-ups wait until the student has tried the hint.
