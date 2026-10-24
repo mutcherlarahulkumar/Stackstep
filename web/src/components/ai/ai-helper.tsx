@@ -511,7 +511,11 @@ function FollowUp({ detail }: { detail: AIConversationDetail }) {
 function AIThinking() {
   const ref = useRef<HTMLDivElement>(null);
   // The card appears under a long form; bring it into view so the wait is visible.
-  useEffect(() => ref.current?.scrollIntoView({ block: "nearest", behavior: "smooth" }), []);
+  // Braces matter: newer browsers return a Promise from scrollIntoView, and an effect must
+  // not return anything but a cleanup function (React would call the Promise on unmount).
+  useEffect(() => {
+    ref.current?.scrollIntoView({ block: "nearest", behavior: "smooth" });
+  }, []);
   return (
     <div ref={ref} role="status" aria-label="The AI helper is thinking" className="animate-enter bg-muted/40 flex items-center gap-3 rounded-xl border p-3" data-testid="ai-thinking">
       <AIAvatar size="sm" />

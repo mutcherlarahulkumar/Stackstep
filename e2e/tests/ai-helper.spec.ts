@@ -4,6 +4,15 @@ import { expectToast, signIn } from "./helpers";
 
 test("AI helper: explain it in one go, get hints in Markdown, wait before following up; admins see it read only (A1–A4)", async ({ browser }) => {
   const student = await (await browser.newContext({ viewport: { width: 1440, height: 900 } })).newPage();
+  // Newer browsers return a Promise from scrollIntoView; make every browser do it, so code that
+  // returns its result from an effect (React then calls it as cleanup and crashes) fails here.
+  await student.addInitScript(() => {
+    const original = Element.prototype.scrollIntoView;
+    Element.prototype.scrollIntoView = function (this: Element, arg?: boolean | ScrollIntoViewOptions) {
+      original.call(this, arg);
+      return Promise.resolve() as unknown as void;
+    };
+  });
   await signIn(student, "ravi-dev");
   const chips = student.getByTestId("wallet-chips");
   await expect(chips.getByLabel("20 credits")).toBeVisible();
