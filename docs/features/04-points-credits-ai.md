@@ -82,3 +82,4 @@ New error codes: `insufficient_credits` (402), `ai_unavailable` (503).
 | A8 | No credits left | 402 `insufficient_credits` | backend `TestAILimits` |
 | A9 | No API key | wallet says disabled; asking returns 503 `not_configured` | backend `TestAINotConfigured` |
 | A10 | Provider errors: 429 with Retry-After, 401, 5xx, empty answer | mapped to rate limited / not configured / unavailable | `ai.TestGroqErrors` |
+| A11 | Browser whose `scrollIntoView` returns a Promise (current Chrome) | the "thinking" card goes away and the answer shows; no crash | e2e `ai-helper.spec.ts` (A1–A4) |

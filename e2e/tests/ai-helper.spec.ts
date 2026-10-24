@@ -4,6 +4,15 @@ import { expectToast, signIn } from "./helpers";
 
 test("AI helper: explain it in one go, get hints in Markdown, wait before following up; admins see it read only (A1–A4)", async ({ browser }) => {
   const student = await (await browser.newContext({ viewport: { width: 1440, height: 900 } })).newPage();
+  // Newer browsers return a Promise from scrollIntoView; make every browser do it, so code that
+  // returns its result from an effect (React then calls it as cleanup and crashes) fails here.
+  await student.addInitScript(() => {
+    const original = Element.prototype.scrollIntoView;
+    Element.prototype.scrollIntoView = function (this: Element, arg?: boolean | ScrollIntoViewOptions) {
+      original.call(this, arg);
+      return Promise.resolve() as unknown as void;
+    };
+  });
   await signIn(student, "ravi-dev");
   const chips = student.getByTestId("wallet-chips");
   await expect(chips.getByLabel("20 credits")).toBeVisible();
@@ -25,9 +34,11 @@ test("AI helper: explain it in one go, get hints in Markdown, wait before follow
   await helper.getByLabel("Relevant code (optional)").fill("const shown = tasks.filter(t => t.status === status)");
   await helper.getByTestId("ai-ask").click();
 
+  // The answer turn holds the rendered Markdown; matching its text (not one heading element)
+  // keeps this independent of how headings render, and a failure prints what did arrive.
   const answer = helper.getByTestId("ai-answer").first();
-  await expect(answer.getByText("What's going on", { exact: true })).toBeVisible();
-  await expect(answer.getByText("Asking tip", { exact: true })).toBeVisible();
+  await expect(answer).toContainText("What's going on", { timeout: 15_000 });
+  await expect(answer).toContainText("Asking tip");
   await expect(answer.locator("code", { hasText: "shown" })).toBeVisible();
   await expect(chips.getByLabel("19 credits")).toBeVisible();
   // Follow-ups wait until the student has tried the hint.

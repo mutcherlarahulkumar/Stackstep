@@ -1,8 +1,14 @@
 "use client";
 
+import { useEffect } from "react";
+
 import { Button } from "@/components/ui/button";
 
-export default function ErrorPage({ reset }: { error: Error & { digest?: string }; reset: () => void }) {
+export default function ErrorPage({ error, reset }: { error: Error & { digest?: string }; reset: () => void }) {
+  // Keep the cause in the browser console (and in E2E logs) instead of swallowing it.
+  useEffect(() => {
+    console.error(error);
+  }, [error]);
   return (
     <main id="main" className="flex min-h-dvh flex-col items-center justify-center gap-4 p-6 text-center">
       <h1 className="text-2xl font-semibold">Something went wrong</h1>
