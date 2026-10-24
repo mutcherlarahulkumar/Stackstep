@@ -160,6 +160,11 @@ final class ApiClient {
   Future<Account> acceptTerms(int version) async =>
       Account.fromJson(asObject(await _send('POST', '/v1/me/consent', body: {'version': version})));
 
+  Future<TaskNote> myNote(String taskId) async => TaskNote.fromJson(asObject(await _send('GET', '/v1/tasks/${_seg(taskId)}/note')));
+
+  Future<TaskNote> saveNote(String taskId, {required String body, required bool shared}) async =>
+      TaskNote.fromJson(asObject(await _send('PUT', '/v1/tasks/${_seg(taskId)}/note', body: {'body': body, 'shared': shared})));
+
   Future<Account> finishOnboarding() async => Account.fromJson(asObject(await _send('POST', '/v1/me/onboarded')));
 
   Future<List<Task>> myTasks() async => asObject(await _send('GET', '/v1/me/tasks')).list('items', Task.fromJson);

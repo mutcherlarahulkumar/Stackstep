@@ -33,6 +33,9 @@ func (w *Workspace) Reviews(ctx context.Context, u domain.User, persona *uuid.UU
 	if err := store.AddHandInChecks(ctx, w.Store.Pool, tasks); err != nil {
 		return nil, err
 	}
+	if err := store.AddSharedNotes(ctx, w.Store.Pool, tasks); err != nil {
+		return nil, err
+	}
 	for i := range rows {
 		rows[i].Task = tasks[i]
 	}

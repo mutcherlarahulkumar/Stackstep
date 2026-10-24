@@ -122,6 +122,8 @@ func (s *Server) Handler() http.Handler {
 	authed.POST("/me/threads/:persona/read", s.markRead)
 	authed.POST("/tasks/:id/transitions", s.transition)
 	authed.POST("/tasks/:id/quiz", s.submitQuiz)
+	authed.GET("/tasks/:id/note", s.myNote)
+	authed.PUT("/tasks/:id/note", s.saveNote)
 	authed.GET("/me/wallet", s.myWallet)
 	authed.GET("/me/progress", s.myProgress)
 	authed.GET("/me/certificates", s.myCertificates)

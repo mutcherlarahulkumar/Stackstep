@@ -152,6 +152,14 @@ export class ApiClient {
     });
   }
 
+  myNote(taskId: string) {
+    return this.send("GET", `/v1/tasks/${seg(taskId)}/note`, S.TaskNote);
+  }
+
+  saveNote(taskId: string, body: string, shared: boolean) {
+    return this.send("PUT", `/v1/tasks/${seg(taskId)}/note`, S.TaskNote, { body: { body, shared } });
+  }
+
   submitQuiz(taskId: string, expectedVersion: number, answers: number[]) {
     return this.send("POST", `/v1/tasks/${seg(taskId)}/quiz`, S.QuizAnswerResponse, { body: { expected_version: expectedVersion, answers } });
   }

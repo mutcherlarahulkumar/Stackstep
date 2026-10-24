@@ -255,4 +255,45 @@ void main() {
     expect(find.byKey(const Key('onboarding')), findsNothing);
     expect(find.text('Chats'), findsWidgets);
   });
+
+  testWidgets('task notes: write, share with the reviewer and save (TN2, TN3)', (tester) async {
+    Object? saved;
+    final client = MockClient(
+      (req) async => switch (req.url.path) {
+        '/v1/auth/refresh' => json(tokensJson()),
+        '/v1/me' => json({'user': userJson(), 'enrollment': enrollmentJson(), 'account': accountJson()}),
+        '/v1/me/tasks' => json({
+          'items': [taskJson(status: 'in_progress')],
+        }),
+        '/v1/me/threads' => json({
+          'items': [threadJson(last: messageJson(body: 'Morning!'))],
+        }),
+        final p when p.endsWith('/note') && req.method == 'GET' => json({'body': '', 'shared': false, 'updated_at': null}),
+        final p when p.endsWith('/note') && req.method == 'PUT' => () {
+          saved = jsonDecode(req.body);
+          return json({'body': 'Tried a debounce', 'shared': true, 'updated_at': '2026-10-24T10:00:00Z'});
+        }(),
+        _ => json({
+          'error': {'code': 'not_found', 'message': ''},
+        }, 404),
+      },
+    );
+    await pumpApp(tester, client);
+    await tester.tap(find.text('Tasks'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Add filtering'));
+    await tester.pumpAndSettle();
+    await tester.scrollUntilVisible(find.byKey(const Key('note-save')), 200, scrollable: find.byType(Scrollable).last);
+    expect(find.text('Only you can see your notes unless you share them.'), findsOneWidget);
+    await tester.enterText(
+      find.descendant(of: find.byKey(const Key('note-body')), matching: find.byType(EditableText)),
+      'Tried a debounce',
+    );
+    await tester.tap(find.byKey(const Key('note-share')));
+    await tester.pump();
+    expect(find.text('Unsaved changes'), findsOneWidget);
+    await tester.tap(find.byKey(const Key('note-save')));
+    await tester.pumpAndSettle();
+    expect(saved, {'body': 'Tried a debounce', 'shared': true});
+  });
 }

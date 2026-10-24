@@ -20,6 +20,9 @@ const MaxBodyBytes = 64 << 10
 // MaxImportBodyBytes caps a bulk enrollment (500 rows with long names and emails).
 const MaxImportBodyBytes = 512 << 10
 
+// MaxNoteBodyBytes fits a 20,000-character note in any script, JSON-escaped.
+const MaxNoteBodyBytes = 128 << 10
+
 type errorBody struct {
 	Error errorPayload `json:"error"`
 }

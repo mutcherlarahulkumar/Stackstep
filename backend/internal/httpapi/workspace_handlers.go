@@ -188,6 +188,43 @@ func (s *Server) transition(c *gin.Context) {
 	c.JSON(http.StatusOK, toTask(t, u.Role.IsStaff()))
 }
 
+func (s *Server) myNote(c *gin.Context) {
+	id, err := pathUUID(c, "id")
+	if err != nil {
+		s.fail(c, err)
+		return
+	}
+	n, err := s.workspace.MyNote(c.Request.Context(), currentUser(c), id)
+	if err != nil {
+		s.fail(c, err)
+		return
+	}
+	c.JSON(http.StatusOK, toNote(n))
+}
+
+func (s *Server) saveNote(c *gin.Context) {
+	id, err := pathUUID(c, "id")
+	if err != nil {
+		s.fail(c, err)
+		return
+	}
+	var req noteReq
+	if err := decodeLimit(c, &req, MaxNoteBodyBytes); err != nil {
+		s.fail(c, err)
+		return
+	}
+	if req.Body == nil || req.Shared == nil {
+		s.fail(c, apperr.Validation(map[string]string{"body": "Send body and shared."}))
+		return
+	}
+	n, err := s.workspace.SaveNote(c.Request.Context(), currentUser(c), id, *req.Body, *req.Shared)
+	if err != nil {
+		s.fail(c, err)
+		return
+	}
+	c.JSON(http.StatusOK, toNote(n))
+}
+
 func (s *Server) submitQuiz(c *gin.Context) {
 	id, err := pathUUID(c, "id")
 	if err != nil {

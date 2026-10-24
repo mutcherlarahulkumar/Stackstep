@@ -89,6 +89,27 @@ type taskDTO struct {
 	Content      contentDTO        `json:"content"`
 	Submission   *submissionDTO    `json:"submission"`
 	QuizResult   *quizStatsDTO     `json:"quiz_result"`
+	SharedNote   *noteDTO          `json:"shared_note"` // staff views only; students read their own via /note
+}
+
+type noteDTO struct {
+	Body      string     `json:"body"`
+	Shared    bool       `json:"shared"`
+	UpdatedAt *time.Time `json:"updated_at"`
+}
+
+func toNote(n domain.TaskNote) noteDTO {
+	out := noteDTO{Body: n.Body, Shared: n.Shared}
+	if n.UpdatedAt != nil {
+		at := n.UpdatedAt.UTC()
+		out.UpdatedAt = &at
+	}
+	return out
+}
+
+type noteReq struct {
+	Body   *string `json:"body"`
+	Shared *bool   `json:"shared"`
 }
 
 type resourceDTO struct {
@@ -190,6 +211,10 @@ func toTask(t domain.Task, staff bool) taskDTO {
 			u := s.URL
 			dto.Submission.URL = &u
 		}
+	}
+	if n := t.SharedNote; staff && n != nil {
+		note := toNote(*n)
+		dto.SharedNote = &note
 	}
 	if q := t.Quiz; q != nil {
 		dto.QuizResult = &quizStatsDTO{Attempts: q.Attempts, AttemptsLeft: max(0, domain.MaxQuizAttempts-q.Attempts), BestScore: q.BestScore,

@@ -125,6 +125,8 @@ type Task struct {
 	// Loaded separately (store.EnrichTasks); nil when there is none.
 	Submission *SubmissionRecord
 	Quiz       *QuizStats
+	// SharedNote is the student's note when they shared it; staff views only.
+	SharedNote *TaskNote
 }
 
 // SubmissionRecord is the latest hand-in of a task.

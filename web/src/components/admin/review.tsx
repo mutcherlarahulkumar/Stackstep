@@ -23,6 +23,7 @@ import { Bounds, runeLength, staffMoves, validateNote } from "@/lib/validation";
 import { EmptyState, ErrorState, ListSkeleton } from "../app/state";
 import { PersonaAvatar } from "../app/persona-avatar";
 import { StatusBadge, TypeBadge } from "../app/task-badges";
+import { SharedNote } from "../workspace/task-notes";
 import { AssignTaskForm } from "./assign-task-form";
 import { CertificatePanel } from "./certificate-panel";
 import { InternshipStatus } from "./internship-status";
@@ -133,6 +134,7 @@ export function StudentDetail({ student }: { student: Student }) {
                         {t.quiz_result ? <span data-testid="quiz-score">Quiz {t.quiz_result.best_score}%</span> : null}
                       </span>
                       {t.submission ? <HandIn submission={t.submission} /> : null}
+                      {t.shared_note ? <SharedNote note={t.shared_note} /> : null}
                     </div>
                   </TableCell>
                   <TableCell>

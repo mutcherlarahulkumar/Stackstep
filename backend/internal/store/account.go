@@ -47,6 +47,7 @@ SELECT jsonb_build_object(
           'title', t.title, 'type', t.type, 'brief', t.brief, 'status', t.status, 'scheduled_for', t.scheduled_for, 'due_at', t.due_at,
           'hand_ins', COALESCE((SELECT jsonb_agg(jsonb_build_object('attempt', s.attempt, 'url', s.url, 'note', s.note, 'created_at', s.created_at) ORDER BY s.attempt)
               FROM task_submissions s WHERE s.task_id = t.id), '[]'::jsonb),
+          'note', (SELECT jsonb_build_object('body', n.body, 'shared', n.shared, 'updated_at', n.updated_at) FROM task_notes n WHERE n.task_id = t.id),
           'quiz_attempts', COALESCE((SELECT jsonb_agg(jsonb_build_object('attempt', qa.attempt, 'answers', qa.answers, 'score', qa.score, 'passed', qa.passed, 'created_at', qa.created_at) ORDER BY qa.attempt)
               FROM quiz_attempts qa WHERE qa.task_id = t.id), '[]'::jsonb)
         ) ORDER BY t.scheduled_for) FROM tasks t WHERE t.enrollment_id = enr.id AND t.scheduled_for <= $2), '[]'::jsonb),

@@ -56,6 +56,7 @@ export const task = (o: Record<string, unknown> = {}) => ({
   content: { resources: [], quiz: null },
   submission: null,
   quiz_result: null,
+  shared_note: null,
   ...o,
 });
 

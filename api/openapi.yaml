@@ -1,7 +1,7 @@
 openapi: 3.1.0
 info:
   title: Stackstep API
-  version: 0.9.0
+  version: 0.10.0
   description: |
     Workspace core (feature 01). All timestamps are RFC 3339 UTC. All errors use the
     `Error` envelope; clients switch on `error.code`, never on `message`.
@@ -281,6 +281,49 @@ paths:
         "200": { description: Moved, content: { application/json: { schema: { $ref: "#/components/schemas/Task" } } } }
         "404": { $ref: "#/components/responses/Error" }
         "409": { $ref: "#/components/responses/Error" }
+        "422": { $ref: "#/components/responses/Error" }
+  /v1/tasks/{id}/note:
+    get:
+      tags: [student]
+      operationId: getMyTaskNote
+      summary: The student's own notes on a released task (empty when none)
+      parameters: [{ $ref: "#/components/parameters/Id" }]
+      responses:
+        "200":
+          description: The note
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/TaskNote" }
+        "401": { $ref: "#/components/responses/Error" }
+        "403": { $ref: "#/components/responses/Error" }
+        "404": { $ref: "#/components/responses/Error" }
+    put:
+      tags: [student]
+      operationId: saveMyTaskNote
+      summary: Replace the note; an empty, unshared note is removed. Shared notes show to reviewers.
+      parameters: [{ $ref: "#/components/parameters/Id" }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [body, shared]
+              properties:
+                body: { type: string, maxLength: 20000, description: Markdown; whitespace is kept }
+                shared: { type: boolean }
+      responses:
+        "200":
+          description: The saved note
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/TaskNote" }
+        "400": { $ref: "#/components/responses/Error" }
+        "401": { $ref: "#/components/responses/Error" }
+        "403": { $ref: "#/components/responses/Error" }
+        "404": { $ref: "#/components/responses/Error" }
+        "413": { $ref: "#/components/responses/Error" }
         "422": { $ref: "#/components/responses/Error" }
   /v1/tasks/{id}/quiz:
     post:
@@ -1331,7 +1374,7 @@ components:
         onboarded: { type: boolean, description: True once the first-run guide was finished or skipped }
     Task:
       type: object
-      required: [id, enrollment_id, type, title, brief, status, scheduled_for, due_at, version, created_at, updated_at, review_mode, persona_id, from_flow, content, submission, quiz_result]
+      required: [id, enrollment_id, type, title, brief, status, scheduled_for, due_at, version, created_at, updated_at, review_mode, persona_id, from_flow, content, submission, quiz_result, shared_note]
       properties:
         id: { type: string, format: uuid }
         enrollment_id: { type: string, format: uuid }
@@ -1350,6 +1393,16 @@ components:
         content: { $ref: "#/components/schemas/TaskContent" }
         submission: { oneOf: [{ $ref: "#/components/schemas/Submission" }, { type: "null" }] }
         quiz_result: { oneOf: [{ $ref: "#/components/schemas/QuizStats" }, { type: "null" }] }
+        shared_note:
+          description: The student's note when they shared it. Staff views only; always null for students.
+          oneOf: [{ $ref: "#/components/schemas/TaskNote" }, { type: "null" }]
+    TaskNote:
+      type: object
+      required: [body, shared, updated_at]
+      properties:
+        body: { type: string, maxLength: 20000 }
+        shared: { type: boolean }
+        updated_at: { oneOf: [{ type: string, format: date-time }, { type: "null" }] }
     Resource:
       type: object
       required: [title, url]

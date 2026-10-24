@@ -59,6 +59,8 @@ extension type const JsonReader(Json raw) {
     return parsed.toUtc();
   }
 
+  DateTime? dateTimeOrNull(String key) => stringOrNull(key) == null ? null : dateTime(key);
+
   JsonReader object(String key) => JsonReader(_req<Json>(key));
 
   JsonReader? objectOrNull(String key) {

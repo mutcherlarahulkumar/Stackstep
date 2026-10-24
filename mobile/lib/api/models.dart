@@ -944,3 +944,20 @@ enum HandInCheckCode {
   HandInCheckCode(this.wire);
   final String wire;
 }
+
+/// A student's private Markdown notes on a task; shared ones are shown to reviewers.
+final class TaskNote {
+  const TaskNote({required this.body, required this.shared, required this.updatedAt});
+
+  factory TaskNote.fromJson(JsonReader j) =>
+      TaskNote(body: j.string('body'), shared: j.boolean('shared'), updatedAt: j.dateTimeOrNull('updated_at'));
+
+  static const empty = TaskNote(body: '', shared: false, updatedAt: null);
+
+  /// Matches the API's cap.
+  static const maxLength = 20000;
+
+  final String body;
+  final bool shared;
+  final DateTime? updatedAt;
+}

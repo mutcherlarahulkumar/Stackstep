@@ -112,7 +112,10 @@ func (w *Workspace) StaffTasks(ctx context.Context, u domain.User, enrollmentID 
 	if err := store.EnrichTasks(ctx, w.Store.Pool, tasks); err != nil {
 		return nil, e, err
 	}
-	return tasks, e, store.AddHandInChecks(ctx, w.Store.Pool, tasks)
+	if err := store.AddHandInChecks(ctx, w.Store.Pool, tasks); err != nil {
+		return nil, e, err
+	}
+	return tasks, e, store.AddSharedNotes(ctx, w.Store.Pool, tasks)
 }
 
 // CreateTask assigns a task to a student and has the lead announce it in chat.

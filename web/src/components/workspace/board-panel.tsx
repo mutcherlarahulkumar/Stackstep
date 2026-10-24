@@ -21,6 +21,7 @@ import { choiceItem } from "../app/choice";
 import { PersonaAvatar } from "../app/persona-avatar";
 import { EmptyState, ErrorState, ListSkeleton } from "../app/state";
 import { StatusBadge, TypeBadge } from "../app/task-badges";
+import { TaskNotes } from "./task-notes";
 import { HandInDialog, QuizPlayer, ResourceList, SubmissionCard } from "./task-work";
 import { type useWorkspace } from "./use-workspace";
 import { stagger } from "../app/loading";
@@ -241,6 +242,7 @@ function TaskSheet({
               <ResourceList resources={task.content.resources} />
               {task.submission ? <SubmissionCard submission={task.submission} title="Your hand-in" /> : null}
               {task.type === "quiz" ? <QuizPlayer key={task.version} task={task} onGraded={onGraded} disabled={false} /> : null}
+              <TaskNotes taskId={task.id} />
             </div>
             {moves.length > 0 ? (
               <SheetFooter className="border-t">

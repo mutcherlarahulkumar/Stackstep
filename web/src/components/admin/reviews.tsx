@@ -21,6 +21,7 @@ import { EmptyState, ErrorState, ListSkeleton } from "../app/state";
 import { TypeBadge } from "../app/task-badges";
 import { AdminShell } from "./admin-shell";
 import { personaMap, useAllPersonas } from "./catalog-queries";
+import { SharedNote } from "../workspace/task-notes";
 import { HandIn, NoteDialog, PersonaTag } from "./review";
 
 const ALL = "all";
@@ -131,6 +132,7 @@ function Reviews() {
                           {item.student.name} · @{item.student.github_login}
                         </p>
                         {item.task.submission ? <HandIn submission={item.task.submission} /> : null}
+                        {item.task.shared_note ? <SharedNote note={item.task.shared_note} /> : null}
                       </div>
                       <div className="flex shrink-0 gap-2 sm:flex-col">
                         <Button

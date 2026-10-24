@@ -147,6 +147,9 @@ export const QuizAttemptResult = z.object({
 });
 export type QuizAttemptResult = z.output<typeof QuizAttemptResult>;
 
+export const TaskNote = z.object({ body: z.string().max(20000), shared: z.boolean(), updated_at: timestamp.nullable() });
+export type TaskNote = z.output<typeof TaskNote>;
+
 export const Task = z.object({
   id: z.uuid(),
   enrollment_id: z.uuid(),
@@ -165,6 +168,7 @@ export const Task = z.object({
   content: TaskContent,
   submission: Submission.nullable(),
   quiz_result: QuizStats.nullable(),
+  shared_note: TaskNote.nullable(),
 });
 export type Task = z.output<typeof Task>;
 

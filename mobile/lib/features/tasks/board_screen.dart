@@ -11,6 +11,7 @@ import 'package:stackstep/core/providers.dart';
 import 'package:stackstep/core/theme.dart';
 import 'package:stackstep/features/chat/inbox_controller.dart';
 import 'package:stackstep/features/tasks/board_controller.dart';
+import 'package:stackstep/features/tasks/task_notes.dart';
 import 'package:stackstep/features/tasks/task_work.dart';
 import 'package:stackstep/shared/errors.dart';
 import 'package:stackstep/shared/format.dart';
@@ -398,6 +399,8 @@ class _TaskSheetState extends ConsumerState<TaskSheet> {
               ),
             const SizedBox(height: Space.sm),
           ],
+          TaskNotesSection(taskId: task.id),
+          const SizedBox(height: Space.xl),
         ],
       ),
     );
