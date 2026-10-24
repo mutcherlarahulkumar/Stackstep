@@ -2,10 +2,14 @@ import { expect, type APIRequestContext, type Page } from "@playwright/test";
 
 export type SeedUser = "asha-dev" | "ravi-dev" | "meera-dev" | "nora-dev" | "anits-tpo" | "admin-demo";
 
-/** Signs in through the developer panel on /login (the API refuses this in production). */
+/**
+ * Signs in a test account through the API's dev login (refused when APP_ENV=production), then
+ * lets /login send them home like a real GitHub sign-in would.
+ */
 export async function signIn(page: Page, login: SeedUser) {
+  const res = await page.request.post("/api/v1/auth/dev-login", { data: { github_login: login }, headers: { "X-Client": "web" } });
+  expect(res.ok()).toBeTruthy();
   await page.goto("/login");
-  await page.getByTestId(`dev-${login}`).click();
   await page.waitForURL(/\/(workspace|admin)/);
 }
 

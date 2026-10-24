@@ -5,7 +5,7 @@ import 'package:stackstep/api/api_client.dart';
 import 'package:stackstep/api/models.dart';
 import 'package:stackstep/core/providers.dart';
 
-/// The seeded team lead the server falls back to when no persona is chosen.
+/// The default team lead (created by a migration) the server falls back to when no persona is chosen.
 const defaultPersonaId = '00000000-0000-4000-8000-000000000001';
 
 /// Which conversation a chat screen shows. Students omit `enrollmentId`; admins replying as a

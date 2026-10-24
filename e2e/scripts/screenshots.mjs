@@ -6,8 +6,8 @@ async function shoot(name, login, path, { width = 1440, height = 900, dark = fal
   const ctx = await browser.newContext({ viewport: { width, height }, colorScheme: dark ? "dark" : "light", deviceScaleFactor: 1 });
   const page = await ctx.newPage();
   if (login) {
+    await page.request.post("http://localhost:3000/api/v1/auth/dev-login", { data: { github_login: login }, headers: { "X-Client": "web" } });
     await page.goto("http://localhost:3000/login");
-    await page.getByTestId(`dev-${login}`).click();
     await page.waitForURL(/workspace|admin/);
   }
   if (path) await page.goto("http://localhost:3000" + path);

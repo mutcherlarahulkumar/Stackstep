@@ -1,6 +1,6 @@
 "use client";
 
-import { CircleAlert, FlaskConical } from "lucide-react";
+import { CircleAlert } from "lucide-react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useState } from "react";
@@ -8,19 +8,10 @@ import { useEffect, useState } from "react";
 import { BrandMark, GitHubMark } from "@/components/app/brand";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Spinner } from "@/components/ui/spinner";
 import { ApiError, messageFor, toErrorCode } from "@/lib/api/errors";
 import { homeFor, useSession } from "@/lib/session";
-
-const DEV_USERS = [
-  { login: "asha-dev", label: "Student" },
-  { login: "ravi-dev", label: "Student 2" },
-  { login: "meera-dev", label: "On a flow" },
-  { login: "nora-dev", label: "No internship" },
-  { login: "anits-tpo", label: "College admin" },
-  { login: "admin-demo", label: "Admin" },
-] as const;
 
 function callbackError(raw: string | null): string | null {
   if (!raw) return null;
@@ -31,11 +22,11 @@ function callbackError(raw: string | null): string | null {
 }
 
 export function LoginCard() {
-  const { state, api, config, devLogin } = useSession();
+  const { state, api } = useSession();
   const router = useRouter();
   const params = useSearchParams();
-  const [busy, setBusy] = useState<string | null>(null);
-  const [error, setError] = useState<string | null>(() => callbackError(params.get("error")));
+  const [busy, setBusy] = useState(false);
+  const [error] = useState<string | null>(() => callbackError(params.get("error")));
 
   useEffect(() => {
     if (state.status === "signed_in") router.replace(homeFor(state.me));
@@ -64,14 +55,14 @@ export function LoginCard() {
         <Button
           size="lg"
           className="h-11"
-          disabled={busy !== null || state.status === "loading"}
+          disabled={busy || state.status === "loading"}
           onClick={() => {
-            setBusy("github");
+            setBusy(true);
             window.location.assign(api.githubStartUrl());
           }}
         >
-          {busy === "github" ? <Spinner data-icon="inline-start" /> : <GitHubMark />}
-          {busy === "github" ? "Opening GitHub…" : "Continue with GitHub"}
+          {busy ? <Spinner data-icon="inline-start" /> : <GitHubMark />}
+          {busy ? "Opening GitHub…" : "Continue with GitHub"}
         </Button>
         <p className="text-muted-foreground text-center text-xs">
           We read your GitHub profile and email only. Stackstep never pushes code to your repos. See our{" "}
@@ -85,33 +76,6 @@ export function LoginCard() {
           .
         </p>
       </CardContent>
-      {config?.devLogin ? (
-        <CardFooter className="flex-col items-stretch gap-3">
-          <p className="text-muted-foreground flex items-center gap-1.5 text-xs">
-            <FlaskConical className="size-3.5" aria-hidden /> Developer sign-in
-          </p>
-          <div className="flex flex-wrap gap-2">
-            {DEV_USERS.map((u) => (
-              <Button
-                key={u.login}
-                size="sm"
-                variant="outline"
-                disabled={busy !== null}
-                data-testid={`dev-${u.login}`}
-                onClick={async () => {
-                  setBusy(u.login);
-                  setError(null);
-                  setError(await devLogin(u.login));
-                  setBusy(null);
-                }}
-              >
-                {busy === u.login ? <Spinner data-icon="inline-start" /> : null}
-                {u.label}
-              </Button>
-            ))}
-          </div>
-        </CardFooter>
-      ) : null}
     </Card>
   );
 }

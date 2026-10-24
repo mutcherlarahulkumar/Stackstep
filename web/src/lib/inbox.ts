@@ -1,6 +1,6 @@
 import { type Message, type Persona, type Thread } from "./api/schemas";
 
-/** The seeded team lead; the server falls back to it when no persona is chosen. */
+/** The default team lead (created by a migration); the server falls back to it when no persona is chosen. */
 export const DEFAULT_PERSONA_ID = "00000000-0000-4000-8000-000000000001";
 
 /** Which conversation a chat shows. Students leave `enrollmentId` null. */

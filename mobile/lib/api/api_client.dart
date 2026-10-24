@@ -122,6 +122,7 @@ final class ApiClient {
 
   // ---- Session ----
 
+  /// Test-only sign-in for local servers (live tests). The production API refuses it.
   Future<void> devLogin(String githubLogin) async {
     final j = await _send('POST', '/v1/auth/dev-login', body: {'github_login': githubLogin}, auth: false);
     await _accept(Tokens.fromJson(asObject(j)));

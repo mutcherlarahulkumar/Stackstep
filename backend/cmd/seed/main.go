@@ -1,4 +1,5 @@
-// Command seed loads demo data. With -reset it first wipes workspace tables (refused in production).
+// Command seed loads the fixture data E2E and live tests run against. With -reset it first
+// wipes the database. Local and CI only: it refuses APP_ENV=production and isn't in the image.
 package main
 
 import (

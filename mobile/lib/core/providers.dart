@@ -98,8 +98,6 @@ final class SessionController extends Notifier<SessionState> {
     return await _complete(() => _api.exchangeCode(code: code, verifier: pkce.verifier));
   }
 
-  Future<String?> devLogin(String login) => _complete(() => _api.devLogin(login));
-
   Future<String?> _complete(Future<void> Function() signIn) async {
     try {
       await signIn();

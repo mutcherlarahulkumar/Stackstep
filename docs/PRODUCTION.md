@@ -146,7 +146,6 @@ bytes", "GITHUB_CLIENT_ID and GITHUB_CLIENT_SECRET are required in production").
 | `API_INTERNAL_URL` | `<API_URL>` | Secret | Where the web app's proxy sends `/api/v1/...` |
 | `PUBLIC_WS_URL` | `wss://<api-host>/v1/ws` | **Config / Plain** (not secret) | e.g. `wss://stackstep-api.onrender.com/v1/ws`. Note `wss://` and `/v1/ws` |
 | `PROXY_SHARED_SECRET` | from step 0 | Secret | Same value as on Render |
-| `DEV_LOGIN` | leave unset (or `false`) | — | Only for test deployments; the production API refuses dev login anyway |
 
    `PUBLIC_WS_URL` can't be marked "secret" in Vercel: names starting with `PUBLIC_` must be
    "config". That's fine, because it's a public address.
@@ -255,8 +254,8 @@ DATABASE_URL='<NEON_DIRECT_URL>' go run ./cmd/dbadmin admins -logins alice,bob
 DATABASE_URL='<NEON_DIRECT_URL>' go run ./cmd/dbadmin flush -mode demo -confirm FLUSH
 ```
 
-**Never run `make seed` / `seed -reset` against production.** The seed refuses
-`APP_ENV=production`, but it only checks the variable on your machine.
+**Never run `make seed` against production.** It loads test fixtures for automated tests and
+refuses `APP_ENV=production`, but it only checks the variable on your machine.
 
 ---
 
@@ -270,7 +269,7 @@ The app reads three build-time settings. They're compiled in, so changing them n
 | `WEB_BASE_URL` | `<WEB_URL>` | repo variable `WEB_BASE_URL` |
 | `WEB_CONSOLE_URL` | `<WEB_URL>/admin` | repo variable `WEB_CONSOLE_URL` |
 
-Dev login is compiled out of release builds, so don't pass `DEV_LOGIN`.
+There is no developer sign-in in the app; everyone uses GitHub.
 
 **From GitHub (recommended):** after step 5, every push to `main` builds the app with those
 variables. Download the APK/AAB from **Releases → latest-main** (or `vX.Y.Z`). Upload the AAB to
@@ -326,7 +325,7 @@ which is already registered in the Android and iOS projects.
 - [ ] Neon: **direct** URL, `sslmode=require`, password rotated if it was ever shared
 - [ ] Render: `APP_ENV=production`, `HTTP_ADDR=:10000`, all secrets ≥ 32 chars and different
 - [ ] Render: `ALLOWED_ORIGINS`, `WEB_BASE_URL` and `GITHUB_REDIRECT_URL` use the final web domain
-- [ ] Vercel: `API_INTERNAL_URL`, `PUBLIC_WS_URL` (wss), `PROXY_SHARED_SECRET`; no `DEV_LOGIN`
+- [ ] Vercel: `API_INTERNAL_URL`, `PUBLIC_WS_URL` (wss), `PROXY_SHARED_SECRET`
 - [ ] GitHub OAuth app callback = `<WEB_URL>/api/v1/auth/github/callback`
 - [ ] GitHub: `production` environment with `DATABASE_URL`, required reviewer on it
 - [ ] GitHub: repo variables for the mobile build; signing secrets if publishing to stores

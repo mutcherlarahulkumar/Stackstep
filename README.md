@@ -63,14 +63,14 @@ AI review suggestions, push notifications on phones, Orshot certificate artwork.
 ## Run it locally
 
 ```bash
-cp .env.example .env          # optional: GROQ_API_KEY for the AI helper, GitHub OAuth
-make up                       # Postgres + API + web in Docker, seeded
-open http://localhost:3000    # use "Developer sign-in" on /login
+cp .env.example .env          # GitHub OAuth app + BOOTSTRAP_ADMIN_GITHUB_LOGINS (you), optional GROQ_API_KEY
+make up                       # Postgres + API + web in Docker, empty database
+open http://localhost:3000    # "Continue with GitHub"; your login becomes the first admin
 ```
 
-Or run pieces on the host: `make db seed`, then `make api`, `make web`, `make mobile`.
-Seeded logins: `asha-dev`, `ravi-dev`, `meera-dev` (students), `kiran-dev` (paused),
-`nora-dev` (no internship), `anits-tpo` (college admin), `admin-demo` (admin).
+Or run pieces on the host: `make db`, then `make api`, `make web`, `make mobile`.
+Automated tests use their own fixture data (`backend/internal/seed`); nothing is seeded into
+real databases.
 
 Real GitHub sign-in, the Groq key, production settings and every variable are in
 [`docs/SETUP.md`](docs/SETUP.md).

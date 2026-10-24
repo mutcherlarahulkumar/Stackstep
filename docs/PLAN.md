@@ -51,7 +51,7 @@ in their college's cohorts. Platform admins (`admin`) see everyone.
 
 ```
 api/openapi.yaml        HTTP contract shared by web and mobile (enum drift checked in CI)
-backend/                Go modular monolith (cmd/api, cmd/seed, internal/*)
+backend/                Go modular monolith (cmd/api, cmd/dbadmin, cmd/seed = test fixtures, internal/*)
 web/                    Next.js app: student workspace + admin console
 mobile/                 Flutter app: student chat/tasks + admin task allocation
 e2e/                    Playwright tests driving web against the real API

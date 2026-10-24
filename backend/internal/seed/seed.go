@@ -1,4 +1,5 @@
-// Package seed loads deterministic demo data for local development and E2E tests.
+// Package seed holds the test fixtures (accounts, catalog, internships) that E2E and live
+// tests run against, plus the production maintenance used by cmd/dbadmin (see admin.go).
 package seed
 
 import (

@@ -336,7 +336,7 @@ export const Frame = z.discriminatedUnion("type", [
 ]);
 export type Frame = z.output<typeof Frame>;
 
-export const RuntimeConfig = z.object({ wsUrl: z.string().min(1), devLogin: z.boolean() });
+export const RuntimeConfig = z.object({ wsUrl: z.string().min(1) });
 export type RuntimeConfig = z.output<typeof RuntimeConfig>;
 
 export const CreditEntry = z.object({

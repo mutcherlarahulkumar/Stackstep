@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shadcn_ui/shadcn_ui.dart';
-import 'package:stackstep/core/config.dart';
 import 'package:stackstep/core/providers.dart';
 import 'package:stackstep/core/theme.dart';
 import 'package:stackstep/shared/brand_mark.dart';
@@ -80,66 +79,12 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                     style: t.textTheme.muted,
                     textAlign: TextAlign.center,
                   ),
-                  if (AppConfig.devLoginEnabled) ...[
-                    const SizedBox(height: Space.xxl),
-                    const ShadSeparator.horizontal(),
-                    const SizedBox(height: Space.lg),
-                    _DevLogin(busy: _busy, onPick: (login) => _run(() => session.devLogin(login))),
-                  ],
                 ],
               ),
             ),
           ),
         ),
       ),
-    );
-  }
-}
-
-/// Debug-only quick sign-in as seeded users (backend/internal/seed).
-class _DevLogin extends StatelessWidget {
-  const _DevLogin({required this.busy, required this.onPick});
-
-  final bool busy;
-  final void Function(String login) onPick;
-
-  static const _users = [
-    ('asha-dev', 'Student'),
-    ('ravi-dev', 'Student 2'),
-    ('nora-dev', 'No internship'),
-    ('anits-tpo', 'College admin'),
-    ('admin-demo', 'Admin'),
-  ];
-
-  @override
-  Widget build(BuildContext context) {
-    final t = ShadTheme.of(context);
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Row(
-          children: [
-            Icon(LucideIcons.flaskConical, size: 14, color: t.colorScheme.mutedForeground),
-            const SizedBox(width: Space.xs),
-            Text('Developer sign-in', style: t.textTheme.muted),
-          ],
-        ),
-        const SizedBox(height: Space.sm),
-        Wrap(
-          spacing: Space.sm,
-          runSpacing: Space.sm,
-          children: [
-            for (final (login, label) in _users)
-              ShadButton.outline(
-                key: Key('dev-$login'),
-                size: ShadButtonSize.sm,
-                enabled: !busy,
-                onPressed: () => onPick(login),
-                child: Text(label),
-              ),
-          ],
-        ),
-      ],
     );
   }
 }

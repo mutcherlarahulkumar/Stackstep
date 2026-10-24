@@ -105,10 +105,6 @@ export class ApiClient {
     return this.refresh();
   }
 
-  async devLogin(githubLogin: string): Promise<void> {
-    this.accept(await this.send("POST", "/v1/auth/dev-login", S.AccessToken, { body: { github_login: githubLogin }, auth: false }));
-  }
-
   async logout(): Promise<void> {
     this.access = null;
     this.accessExpiresAt = 0;
