@@ -1,6 +1,6 @@
 "use client";
 
-import { BookCopy, ChartColumn, ClipboardCheck, Inbox, UserPlus, Route, Send, UserRoundCog, Users, type LucideIcon } from "lucide-react";
+import { BookCopy, CalendarRange, ChartColumn, ClipboardCheck, Inbox, UserPlus, Route, Send, UserRoundCog, Users, type LucideIcon } from "lucide-react";
 import Link from "next/link";
 import { type ReactNode } from "react";
 
@@ -16,12 +16,13 @@ import { RequireSession } from "../app/guard";
 import { DesktopGate } from "./desktop-gate";
 import { useIsDesktop } from "@/lib/use-desktop";
 
-export type Section = "overview" | "people" | "reviews" | "students" | "inbox" | "flows" | "library" | "personas" | "assign";
+export type Section = "report" | "overview" | "people" | "reviews" | "students" | "inbox" | "flows" | "library" | "personas" | "assign";
 
 const DESKTOP_NAV: { id: Section; href: string; label: string; icon: LucideIcon }[] = [
   { id: "students", href: "/admin", label: "Students", icon: Users },
   { id: "reviews", href: "/admin/reviews", label: "Reviews", icon: ClipboardCheck },
   { id: "overview", href: "/admin/overview", label: "Overview", icon: ChartColumn },
+  { id: "report", href: "/admin/report", label: "Report", icon: CalendarRange },
   { id: "people", href: "/admin/people", label: "People", icon: UserPlus },
   { id: "inbox", href: "/admin/inbox", label: "Inbox", icon: Inbox },
   { id: "flows", href: "/admin/flows", label: "Flows", icon: Route },
@@ -62,7 +63,7 @@ function Frame({ me, section, phone, children }: { me: Me; section: Section; pho
   const unread = totalUnread(inbox.data?.pages.flatMap((p) => p.items) ?? []);
   const nav = desktop ? DESKTOP_NAV : PHONE_NAV;
   return (
-    <div className="flex h-dvh flex-col">
+    <div className="flex h-dvh flex-col print:h-auto">
       <AppHeader user={me.user}>
         {desktop === null ? null : (
           <nav aria-label="Admin sections" className="-mb-px flex h-14 min-w-0 items-stretch gap-1 overflow-x-auto">
@@ -91,8 +92,10 @@ function Frame({ me, section, phone, children }: { me: Me; section: Section; pho
           </nav>
         )}
       </AppHeader>
-      <ConnectionBanner status={socket} />
-      <main id="main" className="animate-enter flex min-h-0 flex-1 flex-col">
+      <div className="print:hidden">
+        <ConnectionBanner status={socket} />
+      </div>
+      <main id="main" className="animate-enter flex min-h-0 flex-1 flex-col print:block">
         {/* Pages with a visible title render their own h1; the rest get a screen-reader one. */}
         {SR_TITLE[section] ? <h1 className="sr-only">{SR_TITLE[section]}</h1> : null}
         {desktop === null ? null : !desktop && phone === "gate" ? <DesktopGate /> : children(me, desktop)}

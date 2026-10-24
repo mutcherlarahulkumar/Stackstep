@@ -1,7 +1,7 @@
 openapi: 3.1.0
 info:
   title: Stackstep API
-  version: 0.13.0
+  version: 0.14.0
   description: |
     Workspace core (feature 01). All timestamps are RFC 3339 UTC. All errors use the
     `Error` envelope; clients switch on `error.code`, never on `message`.
@@ -611,6 +611,21 @@ paths:
         - { name: q, in: query, schema: { type: string, maxLength: 100 } }
       responses:
         "200": { description: Every managed student (at most 1000), content: { application/json: { schema: { $ref: "#/components/schemas/Overview" } } } }
+        "403": { $ref: "#/components/responses/Error" }
+        "422": { $ref: "#/components/responses/Error" }
+  /v1/admin/reports/weekly:
+    get:
+      tags: [admin]
+      operationId: weeklyReport
+      summary: Week summary per cohort for the students the caller manages (college admins see their college)
+      parameters:
+        - { name: week, in: query, description: "Any day in the week (YYYY-MM-DD); weeks start Monday UTC. Defaults to this week; up to 52 weeks back.", schema: { type: string, format: date } }
+      responses:
+        "200":
+          description: The report
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/WeeklyReport" }
         "403": { $ref: "#/components/responses/Error" }
         "422": { $ref: "#/components/responses/Error" }
   /v1/admin/overview/export:
@@ -1562,9 +1577,48 @@ components:
         truncated: { type: boolean, description: More than 1000 students matched; narrow with q }
         inactive_after_hours: { type: integer }
         generated_at: { type: string, format: date-time }
+    ReportGroup:
+      type: object
+      required: [cohort, college, students, active, done, on_time_percent, points, hand_ins, certificates, inactive, avg_completion]
+      properties:
+        cohort: { type: string, description: Cohort name or "Independent students" }
+        college: { type: [string, "null"] }
+        students: { type: integer, minimum: 0 }
+        active: { type: integer, minimum: 0 }
+        done: { type: integer, minimum: 0, description: Tasks finished in the week }
+        on_time_percent: { type: integer, minimum: 0, maximum: 100 }
+        points: { type: integer, minimum: 0 }
+        hand_ins: { type: integer, minimum: 0 }
+        certificates: { type: integer, minimum: 0, description: Issued in the week and still valid }
+        inactive: { type: integer, minimum: 0, description: Quiet for two days right now }
+        avg_completion: { type: integer, minimum: 0, maximum: 100 }
+    ReportStudent:
+      type: object
+      required: [name, github_login, cohort, done, points, hand_ins, overdue, reason]
+      properties:
+        name: { type: string }
+        github_login: { type: string }
+        cohort: { type: string }
+        done: { type: integer, minimum: 0 }
+        points: { type: integer, minimum: 0 }
+        hand_ins: { type: integer, minimum: 0 }
+        overdue: { type: integer, minimum: 0 }
+        reason: { type: [string, "null"], description: Why they need attention }
+    WeeklyReport:
+      type: object
+      required: [week_start, week_end, groups, totals, top, attention, truncated, generated_at]
+      properties:
+        week_start: { type: string, format: date }
+        week_end: { type: string, format: date, description: "Sunday, inclusive" }
+        groups: { type: array, items: { $ref: "#/components/schemas/ReportGroup" } }
+        totals: { $ref: "#/components/schemas/ReportGroup" }
+        top: { type: array, maxItems: 5, items: { $ref: "#/components/schemas/ReportStudent" } }
+        attention: { type: array, maxItems: 20, items: { $ref: "#/components/schemas/ReportStudent" } }
+        truncated: { type: boolean }
+        generated_at: { type: string, format: date-time }
     Progress:
       type: object
-      required: [released, done, in_review, overdue, on_time, points, day_number, days, completion_percent, bar_percent, meets_bar, certificate]
+      required: [released, done, in_review, overdue, on_time, points, day_number, days, completion_percent, bar_percent, meets_bar, certificate, this_week]
       properties:
         released: { type: integer, minimum: 0 }
         done: { type: integer, minimum: 0 }
@@ -1578,6 +1632,16 @@ components:
         bar_percent: { type: integer, description: Suggested completion before issuing a certificate }
         meets_bar: { type: boolean }
         certificate: { oneOf: [{ $ref: "#/components/schemas/Certificate" }, { type: "null" }] }
+        this_week:
+          type: object
+          description: Activity since Monday 00:00 UTC
+          required: [start, done, on_time, points, hand_ins]
+          properties:
+            start: { type: string, format: date }
+            done: { type: integer, minimum: 0 }
+            on_time: { type: integer, minimum: 0 }
+            points: { type: integer, minimum: 0 }
+            hand_ins: { type: integer, minimum: 0 }
     CreditReason: { type: string, enum: [welcome, task_done, admin_grant, admin_revoke, ai_question, ai_refund] }
     AIRole: { type: string, enum: [student, assistant] }
     AIMessageStatus: { type: string, enum: [pending, answered, failed, ok] }

@@ -23,6 +23,15 @@ type progressDTO struct {
 	BarPercent        int             `json:"bar_percent"`
 	MeetsBar          bool            `json:"meets_bar"`
 	Certificate       *certificateDTO `json:"certificate"`
+	ThisWeek          weekDTO         `json:"this_week"`
+}
+
+type weekDTO struct {
+	Start   string `json:"start"`
+	Done    int    `json:"done"`
+	OnTime  int    `json:"on_time"`
+	Points  int    `json:"points"`
+	HandIns int    `json:"hand_ins"`
 }
 
 type certificateDTO struct {
@@ -57,7 +66,8 @@ func toCertificate(c domain.Certificate) certificateDTO {
 func toProgress(v app.ProgressView) progressDTO {
 	p := v.Progress
 	d := progressDTO{Released: p.Released, Done: p.Done, InReview: p.InReview, Overdue: p.Overdue, OnTime: p.OnTime, Points: p.Points,
-		DayNumber: p.DayNumber, Days: p.Days, CompletionPercent: p.CompletionPercent(), BarPercent: domain.CertificateBarPercent, MeetsBar: p.MeetsBar()}
+		DayNumber: p.DayNumber, Days: p.Days, CompletionPercent: p.CompletionPercent(), BarPercent: domain.CertificateBarPercent, MeetsBar: p.MeetsBar(),
+		ThisWeek: weekDTO{Start: v.WeekStart.Format(time.DateOnly), Done: v.Week.Done, OnTime: v.Week.OnTime, Points: v.Week.Points, HandIns: v.Week.HandIns}}
 	if v.Certificate != nil {
 		c := toCertificate(*v.Certificate)
 		d.Certificate = &c

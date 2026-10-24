@@ -304,6 +304,12 @@ export class ApiClient {
     return this.send("POST", `/v1/admin/staff/${seg(userId)}/revoke`, S.StaffMember);
   }
 
+  // ---- Weekly report ----
+
+  weeklyReport(week: string | null) {
+    return this.send("GET", "/v1/admin/reports/weekly", S.WeeklyReport, { query: { week } });
+  }
+
   // ---- Placement overview ----
 
   overview(q: string) {

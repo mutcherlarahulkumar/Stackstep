@@ -428,8 +428,50 @@ export const Progress = z.object({
   bar_percent: z.int(),
   meets_bar: z.boolean(),
   certificate: Certificate.nullable(),
+  this_week: z
+    .object({ start: z.iso.date(), done: z.int().min(0), on_time: z.int().min(0), points: z.int().min(0), hand_ins: z.int().min(0) })
+    .default({ start: "1970-01-05", done: 0, on_time: 0, points: 0, hand_ins: 0 }),
 });
 export type Progress = z.output<typeof Progress>;
+
+const ReportGroup = z.object({
+  cohort: z.string(),
+  college: z.string().nullable(),
+  students: z.int().min(0),
+  active: z.int().min(0),
+  done: z.int().min(0),
+  on_time_percent: z.int().min(0).max(100),
+  points: z.int().min(0),
+  hand_ins: z.int().min(0),
+  certificates: z.int().min(0),
+  inactive: z.int().min(0),
+  avg_completion: z.int().min(0).max(100),
+});
+export type ReportGroup = z.output<typeof ReportGroup>;
+
+const ReportStudent = z.object({
+  name: z.string(),
+  github_login: z.string(),
+  cohort: z.string(),
+  done: z.int().min(0),
+  points: z.int().min(0),
+  hand_ins: z.int().min(0),
+  overdue: z.int().min(0),
+  reason: z.string().nullable(),
+});
+export type ReportStudent = z.output<typeof ReportStudent>;
+
+export const WeeklyReport = z.object({
+  week_start: z.iso.date(),
+  week_end: z.iso.date(),
+  groups: z.array(ReportGroup),
+  totals: ReportGroup,
+  top: z.array(ReportStudent).max(5),
+  attention: z.array(ReportStudent).max(20),
+  truncated: z.boolean(),
+  generated_at: timestamp,
+});
+export type WeeklyReport = z.output<typeof WeeklyReport>;
 
 export const OverviewRow = z.object({
   student: Student,

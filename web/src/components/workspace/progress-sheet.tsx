@@ -48,6 +48,14 @@ function ProgressBody() {
   return <ProgressDetails p={q.data} />;
 }
 
+/** One encouraging, honest line about the week so far. */
+export function weekRecap(w: ProgressData["this_week"]): string {
+  if (w.done === 0 && w.hand_ins === 0) return "Nothing finished yet this week. Pick the task due soonest and send it in.";
+  if (w.done === 0) return `${w.hand_ins} ${w.hand_ins === 1 ? "hand-in" : "hand-ins"} waiting on review. Nice momentum.`;
+  if (w.on_time === w.done) return `${w.done} ${w.done === 1 ? "task" : "tasks"} finished, all on time. Keep it going.`;
+  return `${w.done} ${w.done === 1 ? "task" : "tasks"} finished, ${w.on_time} on time. Start the next one early to stay ahead.`;
+}
+
 export function ProgressDetails({ p }: { p: ProgressData }) {
   return (
     <div className="flex flex-col gap-5" data-testid="progress-details">
@@ -64,6 +72,15 @@ export function ProgressDetails({ p }: { p: ProgressData }) {
         </div>
         <p className="text-muted-foreground text-xs">
           {p.done} of {p.released} released tasks done. The certificate bar is {p.bar_percent}%.
+        </p>
+      </section>
+      <section aria-labelledby="this-week" className="bg-primary/5 flex flex-col gap-1 rounded-lg border p-4" data-testid="this-week">
+        <h3 id="this-week" className="text-sm font-medium">
+          This week
+        </h3>
+        <p className="text-sm">{weekRecap(p.this_week)}</p>
+        <p className="text-muted-foreground text-xs tabular-nums">
+          {p.this_week.done} finished · {p.this_week.on_time} on time · {p.this_week.points} points · {p.this_week.hand_ins} hand-ins
         </p>
       </section>
       <dl className="grid grid-cols-2 gap-2 text-sm">

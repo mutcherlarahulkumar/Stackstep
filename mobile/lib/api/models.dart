@@ -933,10 +933,12 @@ final class Progress {
     required this.barPercent,
     required this.meetsBar,
     required this.certificate,
+    this.thisWeek = const WeekRecap(done: 0, onTime: 0, points: 0, handIns: 0),
   });
 
   factory Progress.fromJson(JsonReader j) {
     final c = j.objectOrNull('certificate');
+    final w = j.objectOrNull('this_week');
     return Progress(
       released: j.integer('released'),
       done: j.integer('done'),
@@ -950,8 +952,12 @@ final class Progress {
       barPercent: j.integer('bar_percent'),
       meetsBar: j.boolean('meets_bar'),
       certificate: c == null ? null : Certificate.fromJson(c),
+      thisWeek: w == null ? const WeekRecap(done: 0, onTime: 0, points: 0, handIns: 0) : WeekRecap.fromJson(w),
     );
   }
+
+  /// Activity since Monday (UTC).
+  final WeekRecap thisWeek;
 
   final int released;
   final int done;
@@ -1000,4 +1006,23 @@ final class TaskNote {
   final String body;
   final bool shared;
   final DateTime? updatedAt;
+}
+
+/// What a student did this week.
+final class WeekRecap {
+  const WeekRecap({required this.done, required this.onTime, required this.points, required this.handIns});
+  factory WeekRecap.fromJson(JsonReader j) =>
+      WeekRecap(done: j.integer('done'), onTime: j.integer('on_time'), points: j.integer('points'), handIns: j.integer('hand_ins'));
+  final int done;
+  final int onTime;
+  final int points;
+  final int handIns;
+
+  /// One encouraging, honest line (same words as the web app).
+  String get line {
+    if (done == 0 && handIns == 0) return 'Nothing finished yet this week. Pick the task due soonest and send it in.';
+    if (done == 0) return '$handIns ${handIns == 1 ? 'hand-in' : 'hand-ins'} waiting on review. Nice momentum.';
+    if (onTime == done) return '$done ${done == 1 ? 'task' : 'tasks'} finished, all on time. Keep it going.';
+    return '$done ${done == 1 ? 'task' : 'tasks'} finished, $onTime on time. Start the next one early to stay ahead.';
+  }
 }

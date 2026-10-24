@@ -39,7 +39,7 @@ export function AppHeader({ user, children }: { user: User; children?: ReactNode
     }
   };
   return (
-    <header className="bg-background/85 sticky top-0 z-40 flex h-14 items-center gap-3 border-b px-4 backdrop-blur supports-backdrop-filter:bg-background/70 sm:px-6">
+    <header className="bg-background/85 sticky top-0 z-40 print:hidden flex h-14 items-center gap-3 border-b px-4 backdrop-blur supports-backdrop-filter:bg-background/70 sm:px-6">
       <Link href="/" className="rounded-md" aria-label="Stackstep home">
         <Wordmark />
       </Link>

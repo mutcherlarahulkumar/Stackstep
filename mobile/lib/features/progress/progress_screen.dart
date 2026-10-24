@@ -69,6 +69,27 @@ class ProgressDetails extends StatelessWidget {
           style: t.textTheme.muted.copyWith(fontSize: 12),
         ),
         const SizedBox(height: Space.lg),
+        ShadCard(
+          key: const Key('this-week'),
+          padding: const EdgeInsets.all(Space.lg),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Semantics(
+                header: true,
+                child: Text('This week', style: t.textTheme.small.copyWith(fontWeight: FontWeight.w600)),
+              ),
+              const SizedBox(height: Space.xs),
+              Text(p.thisWeek.line, style: t.textTheme.p),
+              const SizedBox(height: Space.xs),
+              Text(
+                '${p.thisWeek.done} finished · ${p.thisWeek.onTime} on time · ${p.thisWeek.points} points · ${p.thisWeek.handIns} hand-ins',
+                style: t.textTheme.muted.copyWith(fontSize: 12),
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(height: Space.lg),
         GridView.count(
           crossAxisCount: 2,
           shrinkWrap: true,

@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"time"
 
 	"github.com/google/uuid"
 
@@ -16,6 +17,9 @@ import (
 type ProgressView struct {
 	Progress    domain.Progress
 	Certificate *domain.Certificate
+	// Week is this week's activity (Monday 00:00 UTC onwards), for the recap.
+	Week      store.WeekStats
+	WeekStart time.Time
 }
 
 func (w *Workspace) progress(ctx context.Context, q store.Q, e domain.Enrollment) (ProgressView, error) {
@@ -26,7 +30,12 @@ func (w *Workspace) progress(ctx context.Context, q store.Q, e domain.Enrollment
 	}
 	p.DayNumber, p.Days = e.DayNumber(now), e.Program.Days
 	cert, err := store.ValidCertificateFor(ctx, q, e.ID)
-	return ProgressView{Progress: p, Certificate: cert}, err
+	if err != nil {
+		return ProgressView{}, err
+	}
+	start := domain.WeekStart(now)
+	week, err := store.WeeklyStats(ctx, q, []uuid.UUID{e.ID}, start, start.AddDate(0, 0, 7))
+	return ProgressView{Progress: p, Certificate: cert, Week: week[e.ID], WeekStart: start}, err
 }
 
 // MyProgress is the signed-in student's progress.
