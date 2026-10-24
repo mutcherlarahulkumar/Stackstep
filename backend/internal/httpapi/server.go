@@ -112,6 +112,9 @@ func (s *Server) Handler() http.Handler {
 
 	authed := v1.Group("", s.authenticate)
 	authed.GET("/me", s.me)
+	authed.GET("/me/export", s.exportMe)
+	authed.POST("/me/consent", s.consent)
+	authed.POST("/me/onboarded", s.onboarded)
 	authed.GET("/me/tasks", s.myTasks)
 	authed.GET("/me/threads", s.myThreads)
 	authed.GET("/me/threads/:persona/messages", s.myMessages)

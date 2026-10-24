@@ -18,6 +18,7 @@ import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { messageFor } from "@/lib/api/errors";
 import { type Overview, type OverviewRow, type Student } from "@/lib/api/schemas";
 import { formatCode } from "@/lib/certificate";
+import { saveBlob } from "@/lib/download";
 import { FILTER_LABEL, isOverviewFilter, lastActiveLabel, matchesFilter, NUDGE_DRAFT, OVERVIEW_FILTERS, sortRows, type OverviewFilter, type Sort, type SortKey } from "@/lib/overview";
 import { useSession } from "@/lib/session";
 import { cn } from "@/lib/utils";
@@ -49,12 +50,7 @@ function OverviewPage() {
     setExporting(true);
     try {
       const { blob, filename } = await api.exportOverview(q);
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement("a");
-      a.href = url;
-      a.download = filename;
-      a.click();
-      setTimeout(() => URL.revokeObjectURL(url), 1000);
+      saveBlob(blob, filename);
       toast.success(`Downloaded ${filename}`);
     } catch (e) {
       toast.error(messageFor(e));

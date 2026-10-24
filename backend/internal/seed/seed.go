@@ -60,10 +60,10 @@ func Run(ctx context.Context, q store.Q, now time.Time) error {
 	for _, p := range people {
 		var id uuid.UUID
 		err := q.QueryRow(ctx, `
-			INSERT INTO users (github_login, name, role, college_id, created_at, updated_at)
-			VALUES ($1, $2, $3, $4, $5, $5)
+			INSERT INTO users (github_login, name, role, college_id, created_at, updated_at, consent_version, consent_at, onboarded_at)
+			VALUES ($1, $2, $3, $4, $5, $5, $6, $5, $5)
 			ON CONFLICT ((lower(github_login))) DO UPDATE SET name = users.name
-			RETURNING id`, p.login, p.name, p.role, p.college, now).Scan(&id)
+			RETURNING id`, p.login, p.name, p.role, p.college, now, domain.TermsVersion).Scan(&id)
 		if err != nil {
 			return fmt.Errorf("user %s: %w", p.login, err)
 		}
@@ -83,27 +83,26 @@ func Run(ctx context.Context, q store.Q, now time.Time) error {
 		}
 	}
 
-	enroll := func(login string, cohort *uuid.UUID, status string) (uuid.UUID, error) {
+	enroll := func(login string, cohort *uuid.UUID, status string) error {
 		var id uuid.UUID
 		err := q.QueryRow(ctx, `SELECT id FROM enrollments WHERE user_id = $1 AND status IN ('active', 'paused')`, ids[login]).Scan(&id)
 		if err == nil {
-			return id, nil
+			return nil
 		}
-		err = q.QueryRow(ctx, `INSERT INTO enrollments (user_id, program_id, cohort_id, start_date, end_date, status)
-			VALUES ($1, $2, $3, $4, $5, $6) RETURNING id`, ids[login], programID, cohort, start, start.AddDate(0, 0, 29), status).Scan(&id)
-		return id, err
+		_, err = q.Exec(ctx, `INSERT INTO enrollments (user_id, program_id, cohort_id, start_date, end_date, status)
+			VALUES ($1, $2, $3, $4, $5, $6)`, ids[login], programID, cohort, start, start.AddDate(0, 0, 29), status)
+		return err
 	}
-	_, err := enroll(StudentLogin, &cohortID, "active")
-	if err != nil {
+	if err := enroll(StudentLogin, &cohortID, "active"); err != nil {
 		return fmt.Errorf("enroll asha: %w", err)
 	}
-	if _, err := enroll(Student2Login, &cohortID, "active"); err != nil {
+	if err := enroll(Student2Login, &cohortID, "active"); err != nil {
 		return fmt.Errorf("enroll ravi: %w", err)
 	}
-	if _, err := enroll(IndieStudentLogin, nil, "active"); err != nil {
+	if err := enroll(IndieStudentLogin, nil, "active"); err != nil {
 		return fmt.Errorf("enroll meera: %w", err)
 	}
-	if _, err := enroll(PausedLogin, &cohortID, "paused"); err != nil {
+	if err := enroll(PausedLogin, &cohortID, "paused"); err != nil {
 		return fmt.Errorf("enroll kiran: %w", err)
 	}
 

@@ -1,6 +1,7 @@
 "use client";
 
 import { CircleAlert, FlaskConical } from "lucide-react";
+import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useState } from "react";
 
@@ -70,7 +71,17 @@ export function LoginCard() {
           {busy === "github" ? <Spinner data-icon="inline-start" /> : <GitHubMark />}
           {busy === "github" ? "Opening GitHub…" : "Continue with GitHub"}
         </Button>
-        <p className="text-muted-foreground text-center text-xs">We read your GitHub profile and email only. Stackstep never pushes code to your repos.</p>
+        <p className="text-muted-foreground text-center text-xs">
+          We read your GitHub profile and email only. Stackstep never pushes code to your repos. See our{" "}
+          <Link href="/privacy" className="text-foreground underline underline-offset-4">
+            privacy notice
+          </Link>{" "}
+          and{" "}
+          <Link href="/terms" className="text-foreground underline underline-offset-4">
+            terms
+          </Link>
+          .
+        </p>
       </CardContent>
       {config?.devLogin ? (
         <CardFooter className="flex-col items-stretch gap-3">

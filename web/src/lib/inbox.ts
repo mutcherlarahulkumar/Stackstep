@@ -1,4 +1,4 @@
-import { type Message, type Thread } from "./api/schemas";
+import { type Message, type Persona, type Thread } from "./api/schemas";
 
 /** The seeded team lead; the server falls back to it when no persona is chosen. */
 export const DEFAULT_PERSONA_ID = "00000000-0000-4000-8000-000000000001";
@@ -59,4 +59,9 @@ export function inboxTimeLabel(at: Date, now: Date): string {
   if (days === 1) return "Yesterday";
   if (days < 7) return weekdayShort.format(at);
   return monthDay.format(at);
+}
+
+/** Honest label for who is behind a persona (shown under its name in chat). */
+export function personaTag(p: Pick<Persona, "auto_reply">): string {
+  return p.auto_reply ? "Mentor · some replies automatic" : "Played by a mentor";
 }

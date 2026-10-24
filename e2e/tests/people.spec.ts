@@ -1,6 +1,6 @@
 import { expect, test, type Page } from "@playwright/test";
 
-import { expectToast, openChat, signIn } from "./helpers";
+import { acceptConsent, expectToast, openChat, signIn } from "./helpers";
 
 const suffix = Date.now().toString(36);
 
@@ -74,7 +74,19 @@ test("people: colleges, cohorts, enroll by login, roster import, internship stat
   // The new student signs in (dev login stands in for GitHub) and is welcomed by the lead.
   const student = await (await browser.newContext({ viewport: { width: 1440, height: 900 } })).newPage();
   await devSignIn(student, login);
+  // First visit (AC1–AC3): accept the terms, then walk the four-step guide.
+  await acceptConsent(student);
+  const guide = student.getByTestId("onboarding");
+  await expect(guide).toContainText("Step 1 of 4");
+  for (let i = 0; i < 3; i++) await guide.getByTestId("onboarding-next").click();
+  await expect(guide).toContainText("Points, credits and the AI helper");
+  await guide.getByTestId("onboarding-done").click();
+  await expect(guide).toHaveCount(0);
+  await student.reload();
+  await expect(student.getByTestId("consent-accept")).toHaveCount(0);
+  await expect(student.getByTestId("onboarding")).toHaveCount(0);
   await openChat(student, "Sam Rivera");
+  await expect(student.getByTestId("persona-tag")).toBeVisible();
   await expect(student.getByRole("region", { name: "Conversation" }).getByText(/Welcome to Stackstep, Eesha/)).toBeVisible();
 
   // Pause from the student detail; the student sees it.
@@ -100,6 +112,7 @@ test("people: colleges, cohorts, enroll by login, roster import, internship stat
   const tpo = await (await browser.newContext({ viewport: { width: 1440, height: 900 } })).newPage();
   await tpo.request.post("/api/v1/auth/dev-login", { data: { github_login: `tpo-${suffix}` }, headers: { "X-Client": "web" } });
   await tpo.goto("/admin");
+  await acceptConsent(tpo);
   await expect(tpo.getByTestId(`student-${login}`)).toBeVisible();
   await expect(tpo.getByTestId("student-asha-dev")).toHaveCount(0);
 

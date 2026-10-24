@@ -1,7 +1,7 @@
 openapi: 3.1.0
 info:
   title: Stackstep API
-  version: 0.8.0
+  version: 0.9.0
   description: |
     Workspace core (feature 01). All timestamps are RFC 3339 UTC. All errors use the
     `Error` envelope; clients switch on `error.code`, never on `message`.
@@ -139,6 +139,52 @@ paths:
           content:
             application/json:
               schema: { $ref: "#/components/schemas/Me" }
+        "401": { $ref: "#/components/responses/Error" }
+  /v1/me/consent:
+    post:
+      tags: [student]
+      operationId: acceptTerms
+      summary: Accept the current privacy notice and terms (version must equal terms_version)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [version]
+              properties:
+                version: { type: integer, minimum: 1 }
+      responses:
+        "200":
+          description: Updated account state
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Account" }
+        "400": { $ref: "#/components/responses/Error" }
+        "401": { $ref: "#/components/responses/Error" }
+        "422": { $ref: "#/components/responses/Error" }
+  /v1/me/onboarded:
+    post:
+      tags: [student]
+      operationId: finishOnboarding
+      summary: Mark the first-run guide as seen (idempotent)
+      responses:
+        "200":
+          description: Updated account state
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Account" }
+        "401": { $ref: "#/components/responses/Error" }
+  /v1/me/export:
+    get:
+      tags: [student]
+      operationId: exportMyData
+      summary: Everything Stackstep holds about the caller, as a JSON download
+      responses:
+        "200":
+          description: "Sections: exported_at, profile, internships (tasks with hand-ins and quiz attempts, delivered chat, AI helper conversations, credits, points, certificates)"
+          content: { application/json: { schema: { type: object } } }
         "401": { $ref: "#/components/responses/Error" }
   /v1/me/tasks:
     get:
@@ -1268,13 +1314,21 @@ components:
                 version: { type: integer, minimum: 1 }
     Me:
       type: object
-      required: [user, enrollment]
+      required: [user, enrollment, account]
       properties:
         user: { $ref: "#/components/schemas/User" }
         enrollment:
           oneOf:
             - $ref: "#/components/schemas/Enrollment"
             - type: "null"
+        account: { $ref: "#/components/schemas/Account" }
+    Account:
+      type: object
+      required: [terms_version, consent_required, onboarded]
+      properties:
+        terms_version: { type: integer, description: Current terms version to send to acceptTerms }
+        consent_required: { type: boolean, description: True until the current terms are accepted }
+        onboarded: { type: boolean, description: True once the first-run guide was finished or skipped }
     Task:
       type: object
       required: [id, enrollment_id, type, title, brief, status, scheduled_for, due_at, version, created_at, updated_at, review_mode, persona_id, from_flow, content, submission, quiz_result]

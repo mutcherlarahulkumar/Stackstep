@@ -1,12 +1,12 @@
 "use client";
 
-import { ArrowLeft, CalendarX2, MessageCircle, RefreshCw, SquareKanban } from "lucide-react";
+import { ArrowLeft, Bot, CalendarX2, MessageCircle, RefreshCw, SquareKanban, UserRound } from "lucide-react";
 import { useState } from "react";
 
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { type Enrollment, type Me, type Persona } from "@/lib/api/schemas";
-import { totalUnread } from "@/lib/inbox";
+import { personaTag, totalUnread } from "@/lib/inbox";
 import { useStudentThreads } from "@/lib/inbox-queries";
 import { RealtimeProvider, useSocketStatus } from "@/lib/realtime-context";
 import { useSession } from "@/lib/session";
@@ -22,6 +22,7 @@ import { AI_THREAD, StudentThreadList } from "../chat/thread-list";
 import { AIHelper } from "../ai/ai-helper";
 import { WalletChips } from "../ai/wallet-chips";
 import { BoardPanel } from "./board-panel";
+import { OnboardingDialog } from "./onboarding-dialog";
 import { ProgressButton } from "./progress-sheet";
 import { useWorkspace } from "./use-workspace";
 
@@ -97,6 +98,7 @@ function Workspace({ me, enrollment }: { me: Me; enrollment: Enrollment }) {
         </div>
       </AppHeader>
       <ConnectionBanner status={socket} />
+      {me.account.onboarded ? null : <OnboardingDialog />}
       <main id="main" className="min-h-0 flex-1">
         <h1 className="sr-only">Your internship workspace</h1>
         {desktop === null ? null : desktop ? (
@@ -201,7 +203,14 @@ function ConversationHeader({ persona, onBack }: { persona: Persona; onBack?: ()
       <PersonaAvatar persona={persona} />
       <div className="min-w-0">
         <h2 className="truncate text-sm font-semibold">{persona.name}</h2>
-        <p className="text-muted-foreground truncate text-xs">{persona.title}</p>
+        <p className="text-muted-foreground flex min-w-0 items-center gap-1.5 text-xs">
+          <span className="truncate">{persona.title}</span>
+          <span aria-hidden>·</span>
+          <span className="inline-flex shrink-0 items-center gap-1" data-testid="persona-tag">
+            {persona.auto_reply ? <Bot className="size-3.5" aria-hidden /> : <UserRound className="size-3.5" aria-hidden />}
+            {personaTag(persona)}
+          </span>
+        </p>
       </div>
     </div>
   );

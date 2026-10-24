@@ -3,7 +3,7 @@ import { describe, expect, it } from "vitest";
 import { LEAD_ID, MANAGER_ID, message, persona, thread } from "@/test/fixtures";
 
 import { Message, Thread } from "./api/schemas";
-import { applyMessage, belongsTo, clearUnread, inboxTimeLabel, isMine, previewLine, totalUnread } from "./inbox";
+import { applyMessage, belongsTo, clearUnread, inboxTimeLabel, isMine, personaTag, previewLine, totalUnread } from "./inbox";
 
 const msg = (o: Record<string, unknown> = {}) => Message.parse(message(o));
 const th = (o: Record<string, unknown> = {}) => Thread.parse(thread(o));
@@ -55,5 +55,10 @@ describe("inbox", () => {
     expect(previewLine("line one\n\nline   two")).toBe("line one line two");
     expect([...previewLine("x".repeat(200))].length).toBe(90);
     expect(inboxTimeLabel(new Date(2026, 10, 3, 9), new Date(2026, 10, 4, 18))).toBe("Yesterday");
+  });
+
+  it("labels who is behind a persona", () => {
+    expect(personaTag({ auto_reply: true })).toBe("Mentor · some replies automatic");
+    expect(personaTag({ auto_reply: false })).toBe("Played by a mentor");
   });
 });

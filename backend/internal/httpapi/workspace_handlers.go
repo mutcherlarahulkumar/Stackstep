@@ -2,6 +2,7 @@ package httpapi
 
 import (
 	"net/http"
+	"time"
 
 	"github.com/gin-gonic/gin"
 
@@ -17,12 +18,52 @@ func (s *Server) me(c *gin.Context) {
 		s.fail(c, err)
 		return
 	}
-	out := meDTO{User: toUser(u)}
+	acct, err := s.workspace.Account(c.Request.Context(), u)
+	if err != nil {
+		s.fail(c, err)
+		return
+	}
+	out := meDTO{User: toUser(u), Account: toAccount(acct)}
 	if e != nil {
 		dto := toEnrollment(*e, s.clock.Now())
 		out.Enrollment = &dto
 	}
 	c.JSON(http.StatusOK, out)
+}
+
+func (s *Server) consent(c *gin.Context) {
+	var req consentReq
+	if err := decode(c, &req); err != nil {
+		s.fail(c, err)
+		return
+	}
+	a, err := s.workspace.Consent(c.Request.Context(), currentUser(c), req.Version)
+	if err != nil {
+		s.fail(c, err)
+		return
+	}
+	c.JSON(http.StatusOK, toAccount(a))
+}
+
+func (s *Server) onboarded(c *gin.Context) {
+	a, err := s.workspace.Onboarded(c.Request.Context(), currentUser(c))
+	if err != nil {
+		s.fail(c, err)
+		return
+	}
+	c.JSON(http.StatusOK, toAccount(a))
+}
+
+// exportMe sends the caller's data as a JSON download.
+func (s *Server) exportMe(c *gin.Context) {
+	b, err := s.workspace.Export(c.Request.Context(), currentUser(c))
+	if err != nil {
+		s.fail(c, err)
+		return
+	}
+	c.Header("Content-Disposition", `attachment; filename="stackstep-my-data-`+s.clock.Now().UTC().Format(time.DateOnly)+`.json"`)
+	c.Header("Cache-Control", "no-store")
+	c.Data(http.StatusOK, "application/json; charset=utf-8", b)
 }
 
 func (s *Server) myTasks(c *gin.Context) {

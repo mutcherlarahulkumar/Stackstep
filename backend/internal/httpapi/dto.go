@@ -227,6 +227,21 @@ func toMessage(m domain.Message) messageDTO {
 type meDTO struct {
 	User       userDTO        `json:"user"`
 	Enrollment *enrollmentDTO `json:"enrollment"`
+	Account    accountDTO     `json:"account"`
+}
+
+type accountDTO struct {
+	TermsVersion    int  `json:"terms_version"`
+	ConsentRequired bool `json:"consent_required"`
+	Onboarded       bool `json:"onboarded"`
+}
+
+func toAccount(a domain.Account) accountDTO {
+	return accountDTO{TermsVersion: domain.TermsVersion, ConsentRequired: a.NeedsConsent(), Onboarded: a.OnboardedAt != nil}
+}
+
+type consentReq struct {
+	Version int `json:"version"`
 }
 
 type tokensDTO struct {

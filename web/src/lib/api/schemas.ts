@@ -93,7 +93,10 @@ export const Enrollment = z.object({
 });
 export type Enrollment = z.output<typeof Enrollment>;
 
-export const Me = z.object({ user: User, enrollment: Enrollment.nullable() });
+export const Account = z.object({ terms_version: z.int().min(1), consent_required: z.boolean(), onboarded: z.boolean() });
+export type Account = z.output<typeof Account>;
+
+export const Me = z.object({ user: User, enrollment: Enrollment.nullable(), account: Account });
 export type Me = z.output<typeof Me>;
 
 export const Resource = z.object({ title: z.string().min(1).max(80), url: z.string().min(1).max(2048) });

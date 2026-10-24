@@ -8,6 +8,7 @@ import { type Me } from "@/lib/api/schemas";
 import { homeFor, useSession } from "@/lib/session";
 
 import { BrandMark } from "./brand";
+import { ConsentScreen } from "./consent-screen";
 import { Quip } from "./loading";
 
 export function FullPageLoader() {
@@ -45,5 +46,6 @@ export function RequireSession({ audience, children }: { audience: "student" | "
   }, [router, target]);
 
   if (state.status !== "signed_in" || target) return <FullPageLoader />;
+  if (state.me.account.consent_required) return <ConsentScreen me={state.me} />;
   return children(state.me);
 }

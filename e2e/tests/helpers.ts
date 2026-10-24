@@ -35,3 +35,11 @@ export async function api<T>(request: APIRequestContext, token: string, method: 
   if (!res.ok()) throw new Error(`${method} ${path} → ${res.status()} ${await res.text()}`);
   return (await res.json()) as T;
 }
+
+/** First sign-in: accept the privacy notice and terms (the button waits for the checkbox). */
+export async function acceptConsent(page: Page) {
+  await expect(page.getByTestId("consent-accept")).toBeDisabled();
+  await page.getByTestId("consent-check").click();
+  await page.getByTestId("consent-accept").click();
+  await expect(page.getByTestId("consent-accept")).toHaveCount(0);
+}

@@ -4,7 +4,7 @@ import { createContext, useCallback, useContext, useEffect, useMemo, useState, t
 
 import { ApiClient } from "./api/client";
 import { ApiError, messageFor, NetworkError } from "./api/errors";
-import { RuntimeConfig, type Me } from "./api/schemas";
+import { RuntimeConfig, type Account, type Me } from "./api/schemas";
 
 export type SessionState =
   | { status: "loading" }
@@ -18,6 +18,8 @@ type SessionValue = {
   devLogin: (login: string) => Promise<string | null>;
   signOut: () => Promise<void>;
   reloadMe: () => Promise<void>;
+  /** Applies a fresh account state (consent, onboarding) without refetching /me. */
+  setAccount: (account: Account) => void;
 };
 
 const SessionContext = createContext<SessionValue | null>(null);
@@ -91,7 +93,14 @@ export function SessionProvider({ children, client }: { children: ReactNode; cli
     }
   }, [loadMe]);
 
-  const value = useMemo(() => ({ state, api, config, devLogin, signOut, reloadMe }), [state, api, config, devLogin, signOut, reloadMe]);
+  const setAccount = useCallback((account: Account) => {
+    setState((s) => (s.status === "signed_in" ? { status: "signed_in", me: { ...s.me, account } } : s));
+  }, []);
+
+  const value = useMemo(
+    () => ({ state, api, config, devLogin, signOut, reloadMe, setAccount }),
+    [state, api, config, devLogin, signOut, reloadMe, setAccount],
+  );
   return <SessionContext value={value}>{children}</SessionContext>;
 }
 

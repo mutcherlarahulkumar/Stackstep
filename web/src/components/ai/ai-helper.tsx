@@ -1,7 +1,8 @@
 "use client";
 
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { ArrowLeft, Clock, Coins, Lightbulb, Lock, MessageSquarePlus, Send, Sparkles } from "lucide-react";
+import { ArrowLeft, Clock, Coins, Eye, Lightbulb, Lock, MessageSquarePlus, Send, Sparkles } from "lucide-react";
+import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 
@@ -163,6 +164,15 @@ function HowToUse() {
       <p className="text-muted-foreground mt-1 text-sm">
         Spend some time on the problem yourself first: read the error, check the docs, try one fix. Then explain everything in one go. A clear
         question gets a useful hint the first time and saves your credits.
+      </p>
+      <p className="text-muted-foreground mt-2 flex items-start gap-1.5 text-xs" data-testid="ai-privacy-note">
+        <Eye className="mt-0.5 size-3.5 shrink-0" aria-hidden />
+        <span>
+          Mentors can read your helper chats. Questions are sent to an AI provider, so don&apos;t paste passwords, keys or personal details.{" "}
+          <Link href="/privacy" target="_blank" className="underline underline-offset-4">
+            Privacy
+          </Link>
+        </span>
       </p>
       <ul className="mt-3 grid gap-2 sm:grid-cols-2">
         {PROMPT_TIPS.map((t) => (
