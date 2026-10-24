@@ -1,0 +1,46 @@
+name: Database · seed admins
+
+# Makes GitHub users platform admins on a deployed database, and nothing else: no demo
+# students, flows or personas (only the default team lead, which the app needs). Accounts that
+# have never signed in are created and linked on their first GitHub sign-in. Safe to re-run.
+on:
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: GitHub environment whose DATABASE_URL secret to use
+        type: environment
+        required: true
+        default: production
+      logins:
+        description: GitHub usernames, comma-separated (e.g. alice,bob)
+        type: string
+        required: true
+
+permissions:
+  contents: read
+
+concurrency:
+  group: database-${{ inputs.environment }}
+  cancel-in-progress: false
+
+jobs:
+  admins:
+    name: Seed admins
+    runs-on: ubuntu-24.04
+    environment: ${{ inputs.environment }}
+    defaults:
+      run:
+        working-directory: backend
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-go@v7
+        with:
+          go-version-file: backend/go.mod
+          cache-dependency-path: backend/go.sum
+      - name: Seed admins
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+          LOGINS: ${{ inputs.logins }}
+        run: |
+          if [ -z "$DATABASE_URL" ]; then echo "::error::Add a DATABASE_URL secret to the '${{ inputs.environment }}' environment."; exit 1; fi
+          go run ./cmd/dbadmin admins -logins "$LOGINS" | tee -a "$GITHUB_STEP_SUMMARY"

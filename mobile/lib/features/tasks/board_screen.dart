@@ -11,9 +11,11 @@ import 'package:stackstep/core/providers.dart';
 import 'package:stackstep/core/theme.dart';
 import 'package:stackstep/features/chat/inbox_controller.dart';
 import 'package:stackstep/features/tasks/board_controller.dart';
+import 'package:stackstep/features/tasks/task_notes.dart';
 import 'package:stackstep/features/tasks/task_work.dart';
 import 'package:stackstep/shared/errors.dart';
 import 'package:stackstep/shared/format.dart';
+import 'package:stackstep/shared/motion.dart';
 import 'package:stackstep/shared/state_views.dart';
 import 'package:stackstep/ui/ui.dart';
 
@@ -59,11 +61,13 @@ class _BoardScreenState extends ConsumerState<BoardScreen> {
       if (next.hasValue) _maybeFocus();
     });
     final board = ref.watch(boardProvider);
-    return switch (board) {
-      AsyncData(:final value) => _Board(groups: groupBoard(value), column: _column, onColumn: (c) => setState(() => _column = c)),
-      AsyncError(:final error) => ErrorState(message: messageFor(error), onRetry: () => ref.invalidate(boardProvider)),
-      _ => const SkeletonList(),
-    };
+    return FadeSwitch(
+      child: switch (board) {
+        AsyncData(:final value) => _Board(groups: groupBoard(value), column: _column, onColumn: (c) => setState(() => _column = c)),
+        AsyncError(:final error) => ErrorState(message: messageFor(error), onRetry: () => ref.invalidate(boardProvider)),
+        _ => const SkeletonList(),
+      },
+    );
   }
 }
 
@@ -192,7 +196,7 @@ class TaskCard extends ConsumerWidget {
     return Semantics(
       button: true,
       label:
-          '${task.type.label}: ${task.title}. ${task.status.label}. ${dueLabel(task.dueAt, now)}${persona == null ? '' : '. From ${persona.name}'}',
+          '${task.type.label}: ${task.title}. ${task.status.label}. ${taskTimeLabel(task, now)}${persona == null ? '' : '. From ${persona.name}'}',
       child: ShadCard(
         padding: EdgeInsets.zero,
         child: InkWell(
@@ -216,7 +220,7 @@ class TaskCard extends ConsumerWidget {
                     ),
                     const SizedBox(width: 6),
                     Text(
-                      dueLabel(task.dueAt, now),
+                      taskTimeLabel(task, now),
                       style: t.textTheme.small.copyWith(
                         color: overdue ? t.colorScheme.destructive : t.colorScheme.mutedForeground,
                         fontWeight: overdue ? FontWeight.w600 : FontWeight.w400,
@@ -262,7 +266,7 @@ String _nextStepHint(Task task) => switch (task.status) {
   TaskStatus.inProgress when task.reviewMode == ReviewMode.self => 'No review needed. Mark it done once you’ve finished.',
   TaskStatus.todo => 'Create a branch for this ticket, then tap Start working.',
   TaskStatus.inProgress => 'Push your branch and open a PR, then submit it for review.',
-  TaskStatus.inReview => 'Your lead is reviewing. Pick up a smaller task while you wait.',
+  TaskStatus.inReview => "Reviews usually come back within a day, in this task's chat. Pick up a smaller task while you wait.",
   TaskStatus.changesRequested => 'Read the review in chat, push fixes to the same branch, then resubmit.',
   TaskStatus.done => 'Approved. Merge your PR if you haven’t yet.',
   TaskStatus.cancelled => 'This task was cancelled. No action needed.',
@@ -347,7 +351,12 @@ class _TaskSheetState extends ConsumerState<TaskSheet> {
             children: [
               Icon(LucideIcons.calendarClock, size: 14, color: t.colorScheme.mutedForeground),
               const SizedBox(width: 6),
-              Text('${dueLabel(task.dueAt, now)} · ${dateTimeLabel(task.dueAt)}', style: t.textTheme.muted),
+              Text(
+                task.status == TaskStatus.done || task.status == TaskStatus.cancelled
+                    ? taskTimeLabel(task, now)
+                    : '${dueLabel(task.dueAt, now)} · ${dateTimeLabel(task.dueAt)}',
+                style: t.textTheme.muted,
+              ),
             ],
           ),
           const SizedBox(height: Space.lg),
@@ -360,6 +369,7 @@ class _TaskSheetState extends ConsumerState<TaskSheet> {
           else
             SelectableText(task.brief, style: t.textTheme.p.copyWith(height: 1.55)),
           ResourceLinks(resources: task.content.resources),
+          if (task.content.rubric.isNotEmpty) RubricCard(criteria: task.content.rubric, ticks: task.submission?.rubric),
           if (task.submission case final sub?) SubmissionCard(submission: sub),
           if (task.isQuiz) QuizPlayer(key: ValueKey('quiz-${task.version}'), task: task, onGraded: ref.read(boardProvider.notifier).apply),
           const SizedBox(height: Space.xl),
@@ -390,6 +400,9 @@ class _TaskSheetState extends ConsumerState<TaskSheet> {
               ),
             const SizedBox(height: Space.sm),
           ],
+          if (task.content.practice case final p? when task.type == TaskType.dsa) PracticeCard(practice: p),
+          TaskNotesSection(taskId: task.id),
+          const SizedBox(height: Space.xl),
         ],
       ),
     );

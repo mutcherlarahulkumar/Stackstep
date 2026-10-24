@@ -41,6 +41,9 @@ export const CreditReason = z.enum(CREDIT_REASONS);
 export type CreditReason = z.infer<typeof CreditReason>;
 export const CERTIFICATE_STATUSES = ["valid", "revoked"] as const;
 export const CertificateStatus = z.enum(CERTIFICATE_STATUSES);
+export const COHORT_KINDS = ["group", "college"] as const;
+export const CohortKind = z.enum(COHORT_KINDS);
+export type CohortKind = z.infer<typeof CohortKind>;
 export type CertificateStatus = z.infer<typeof CertificateStatus>;
 
 export const Role = z.enum(ROLES);
@@ -90,7 +93,10 @@ export const Enrollment = z.object({
 });
 export type Enrollment = z.output<typeof Enrollment>;
 
-export const Me = z.object({ user: User, enrollment: Enrollment.nullable() });
+export const Account = z.object({ terms_version: z.int().min(1), consent_required: z.boolean(), onboarded: z.boolean() });
+export type Account = z.output<typeof Account>;
+
+export const Me = z.object({ user: User, enrollment: Enrollment.nullable(), account: Account });
 export type Me = z.output<typeof Me>;
 
 export const Resource = z.object({ title: z.string().min(1).max(80), url: z.string().min(1).max(2048) });
@@ -107,10 +113,30 @@ export type QuizQuestion = z.output<typeof QuizQuestion>;
 export const Quiz = z.object({ questions: z.array(QuizQuestion).min(1).max(20), pass_percent: z.int().min(1).max(100) });
 export type Quiz = z.output<typeof Quiz>;
 
-export const TaskContent = z.object({ resources: z.array(Resource).max(5), quiz: Quiz.nullable() });
+export const PracticeTest = z.object({ args: z.array(z.unknown()), expected: z.unknown() });
+export const Practice = z.object({
+  function_name: z.string().regex(/^[A-Za-z_$][A-Za-z0-9_$]{0,39}$/),
+  starter: z.string().max(4000),
+  tests: z.array(PracticeTest).min(1).max(10),
+});
+export type Practice = z.output<typeof Practice>;
+
+export const TaskContent = z.object({ resources: z.array(Resource).max(5), quiz: Quiz.nullable(), practice: Practice.nullable().default(null), rubric: z.array(z.string()).max(8).default([]) });
 export type TaskContent = z.output<typeof TaskContent>;
 
-export const Submission = z.object({ attempt: z.int().min(1), url: z.string().nullable(), note: z.string(), submitted_at: timestamp });
+export const HAND_IN_CHECK_CODES = ["foreign_repo", "reused_link"] as const;
+export const HandInCheckCode = z.enum(HAND_IN_CHECK_CODES);
+export const HandInCheck = z.object({ code: HandInCheckCode, message: z.string() });
+export type HandInCheck = z.output<typeof HandInCheck>;
+export const Submission = z.object({
+  attempt: z.int().min(1),
+  url: z.string().nullable(),
+  note: z.string(),
+  submitted_at: timestamp,
+  checks: z.array(HandInCheck),
+  rubric: z.array(z.boolean()).nullable().default(null),
+  reviewed_at: timestamp.nullable().default(null),
+});
 export type Submission = z.output<typeof Submission>;
 
 export const QuizStats = z.object({
@@ -119,6 +145,7 @@ export const QuizStats = z.object({
   best_score: z.int().min(0).max(100),
   passed: z.boolean(),
   last_correct: z.array(z.boolean()),
+  last_answers: z.array(z.int().min(0)),
 });
 export type QuizStats = z.output<typeof QuizStats>;
 
@@ -130,6 +157,9 @@ export const QuizAttemptResult = z.object({
   attempts_left: z.int().min(0).max(2),
 });
 export type QuizAttemptResult = z.output<typeof QuizAttemptResult>;
+
+export const TaskNote = z.object({ body: z.string().max(20000), shared: z.boolean(), updated_at: timestamp.nullable() });
+export type TaskNote = z.output<typeof TaskNote>;
 
 export const Task = z.object({
   id: z.uuid(),
@@ -149,6 +179,7 @@ export const Task = z.object({
   content: TaskContent,
   submission: Submission.nullable(),
   quiz_result: QuizStats.nullable(),
+  shared_note: TaskNote.nullable(),
 });
 export type Task = z.output<typeof Task>;
 
@@ -305,7 +336,7 @@ export const Frame = z.discriminatedUnion("type", [
 ]);
 export type Frame = z.output<typeof Frame>;
 
-export const RuntimeConfig = z.object({ wsUrl: z.string().min(1), devLogin: z.boolean() });
+export const RuntimeConfig = z.object({ wsUrl: z.string().min(1) });
 export type RuntimeConfig = z.output<typeof RuntimeConfig>;
 
 export const CreditEntry = z.object({
@@ -397,8 +428,50 @@ export const Progress = z.object({
   bar_percent: z.int(),
   meets_bar: z.boolean(),
   certificate: Certificate.nullable(),
+  this_week: z
+    .object({ start: z.iso.date(), done: z.int().min(0), on_time: z.int().min(0), points: z.int().min(0), hand_ins: z.int().min(0) })
+    .default({ start: "1970-01-05", done: 0, on_time: 0, points: 0, hand_ins: 0 }),
 });
 export type Progress = z.output<typeof Progress>;
+
+const ReportGroup = z.object({
+  cohort: z.string(),
+  college: z.string().nullable(),
+  students: z.int().min(0),
+  active: z.int().min(0),
+  done: z.int().min(0),
+  on_time_percent: z.int().min(0).max(100),
+  points: z.int().min(0),
+  hand_ins: z.int().min(0),
+  certificates: z.int().min(0),
+  inactive: z.int().min(0),
+  avg_completion: z.int().min(0).max(100),
+});
+export type ReportGroup = z.output<typeof ReportGroup>;
+
+const ReportStudent = z.object({
+  name: z.string(),
+  github_login: z.string(),
+  cohort: z.string(),
+  done: z.int().min(0),
+  points: z.int().min(0),
+  hand_ins: z.int().min(0),
+  overdue: z.int().min(0),
+  reason: z.string().nullable(),
+});
+export type ReportStudent = z.output<typeof ReportStudent>;
+
+export const WeeklyReport = z.object({
+  week_start: z.iso.date(),
+  week_end: z.iso.date(),
+  groups: z.array(ReportGroup),
+  totals: ReportGroup,
+  top: z.array(ReportStudent).max(5),
+  attention: z.array(ReportStudent).max(20),
+  truncated: z.boolean(),
+  generated_at: timestamp,
+});
+export type WeeklyReport = z.output<typeof WeeklyReport>;
 
 export const OverviewRow = z.object({
   student: Student,
@@ -430,3 +503,53 @@ export const Overview = z.object({
   generated_at: timestamp,
 });
 export type Overview = z.output<typeof Overview>;
+
+export const Program = z.object({ slug: z.string(), days: z.union([z.literal(30), z.literal(60)]), track: z.enum(["frontend", "fullstack"]) });
+export type Program = z.output<typeof Program>;
+export const ProgramList = z.object({ items: z.array(Program) });
+
+export const College = z.object({
+  id: z.uuid(),
+  name: z.string(),
+  students: z.int().min(0),
+  cohorts: z.int().min(0),
+  college_admins: z.int().min(0),
+  created_at: timestamp,
+});
+export type College = z.output<typeof College>;
+export const CollegeList = z.object({ items: z.array(College) });
+
+export const Cohort = z.object({
+  id: z.uuid(),
+  kind: CohortKind,
+  name: z.string(),
+  college_id: z.uuid().nullable(),
+  college_name: z.string().nullable(),
+  program: Program,
+  start_date: date,
+  seats_total: z.int().min(1),
+  seats_used: z.int().min(0),
+});
+export type Cohort = z.output<typeof Cohort>;
+export const CohortList = z.object({ items: z.array(Cohort) });
+
+export const EnrollResult = z.object({ student: Student, user_created: z.boolean() });
+export type EnrollResult = z.output<typeof EnrollResult>;
+
+export const ImportResult = z.object({
+  created: z.int().min(0),
+  items: z.array(z.object({ github_login: z.string(), student: Student.nullable(), user_created: z.boolean(), error: ItemError.nullable() })),
+});
+export type ImportResult = z.output<typeof ImportResult>;
+
+export const StaffMember = z.object({ user: User, college_name: z.string().nullable(), signed_in: z.boolean() });
+export type StaffMember = z.output<typeof StaffMember>;
+export const StaffList = z.object({ items: z.array(StaffMember) });
+
+export const ReviewQueue = z.object({
+  items: z.array(z.object({ task: Task, student: User, waiting_hours: z.int().min(0), overdue: z.boolean() })),
+  overdue: z.int().min(0),
+  sla_hours: z.int(),
+});
+export type ReviewQueue = z.output<typeof ReviewQueue>;
+export type ReviewItem = ReviewQueue["items"][number];

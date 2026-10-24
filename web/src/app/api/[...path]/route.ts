@@ -39,6 +39,14 @@ async function proxy(req: NextRequest, ctx: { params: Promise<{ path: string[] }
   const forwardedFor = req.headers.get("x-forwarded-for");
   const clientIp = forwardedFor?.split(",")[0]?.trim();
   if (clientIp) headers.set("x-forwarded-for", clientIp);
+  // Vouch for the visitor's address so the API rate-limits per student, not per proxy.
+  headers.delete("x-proxy-secret");
+  headers.delete("x-client-ip");
+  const secret = process.env.PROXY_SHARED_SECRET;
+  if (secret && clientIp) {
+    headers.set("x-proxy-secret", secret);
+    headers.set("x-client-ip", clientIp);
+  }
   headers.set("x-forwarded-host", req.headers.get("host") ?? "");
   headers.set("x-forwarded-proto", req.nextUrl.protocol.replace(":", ""));
 

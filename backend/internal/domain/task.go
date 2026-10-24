@@ -125,6 +125,8 @@ type Task struct {
 	// Loaded separately (store.EnrichTasks); nil when there is none.
 	Submission *SubmissionRecord
 	Quiz       *QuizStats
+	// SharedNote is the student's note when they shared it; staff views only.
+	SharedNote *TaskNote
 }
 
 // SubmissionRecord is the latest hand-in of a task.
@@ -134,6 +136,9 @@ type SubmissionRecord struct {
 	Note             string
 	SubmittedAt      time.Time
 	FirstSubmittedAt time.Time
+	Checks           []HandInCheck // reviewer warnings; filled for staff views only
+	Rubric           []bool        // the reviewer's ticks for this hand-in, nil until reviewed with a rubric
+	ReviewedAt       *time.Time
 }
 
 // QuizStats summarizes a student's attempts at a quiz task.
@@ -143,6 +148,8 @@ type QuizStats struct {
 	Passed    bool
 	// LastCorrect marks which questions the latest attempt got right.
 	LastCorrect []bool
+	// LastAnswers are the options picked in the latest attempt (the student's own answers).
+	LastAnswers []int
 }
 
 // Finished reports whether the quiz accepts no more attempts.

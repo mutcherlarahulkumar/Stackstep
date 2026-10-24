@@ -10,10 +10,6 @@ abstract final class AppConfig {
   static const webBaseUrl = String.fromEnvironment('WEB_BASE_URL', defaultValue: 'https://stackstep.app');
   static const webConsoleUrl = String.fromEnvironment('WEB_CONSOLE_URL', defaultValue: 'https://stackstep.app/admin');
 
-  /// Dev login is compiled in only for debug builds, or when explicitly enabled for QA builds.
-  static const _devLoginFlag = bool.fromEnvironment('DEV_LOGIN');
-  static bool get devLoginEnabled => kDebugMode || _devLoginFlag;
-
   static Uri get apiBaseUrl {
     if (_apiOverride.isNotEmpty) return Uri.parse(_apiOverride);
     // The Android emulator reaches the host machine on 10.0.2.2.
@@ -27,6 +23,9 @@ abstract final class AppConfig {
   }
 
   static String verifyUrl(String code) => '${webBaseUrl.replaceAll(RegExp(r'/+$'), '')}/verify/${Uri.encodeComponent(code)}';
+
+  /// A page on the public web app, e.g. webUrl('/privacy').
+  static String webUrl(String path) => '${webBaseUrl.replaceAll(RegExp(r'/+$'), '')}$path';
 
   static const callbackScheme = 'stackstep';
 }

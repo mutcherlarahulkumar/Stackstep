@@ -3,8 +3,8 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
 
 import { ApiClient } from "./api/client";
-import { ApiError, messageFor, NetworkError } from "./api/errors";
-import { RuntimeConfig, type Me } from "./api/schemas";
+import { messageFor, NetworkError } from "./api/errors";
+import { RuntimeConfig, type Account, type Me } from "./api/schemas";
 
 export type SessionState =
   | { status: "loading" }
@@ -15,14 +15,15 @@ type SessionValue = {
   state: SessionState;
   api: ApiClient;
   config: RuntimeConfig | null;
-  devLogin: (login: string) => Promise<string | null>;
   signOut: () => Promise<void>;
   reloadMe: () => Promise<void>;
+  /** Applies a fresh account state (consent, onboarding) without refetching /me. */
+  setAccount: (account: Account) => void;
 };
 
 const SessionContext = createContext<SessionValue | null>(null);
 
-const FALLBACK_CONFIG: RuntimeConfig = { wsUrl: "ws://localhost:8080/v1/ws", devLogin: false };
+const FALLBACK_CONFIG: RuntimeConfig = { wsUrl: "ws://localhost:8080/v1/ws" };
 
 export function SessionProvider({ children, client }: { children: ReactNode; client?: ApiClient }) {
   const [api] = useState(() => client ?? new ApiClient());
@@ -64,20 +65,6 @@ export function SessionProvider({ children, client }: { children: ReactNode; cli
     };
   }, [api]);
 
-  const devLogin = useCallback(
-    async (login: string) => {
-      try {
-        await api.devLogin(login);
-        await loadMe();
-        return null;
-      } catch (e) {
-        if (e instanceof ApiError && e.code === "validation_failed") return Object.values(e.fields)[0] ?? messageFor(e);
-        return messageFor(e);
-      }
-    },
-    [api, loadMe],
-  );
-
   const signOut = useCallback(async () => {
     await api.logout();
     setState({ status: "signed_out", message: null });
@@ -91,7 +78,14 @@ export function SessionProvider({ children, client }: { children: ReactNode; cli
     }
   }, [loadMe]);
 
-  const value = useMemo(() => ({ state, api, config, devLogin, signOut, reloadMe }), [state, api, config, devLogin, signOut, reloadMe]);
+  const setAccount = useCallback((account: Account) => {
+    setState((s) => (s.status === "signed_in" ? { status: "signed_in", me: { ...s.me, account } } : s));
+  }, []);
+
+  const value = useMemo(
+    () => ({ state, api, config, signOut, reloadMe, setAccount }),
+    [state, api, config, signOut, reloadMe, setAccount],
+  );
   return <SessionContext value={value}>{children}</SessionContext>;
 }
 

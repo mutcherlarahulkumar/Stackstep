@@ -7,10 +7,10 @@ import { cn } from "@/lib/utils";
 export const PERSONA_BG: Record<PersonaColor, string> = {
   violet: "bg-violet-600",
   blue: "bg-blue-600",
-  emerald: "bg-emerald-600",
-  amber: "bg-amber-600",
+  emerald: "bg-emerald-700",
+  amber: "bg-amber-700",
   rose: "bg-rose-600",
-  cyan: "bg-cyan-600",
+  cyan: "bg-cyan-700",
   slate: "bg-slate-600",
 };
 
@@ -20,7 +20,8 @@ type Size = "sm" | "default" | "lg";
 
 export function PersonaAvatar({ persona, size = "default", className }: { persona: { name: string; color: PersonaColor }; size?: Size; className?: string }) {
   return (
-    <Avatar size={size} className={className}>
+    // Decorative: the persona's name is always shown next to it, so initials would only repeat it.
+    <Avatar size={size} className={className} aria-hidden>
       <AvatarFallback className={cn("font-medium text-white", PERSONA_BG[persona.color])}>{initials(persona.name, "?")}</AvatarFallback>
     </Avatar>
   );

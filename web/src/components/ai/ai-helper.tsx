@@ -1,8 +1,9 @@
 "use client";
 
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { ArrowLeft, Clock, Coins, Lightbulb, Lock, MessageSquarePlus, Send, Sparkles } from "lucide-react";
-import { useRef, useState } from "react";
+import { ArrowLeft, Clock, Coins, Eye, Lightbulb, Lock, MessageSquarePlus, Send, Sparkles } from "lucide-react";
+import Link from "next/link";
+import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
@@ -25,6 +26,7 @@ import { aiConversationsKey, useWallet, walletKey } from "@/lib/wallet-queries";
 
 import { EmptyState, ErrorState, ListSkeleton } from "../app/state";
 import { SafeMarkdown } from "./markdown";
+import { Quip } from "../app/loading";
 
 export function AIAvatar({ size = "default" }: { size?: "sm" | "default" | "lg" }) {
   return (
@@ -162,6 +164,15 @@ function HowToUse() {
       <p className="text-muted-foreground mt-1 text-sm">
         Spend some time on the problem yourself first: read the error, check the docs, try one fix. Then explain everything in one go. A clear
         question gets a useful hint the first time and saves your credits.
+      </p>
+      <p className="text-muted-foreground mt-2 flex items-start gap-1.5 text-xs" data-testid="ai-privacy-note">
+        <Eye className="mt-0.5 size-3.5 shrink-0" aria-hidden />
+        <span>
+          Mentors can read your helper chats. Questions are sent to an AI provider, so don&apos;t paste passwords, keys or personal details.{" "}
+          <Link href="/privacy" target="_blank" className="underline underline-offset-4">
+            Privacy
+          </Link>
+        </span>
       </p>
       <ul className="mt-3 grid gap-2 sm:grid-cols-2">
         {PROMPT_TIPS.map((t) => (
@@ -315,6 +326,7 @@ function QuestionForm({ tasks, wallet, onAsked }: { tasks: readonly Task[]; wall
             {wallet.credits.balance} credits · {Math.max(0, wallet.ai.daily_limit - wallet.ai.used_today)} questions left today
           </span>
         </div>
+        {busy ? <AIThinking /> : null}
       </form>
     </div>
   );
@@ -490,6 +502,25 @@ function FollowUp({ detail }: { detail: AIConversationDetail }) {
           {detail.follow_ups_left} follow-up{detail.follow_ups_left === 1 ? "" : "s"} left · {w.credits.balance} credits
         </span>
       </div>
+      {busy ? <AIThinking /> : null}
     </form>
+  );
+}
+
+/** Shown while Groq answers: typing dots and a rotating line, so the wait feels alive. */
+function AIThinking() {
+  const ref = useRef<HTMLDivElement>(null);
+  // The card appears under a long form; bring it into view so the wait is visible.
+  useEffect(() => ref.current?.scrollIntoView({ block: "nearest", behavior: "smooth" }), []);
+  return (
+    <div ref={ref} role="status" aria-label="The AI helper is thinking" className="animate-enter bg-muted/40 flex items-center gap-3 rounded-xl border p-3" data-testid="ai-thinking">
+      <AIAvatar size="sm" />
+      <span className="flex items-center gap-1" aria-hidden>
+        {[0, 1, 2].map((i) => (
+          <span key={i} className="bg-foreground/40 size-1.5 animate-bounce rounded-full" style={{ animationDelay: `${i * 150}ms` }} />
+        ))}
+      </span>
+      <Quip className="flex-1 text-left" seed={7} />
+    </div>
   );
 }

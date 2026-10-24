@@ -37,6 +37,7 @@ Json progressJson({Json? certificate}) => {
   'completion_percent': 80,
   'bar_percent': 70,
   'meets_bar': true,
+  'this_week': {'start': '2026-11-02', 'done': 2, 'on_time': 2, 'points': 50, 'hand_ins': 1},
   'certificate': certificate,
 };
 
@@ -55,19 +56,32 @@ void main() {
     expect(() => Certificate.fromJson(JsonReader(certificateJson(status: 'expired'))), throwsA(isA<ContractViolation>()));
   });
 
+  test('week recap lines match the web app (WR5)', () {
+    expect(const WeekRecap(done: 0, onTime: 0, points: 0, handIns: 0).line, startsWith('Nothing finished yet'));
+    expect(const WeekRecap(done: 0, onTime: 0, points: 0, handIns: 1).line, startsWith('1 hand-in waiting'));
+    expect(const WeekRecap(done: 3, onTime: 1, points: 0, handIns: 0).line, startsWith('3 tasks finished, 1 on time'));
+  });
+
   test('verification links point at the web app', () {
     expect(AppConfig.verifyUrl('ABCDEFGHJK23'), endsWith('/verify/ABCDEFGHJK23'));
   });
 
   testWidgets('before a certificate: the bar and who issues it', (tester) async {
+    tester.view.physicalSize = const Size(1080, 3200);
+    tester.view.devicePixelRatio = 2;
+    addTearDown(tester.view.reset);
     await tester.pumpWidget(host(Progress.fromJson(JsonReader(progressJson()))));
     await tester.pumpAndSettle();
     expect(find.text('80%'), findsOneWidget);
+    expect(find.text('2 tasks finished, all on time. Keep it going.'), findsOneWidget);
     expect(find.byKey(const Key('no-certificate')), findsOneWidget);
     expect(find.byKey(const Key('open-certificate')), findsNothing);
   });
 
   testWidgets('after a certificate: the code and a verification link', (tester) async {
+    tester.view.physicalSize = const Size(1080, 3200);
+    tester.view.devicePixelRatio = 2;
+    addTearDown(tester.view.reset);
     await tester.pumpWidget(host(Progress.fromJson(JsonReader(progressJson(certificate: certificateJson())))));
     await tester.pumpAndSettle();
     expect(find.text('ABCD-EFGH-JK23'), findsOneWidget);

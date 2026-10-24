@@ -51,3 +51,32 @@ func TestFirstName(t *testing.T) {
 		t.Fatal("firstName")
 	}
 }
+
+func TestHandInAndAcknowledge(t *testing.T) {
+	task := domain.Task{ID: [16]byte{1, 2, 3}, Title: "Build the navbar"}
+	sub := &domain.Submission{URL: "https://github.com/a/b/pull/1", Note: "Kept it accessible."}
+	if got := HandInMessage(task, domain.StatusInProgress, domain.StatusInReview, sub, nil); got != "Sent “Build the navbar” for review.\nhttps://github.com/a/b/pull/1\n\nKept it accessible." {
+		t.Fatalf("review hand-in = %q", got)
+	}
+	if got := HandInMessage(task, domain.StatusChangesRequested, domain.StatusInReview, nil, nil); !strings.HasPrefix(got, "Pushed the fixes") {
+		t.Fatalf("resubmit = %q", got)
+	}
+	if got := HandInMessage(task, domain.StatusTodo, domain.StatusInProgress, nil, nil); got != "" {
+		t.Fatalf("starting a task should be silent, got %q", got)
+	}
+	score := 90
+	if got := HandInMessage(task, domain.StatusInProgress, domain.StatusDone, nil, &score); got != "Finished the quiz “Build the navbar”: 90%." {
+		t.Fatalf("quiz = %q", got)
+	}
+	done := Acknowledge(task, domain.StatusDone, "Asha Rao", nil)
+	if !strings.Contains(done, "Nice work") || !strings.Contains(done, "Asha") || done != Acknowledge(task, domain.StatusDone, "Asha Rao", nil) {
+		t.Fatalf("done ack = %q (must be stable)", done)
+	}
+	if got := Acknowledge(task, domain.StatusInReview, "Asha Rao", nil); !strings.Contains(got, "I'll review") {
+		t.Fatalf("review ack = %q", got)
+	}
+	low := 40
+	if got := Acknowledge(task, domain.StatusDone, "Asha", &low); !strings.Contains(got, "answer key") {
+		t.Fatalf("low quiz ack = %q", got)
+	}
+}

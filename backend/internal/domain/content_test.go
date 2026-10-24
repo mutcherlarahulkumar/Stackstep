@@ -117,3 +117,84 @@ func TestSurpriseOffset(t *testing.T) {
 		t.Fatal("offset must be stable")
 	}
 }
+
+func TestValidatePractice(t *testing.T) {
+	good := func() *Practice {
+		return &Practice{FunctionName: "twoSum", Starter: "function twoSum(nums, target) {}", Tests: []PracticeTest{{Args: []byte(`[ [2,7], 9 ]`), Expected: []byte(`[0, 1]`)}}}
+	}
+	out, errs := ValidateContent(TaskContent{Practice: good()}, TaskDSA, ReviewManual, "")
+	if len(errs) != 0 {
+		t.Fatalf("errs = %v", errs)
+	}
+	// DP1: JSON is stored compact.
+	if string(out.Practice.Tests[0].Args) != "[[2,7],9]" || string(out.Practice.Tests[0].Expected) != "[0,1]" {
+		t.Fatalf("not compacted: %s %s", out.Practice.Tests[0].Args, out.Practice.Tests[0].Expected)
+	}
+	cases := map[string]struct {
+		edit  func(p *Practice)
+		typ   TaskType
+		field string
+	}{
+		"not a DSA task":   {func(*Practice) {}, TaskFeature, "practice"},
+		"bad name":         {func(p *Practice) { p.FunctionName = "two sum" }, TaskDSA, "practice.function_name"},
+		"reserved name":    {func(p *Practice) { p.FunctionName = "return" }, TaskDSA, "practice.function_name"},
+		"no tests":         {func(p *Practice) { p.Tests = nil }, TaskDSA, "practice.tests"},
+		"eleven tests":     {func(p *Practice) { p.Tests = make([]PracticeTest, 11) }, TaskDSA, "practice.tests"},
+		"args not array":   {func(p *Practice) { p.Tests[0].Args = []byte(`{"a":1}`) }, TaskDSA, "practice.tests[0].args"},
+		"args invalid":     {func(p *Practice) { p.Tests[0].Args = []byte(`[1,`) }, TaskDSA, "practice.tests[0].args"},
+		"expected missing": {func(p *Practice) { p.Tests[0].Expected = nil }, TaskDSA, "practice.tests[0].expected"},
+		"huge args":        {func(p *Practice) { p.Tests[0].Args = []byte("[\"" + strings.Repeat("a", 2001) + "\"]") }, TaskDSA, "practice.tests[0].args"},
+		"long starter":     {func(p *Practice) { p.Starter = strings.Repeat("x", 4001) }, TaskDSA, "practice.starter"},
+		"control in code":  {func(p *Practice) { p.Starter = "a\x07" }, TaskDSA, "practice.starter"},
+	}
+	for name, c := range cases {
+		t.Run(name, func(t *testing.T) {
+			p := good()
+			c.edit(p)
+			_, errs := ValidateContent(TaskContent{Practice: p}, c.typ, ReviewManual, "")
+			if errs[c.field] == "" {
+				t.Fatalf("want error on %s, got %v", c.field, errs)
+			}
+		})
+	}
+}
+
+func TestRubric(t *testing.T) {
+	// RB1: normalized and kept on admin-reviewed tasks.
+	out, errs := ValidateContent(TaskContent{Rubric: []string{"  Tests   pass ", "README explains setup"}}, TaskFeature, ReviewManual, "")
+	if len(errs) != 0 || len(out.Rubric) != 2 || out.Rubric[0] != "Tests pass" {
+		t.Fatalf("out = %v, errs = %v", out.Rubric, errs)
+	}
+	cases := map[string]struct {
+		items  []string
+		typ    TaskType
+		review ReviewMode
+		field  string
+	}{
+		"quiz":        {[]string{"Right"}, TaskQuiz, ReviewSelf, "rubric"},
+		"self-check":  {[]string{"Done well"}, TaskFeature, ReviewSelf, "rubric"},
+		"too many":    {[]string{"aaa", "bbb", "ccc", "ddd", "eee", "fff", "ggg", "hhh", "iii"}, TaskFeature, ReviewManual, "rubric"},
+		"too short":   {[]string{"ok"}, TaskFeature, ReviewManual, "rubric[0]"},
+		"duplicate":   {[]string{"Tests pass", "tests pass"}, TaskFeature, ReviewManual, "rubric[1]"},
+		"too long":    {[]string{strings.Repeat("a", 121)}, TaskFeature, ReviewManual, "rubric[0]"},
+		"control chr": {[]string{"bad\x07item"}, TaskFeature, ReviewManual, "rubric[0]"},
+	}
+	for name, c := range cases {
+		t.Run(name, func(t *testing.T) {
+			_, errs := ValidateContent(TaskContent{Rubric: c.items}, c.typ, c.review, "")
+			if errs[c.field] == "" {
+				t.Fatalf("want %s error, got %v", c.field, errs)
+			}
+		})
+	}
+	// RB2: review results must match the rubric when approving or requesting changes.
+	r := []string{"a", "b"}
+	if ValidateRubricResult(r, nil, StatusDone) == "" || ValidateRubricResult(r, []bool{true}, StatusChangesRequested) == "" ||
+		ValidateRubricResult(nil, []bool{true}, StatusDone) == "" || ValidateRubricResult(r, []bool{true, false}, StatusDone) != "" ||
+		ValidateRubricResult(r, nil, StatusCancelled) != "" {
+		t.Fatal("rubric result rules")
+	}
+	if RubricSummary([]bool{true, false, true}) != "2 of 3 criteria met" {
+		t.Fatal("summary")
+	}
+}

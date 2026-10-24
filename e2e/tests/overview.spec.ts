@@ -2,9 +2,19 @@ import { readFile } from "node:fs/promises";
 
 import { expect, test } from "@playwright/test";
 
-import { expectToast, signIn } from "./helpers";
+import { api, apiToken, expectToast, signIn } from "./helpers";
 
-test("placement overview: cohort numbers, filters, CSV export and nudging inactive students (PO1–PO8)", async ({ page }) => {
+test("placement overview: cohort numbers, filters, CSV export and nudging inactive students (PO1–PO8)", async ({ page, request }) => {
+  // A student who started three days ago and never showed up: inactive regardless of test order.
+  const quiet = `quiet-${Date.now().toString(36)}`;
+  const start = new Date(Date.now() - 3 * 86_400_000).toISOString().slice(0, 10);
+  await api(request, await apiToken(request, "admin-demo"), "POST", "/v1/admin/enrollments", {
+    github_login: quiet,
+    name: "Quiet Student",
+    program_slug: "frontend-30",
+    start_date: start,
+    timezone: "UTC",
+  });
   await signIn(page, "admin-demo");
   await page.getByRole("link", { name: "Overview" }).click();
   await expect(page.getByRole("heading", { name: "Placement overview" })).toBeVisible();
@@ -43,7 +53,7 @@ test("placement overview: cohort numbers, filters, CSV export and nudging inacti
   await page.getByTestId("overview-search").fill("");
   await expect(page.getByTestId("overview-row-asha-dev")).toBeVisible();
   const nudge = page.getByTestId("open-nudge");
-  // Seeded students are on day 3 with no activity, so they count as inactive.
+  await expect(page.getByTestId(`overview-row-${quiet}`).getByTestId("inactive-badge")).toBeVisible();
   await expect(nudge).toBeEnabled();
   await nudge.click();
   const dialog = page.getByRole("dialog");

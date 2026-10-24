@@ -17,6 +17,12 @@ import (
 // MaxBodyBytes caps every request body.
 const MaxBodyBytes = 64 << 10
 
+// MaxImportBodyBytes caps a bulk enrollment (500 rows with long names and emails).
+const MaxImportBodyBytes = 512 << 10
+
+// MaxNoteBodyBytes fits a 20,000-character note in any script, JSON-escaped.
+const MaxNoteBodyBytes = 128 << 10
+
 type errorBody struct {
 	Error errorPayload `json:"error"`
 }
@@ -46,11 +52,14 @@ func (s *Server) fail(c *gin.Context, err error) {
 }
 
 // decode strictly parses a JSON body: one object, no unknown fields, bounded size.
-func decode(c *gin.Context, dst any) error {
+func decode(c *gin.Context, dst any) error { return decodeLimit(c, dst, MaxBodyBytes) }
+
+// decodeLimit is decode with a custom size cap.
+func decodeLimit(c *gin.Context, dst any, limit int64) error {
 	if ct := c.ContentType(); ct != "application/json" {
 		return apperr.New(apperr.CodeBadRequest, "Content-Type must be application/json.")
 	}
-	r := http.MaxBytesReader(c.Writer, c.Request.Body, MaxBodyBytes)
+	r := http.MaxBytesReader(c.Writer, c.Request.Body, limit)
 	dec := json.NewDecoder(r)
 	dec.DisallowUnknownFields()
 	if err := dec.Decode(dst); err != nil {

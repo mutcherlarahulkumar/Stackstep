@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'package:stackstep/api/json.dart';
 
 enum Role {
@@ -222,15 +224,34 @@ final class Enrollment {
 }
 
 final class Me {
-  const Me({required this.user, required this.enrollment});
+  const Me({required this.user, required this.enrollment, required this.account});
 
   factory Me.fromJson(JsonReader j) {
     final e = j.objectOrNull('enrollment');
-    return Me(user: User.fromJson(j.object('user')), enrollment: e == null ? null : Enrollment.fromJson(e));
+    return Me(
+      user: User.fromJson(j.object('user')),
+      enrollment: e == null ? null : Enrollment.fromJson(e),
+      account: Account.fromJson(j.object('account')),
+    );
   }
 
   final User user;
   final Enrollment? enrollment;
+  final Account account;
+
+  Me withAccount(Account a) => Me(user: user, enrollment: enrollment, account: a);
+}
+
+/// Consent and first-run state, shared with the web app.
+final class Account {
+  const Account({required this.termsVersion, required this.consentRequired, required this.onboarded});
+
+  factory Account.fromJson(JsonReader j) =>
+      Account(termsVersion: j.integer('terms_version'), consentRequired: j.boolean('consent_required'), onboarded: j.boolean('onboarded'));
+
+  final int termsVersion;
+  final bool consentRequired;
+  final bool onboarded;
 }
 
 final class Task {
@@ -351,30 +372,63 @@ final class Quiz {
 }
 
 final class TaskContent {
-  const TaskContent({required this.resources, required this.quiz});
+  const TaskContent({required this.resources, required this.quiz, this.practice, this.rubric = const []});
   factory TaskContent.fromJson(JsonReader j) => TaskContent(
     resources: j.list('resources', Resource.fromJson),
     quiz: switch (j.objectOrNull('quiz')) {
       final q? => Quiz.fromJson(q),
       null => null,
     },
+    practice: switch (j.objectOrNull('practice')) {
+      final p? => Practice.fromJson(p),
+      null => null,
+    },
+    rubric: j.valuesOrNull<String>('rubric') ?? const [],
   );
   final List<Resource> resources;
   final Quiz? quiz;
+
+  /// DSA example tests. The app shows them; running code happens in the web app.
+  final Practice? practice;
+
+  /// What the reviewer checks.
+  final List<String> rubric;
+}
+
+final class Practice {
+  const Practice({required this.functionName, required this.starter, required this.tests});
+  factory Practice.fromJson(JsonReader j) => Practice(
+    functionName: j.string('function_name'),
+    starter: j.string('starter'),
+    tests: j.list('tests', (t) => (args: t.anyList('args'), expected: t.raw['expected'])),
+  );
+  final String functionName;
+  final String starter;
+  final List<({List<Object?> args, Object? expected})> tests;
+
+  /// "twoSum([2,7,11,15], 9) → [0,1]"
+  String label(int i) {
+    final t = tests[i];
+    return '$functionName(${t.args.map(jsonEncode).join(', ')}) → ${jsonEncode(t.expected)}';
+  }
 }
 
 final class Submission {
-  const Submission({required this.attempt, required this.url, required this.note, required this.submittedAt});
+  const Submission({required this.attempt, required this.url, required this.note, required this.submittedAt, this.rubric});
   factory Submission.fromJson(JsonReader j) => Submission(
     attempt: j.integer('attempt'),
     url: j.stringOrNull('url'),
     note: j.string('note'),
     submittedAt: j.dateTime('submitted_at'),
+    rubric: j.valuesOrNull<bool>('rubric'),
   );
   final int attempt;
   final String? url;
   final String note;
   final DateTime submittedAt;
+
+  /// The reviewer's ticks, one per rubric criterion; null until reviewed with a rubric.
+  final List<bool>? rubric;
 }
 
 final class QuizStats {
@@ -384,6 +438,7 @@ final class QuizStats {
     required this.bestScore,
     required this.passed,
     required this.lastCorrect,
+    required this.lastAnswers,
   });
   factory QuizStats.fromJson(JsonReader j) => QuizStats(
     attempts: j.integer('attempts'),
@@ -391,12 +446,16 @@ final class QuizStats {
     bestScore: j.integer('best_score'),
     passed: j.boolean('passed'),
     lastCorrect: j.values<bool>('last_correct'),
+    lastAnswers: j.values<int>('last_answers'),
   );
   final int attempts;
   final int attemptsLeft;
   final int bestScore;
   final bool passed;
   final List<bool> lastCorrect;
+
+  /// The options picked in the latest attempt.
+  final List<int> lastAnswers;
 }
 
 final class QuizAttemptResult {
@@ -874,10 +933,12 @@ final class Progress {
     required this.barPercent,
     required this.meetsBar,
     required this.certificate,
+    this.thisWeek = const WeekRecap(done: 0, onTime: 0, points: 0, handIns: 0),
   });
 
   factory Progress.fromJson(JsonReader j) {
     final c = j.objectOrNull('certificate');
+    final w = j.objectOrNull('this_week');
     return Progress(
       released: j.integer('released'),
       done: j.integer('done'),
@@ -891,8 +952,12 @@ final class Progress {
       barPercent: j.integer('bar_percent'),
       meetsBar: j.boolean('meets_bar'),
       certificate: c == null ? null : Certificate.fromJson(c),
+      thisWeek: w == null ? const WeekRecap(done: 0, onTime: 0, points: 0, handIns: 0) : WeekRecap.fromJson(w),
     );
   }
+
+  /// Activity since Monday (UTC).
+  final WeekRecap thisWeek;
 
   final int released;
   final int done;
@@ -906,4 +971,58 @@ final class Progress {
   final int barPercent;
   final bool meetsBar;
   final Certificate? certificate;
+}
+
+/// Whether a cohort belongs to a college or is an independent group (admin web only).
+enum CohortKind {
+  group('group'),
+  college('college');
+
+  CohortKind(this.wire);
+  final String wire;
+}
+
+/// Reviewer warnings on a hand-in (staff views; students always get none).
+enum HandInCheckCode {
+  foreignRepo('foreign_repo'),
+  reusedLink('reused_link');
+
+  HandInCheckCode(this.wire);
+  final String wire;
+}
+
+/// A student's private Markdown notes on a task; shared ones are shown to reviewers.
+final class TaskNote {
+  const TaskNote({required this.body, required this.shared, required this.updatedAt});
+
+  factory TaskNote.fromJson(JsonReader j) =>
+      TaskNote(body: j.string('body'), shared: j.boolean('shared'), updatedAt: j.dateTimeOrNull('updated_at'));
+
+  static const empty = TaskNote(body: '', shared: false, updatedAt: null);
+
+  /// Matches the API's cap.
+  static const maxLength = 20000;
+
+  final String body;
+  final bool shared;
+  final DateTime? updatedAt;
+}
+
+/// What a student did this week.
+final class WeekRecap {
+  const WeekRecap({required this.done, required this.onTime, required this.points, required this.handIns});
+  factory WeekRecap.fromJson(JsonReader j) =>
+      WeekRecap(done: j.integer('done'), onTime: j.integer('on_time'), points: j.integer('points'), handIns: j.integer('hand_ins'));
+  final int done;
+  final int onTime;
+  final int points;
+  final int handIns;
+
+  /// One encouraging, honest line (same words as the web app).
+  String get line {
+    if (done == 0 && handIns == 0) return 'Nothing finished yet this week. Pick the task due soonest and send it in.';
+    if (done == 0) return '$handIns ${handIns == 1 ? 'hand-in' : 'hand-ins'} waiting on review. Nice momentum.';
+    if (onTime == done) return '$done ${done == 1 ? 'task' : 'tasks'} finished, all on time. Keep it going.';
+    return '$done ${done == 1 ? 'task' : 'tasks'} finished, $onTime on time. Start the next one early to stay ahead.';
+  }
 }

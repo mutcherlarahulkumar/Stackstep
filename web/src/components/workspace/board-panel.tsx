@@ -13,16 +13,19 @@ import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { type SubmissionInput } from "@/lib/api/client";
 import { type Persona, type Task, type TaskStatus } from "@/lib/api/schemas";
 import { COLUMN_LABEL, COLUMNS, columnOf, groupBoard, STATUS_LABEL, type Column } from "@/lib/board";
-import { dateTimeLabel, dueLabel, isOverdue } from "@/lib/format";
+import { dateTimeLabel, dueLabel, isOverdue, taskTimeLabel } from "@/lib/format";
 import { cn } from "@/lib/utils";
 import { studentMoves } from "@/lib/validation";
 
 import { choiceItem } from "../app/choice";
 import { PersonaAvatar } from "../app/persona-avatar";
-import { EmptyState, ErrorState, ListSkeleton } from "../app/state";
+import { EmptyState, ErrorState } from "../app/state";
 import { StatusBadge, TypeBadge } from "../app/task-badges";
-import { HandInDialog, QuizPlayer, ResourceList, SubmissionCard } from "./task-work";
+import { PracticePad } from "./practice-pad";
+import { TaskNotes } from "./task-notes";
+import { HandInDialog, QuizPlayer, ResourceList, RubricView, SubmissionCard } from "./task-work";
 import { type useWorkspace } from "./use-workspace";
+import { BoardSkeleton, stagger } from "../app/loading";
 
 type Workspace = ReturnType<typeof useWorkspace>;
 
@@ -53,7 +56,7 @@ function nextStep(t: Task): string {
 const NEXT_STEP: Record<TaskStatus, string> = {
   todo: "Create a branch for this ticket, then start working.",
   in_progress: "Push your branch and open a PR, then submit it for review.",
-  in_review: "Your lead is reviewing. Pick up a smaller task while you wait.",
+  in_review: "Reviews usually come back within a day, in this task's chat. Pick up a smaller task while you wait.",
   changes_requested: "Read the review in chat, push fixes to the same branch, then resubmit.",
   done: "Approved. Merge your PR if you haven't yet.",
   cancelled: "This task was cancelled. No action needed.",
@@ -75,7 +78,7 @@ export function BoardPanel({
   if (tasks.status === "loading") {
     return (
       <div className="p-4">
-        <ListSkeleton />
+        <BoardSkeleton />
       </div>
     );
   }
@@ -114,8 +117,8 @@ export function BoardPanel({
           </EmptyState>
         ) : (
           <ul className="flex flex-col gap-3" aria-label={`${COLUMN_LABEL[column]} tasks`}>
-            {groups[column].map((t) => (
-              <li key={t.id}>
+            {groups[column].map((t, i) => (
+              <li key={t.id} className="animate-enter-stagger" style={stagger(i)}>
                 <TaskCard task={t} persona={personas.get(t.persona_id)} onOpen={() => onOpenTask(t.id)} />
               </li>
             ))}
@@ -159,7 +162,7 @@ function TaskCard({ task, persona, onOpen }: { task: Task; persona: Persona | un
         <div className="flex items-center justify-between gap-2">
           <p className={cn("flex items-center gap-1.5 text-sm", overdue ? "text-destructive font-medium" : "text-muted-foreground")}>
             {overdue ? <AlarmClock className="size-3.5" aria-hidden /> : <Clock className="size-3.5" aria-hidden />}
-            {dueLabel(task.due_at, now)}
+            {taskTimeLabel(task, now)}
           </p>
           {persona ? (
             <span className="text-muted-foreground flex min-w-0 items-center gap-1.5 text-xs">
@@ -217,7 +220,7 @@ function TaskSheet({
               <SheetTitle className="text-xl leading-snug">{task.title}</SheetTitle>
               <SheetDescription className="flex items-center gap-1.5">
                 <CalendarClock className="size-4" aria-hidden />
-                {dueLabel(task.due_at, new Date())} · {dateTimeLabel(task.due_at)}
+                {task.status === "done" || task.status === "cancelled" ? taskTimeLabel(task, new Date()) : `${dueLabel(task.due_at, new Date())} · ${dateTimeLabel(task.due_at)}`}
               </SheetDescription>
               {persona ? (
                 <p className="text-muted-foreground flex items-center gap-2 text-sm">
@@ -238,8 +241,11 @@ function TaskSheet({
                 <p className="text-muted-foreground text-sm">No brief for this one. Ask {persona?.name ?? "your lead"} in chat if anything is unclear.</p>
               )}
               <ResourceList resources={task.content.resources} />
+              <RubricView criteria={task.content.rubric} submission={task.submission} />
               {task.submission ? <SubmissionCard submission={task.submission} title="Your hand-in" /> : null}
               {task.type === "quiz" ? <QuizPlayer key={task.version} task={task} onGraded={onGraded} disabled={false} /> : null}
+              {task.type === "dsa" && task.content.practice ? <PracticePad taskId={task.id} practice={task.content.practice} /> : null}
+              <TaskNotes taskId={task.id} />
             </div>
             {moves.length > 0 ? (
               <SheetFooter className="border-t">

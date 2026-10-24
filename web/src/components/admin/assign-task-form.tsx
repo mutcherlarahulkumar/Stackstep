@@ -24,8 +24,9 @@ import { cn } from "@/lib/utils";
 import { Bounds, normalizeLine, runeLength, validateBrief, validateSchedule, validateTitle } from "@/lib/validation";
 
 import { choiceItem } from "../app/choice";
+import { DateTimePicker } from "../app/date-picker";
 import { PersonaAvatar } from "../app/persona-avatar";
-import { QuizEditor, ResourcesEditor } from "./content-editors";
+import { PracticeEditor, QuizEditor, ResourcesEditor, RubricEditor } from "./content-editors";
 import { TYPE_ICON } from "../app/task-badges";
 
 type DuePreset = "2h" | "today" | "tomorrow" | "custom";
@@ -66,6 +67,8 @@ export function AssignTaskForm({ student, onAssigned }: { student: Student; onAs
       setReviewMode("self");
       setContent((c) => ({ ...c, quiz: c.quiz ?? { pass_percent: ContentBounds.passDefault, questions: [blankQuestion()] } }));
     } else setContent((c) => ({ ...c, quiz: null }));
+    if (t !== "dsa") setContent((c) => ({ ...c, practice: null }));
+    if (t === "quiz") setContent((c) => ({ ...c, rubric: [] }));
   };
   const personaList = personas.data ?? [];
   // The admin's pick, else the default team lead, else the first persona; null lets the server decide.
@@ -92,7 +95,7 @@ export function AssignTaskForm({ student, onAssigned }: { student: Student; onAs
   const submit = async () => {
     const schedule = validateSchedule(new Date(), start, due);
     const next: Errors = {
-      ...validateContent(content, type),
+      ...validateContent(content, type, reviewMode),
       title: validateTitle(title) ?? undefined,
       brief: validateBrief(brief) ?? undefined,
       scheduled_for: later && !start ? "Pick a start time." : (schedule.scheduled_for ?? undefined),
@@ -115,7 +118,7 @@ export function AssignTaskForm({ student, onAssigned }: { student: Student; onAs
       });
       setTitle("");
       setBrief("");
-      setContent({ resources: [], quiz: type === "quiz" ? { pass_percent: ContentBounds.passDefault, questions: [blankQuestion()] } : null });
+      setContent({ resources: [], quiz: type === "quiz" ? { pass_percent: ContentBounds.passDefault, questions: [blankQuestion()] } : null, practice: null, rubric: [] });
       onAssigned(task);
     } catch (e) {
       if (e instanceof ApiError && e.code === "validation_failed" && Object.keys(e.fields).length) setErrors(e.fields as Errors);
@@ -210,6 +213,7 @@ export function AssignTaskForm({ student, onAssigned }: { student: Student; onAs
             value={reviewMode}
             onValueChange={(v) => {
               if (v === "manual" || v === "self") setReviewMode(v);
+              if (v === "self") setContent((c) => ({ ...c, rubric: [] }));
             }}
             className="justify-start"
             disabled={type === "quiz"}
@@ -269,6 +273,12 @@ export function AssignTaskForm({ student, onAssigned }: { student: Student; onAs
         {content.quiz ? (
           <QuizEditor value={content.quiz} onChange={(quiz) => setContent((c) => ({ ...c, quiz }))} errors={errors} idPrefix="assign-quiz" />
         ) : null}
+        {reviewMode === "manual" && type !== "quiz" ? (
+          <RubricEditor value={content.rubric} onChange={(rubric) => setContent((c) => ({ ...c, rubric }))} errors={errors} idPrefix="assign-rubric" />
+        ) : null}
+        {type === "dsa" ? (
+          <PracticeEditor value={content.practice} onChange={(practice) => setContent((c) => ({ ...c, practice }))} errors={errors} idPrefix="assign-practice" />
+        ) : null}
         <ResourcesEditor value={content.resources} onChange={(resources) => setContent((c) => ({ ...c, resources }))} errors={errors} idPrefix="assign-links" />
         <Field data-invalid={!!errors.scheduled_for}>
           <FieldLabel>Shows up</FieldLabel>
@@ -287,16 +297,15 @@ export function AssignTaskForm({ student, onAssigned }: { student: Student; onAs
             <ToggleGroupItem value="later" className={choiceItem}>Later</ToggleGroupItem>
           </ToggleGroup>
           {later ? (
-            <Input
-              type="datetime-local"
-              aria-label="Start time"
+            <DateTimePicker
+              aria-label="Start"
               value={startAt}
               min={toLocalInput(now)}
-              onChange={(e) => {
-                setStartAt(e.target.value);
+              onChange={(v) => {
+                setStartAt(v);
                 clear("scheduled_for");
               }}
-              aria-invalid={!!errors.scheduled_for}
+              invalid={!!errors.scheduled_for}
             />
           ) : null}
           {errors.scheduled_for ? (
@@ -324,16 +333,15 @@ export function AssignTaskForm({ student, onAssigned }: { student: Student; onAs
             <ToggleGroupItem value="custom" className={choiceItem}>Pick…</ToggleGroupItem>
           </ToggleGroup>
           {preset === "custom" ? (
-            <Input
-              type="datetime-local"
-              aria-label="Due time"
+            <DateTimePicker
+              aria-label="Due"
               value={customDue}
               min={toLocalInput(now)}
-              onChange={(e) => {
-                setCustomDue(e.target.value);
+              onChange={(v) => {
+                setCustomDue(v);
                 clear("due_at");
               }}
-              aria-invalid={!!errors.due_at}
+              invalid={!!errors.due_at}
             />
           ) : null}
           {errors.due_at ? <FieldError>{errors.due_at}</FieldError> : due ? <FieldDescription>{dateTimeLabel(due)}</FieldDescription> : null}

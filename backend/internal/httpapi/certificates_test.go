@@ -34,6 +34,9 @@ func TestCertificates(t *testing.T) {
 	stu := e.login(seed.StudentLogin)
 	enr := e.enrollmentOf(seed.StudentLogin)
 
+	// CE0: nothing finished yet → nothing to certify.
+	e.expect(e.do("POST", "/v1/admin/enrollments/"+enr.String()+"/certificate", adm, nil), 422)
+
 	task := e.mustCreateTask(adm, enr)
 	e.expect(e.move(stu, task.ID, "in_progress", task.Version, ""), 200)
 	e.expect(e.move(stu, task.ID, "in_review", task.Version+1, ""), 200)

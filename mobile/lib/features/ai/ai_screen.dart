@@ -196,6 +196,21 @@ class _Tips extends StatelessWidget {
             style: t.textTheme.muted,
           ),
           const SizedBox(height: Space.sm),
+          Row(
+            key: const Key('ai-privacy-note'),
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Icon(LucideIcons.eye, size: 14, color: t.colorScheme.mutedForeground),
+              const SizedBox(width: Space.xs),
+              Expanded(
+                child: Text(
+                  "Mentors can read your helper chats. Questions are sent to an AI provider, so don't paste passwords, keys or personal details.",
+                  style: t.textTheme.muted.copyWith(fontSize: 12),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: Space.sm),
           for (final (title, body) in promptTips)
             Padding(
               padding: const EdgeInsets.only(top: Space.xs),

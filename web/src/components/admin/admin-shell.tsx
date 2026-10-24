@@ -1,6 +1,6 @@
 "use client";
 
-import { BookCopy, ChartColumn, Inbox, Route, Send, UserRoundCog, Users, type LucideIcon } from "lucide-react";
+import { BookCopy, CalendarRange, ChartColumn, ClipboardCheck, Inbox, UserPlus, Route, Send, UserRoundCog, Users, type LucideIcon } from "lucide-react";
 import Link from "next/link";
 import { type ReactNode } from "react";
 
@@ -15,17 +15,25 @@ import { ConnectionBanner } from "../app/connection-banner";
 import { RequireSession } from "../app/guard";
 import { DesktopGate } from "./desktop-gate";
 import { useIsDesktop } from "@/lib/use-desktop";
+import { useBrowserNotifications, useUnreadTitle } from "@/lib/use-notifications";
 
-export type Section = "overview" | "students" | "inbox" | "flows" | "library" | "personas" | "assign";
+import { personaMap, useAllPersonas } from "./catalog-queries";
+
+export type Section = "report" | "overview" | "people" | "reviews" | "students" | "inbox" | "flows" | "library" | "personas" | "assign";
 
 const DESKTOP_NAV: { id: Section; href: string; label: string; icon: LucideIcon }[] = [
   { id: "students", href: "/admin", label: "Students", icon: Users },
+  { id: "reviews", href: "/admin/reviews", label: "Reviews", icon: ClipboardCheck },
   { id: "overview", href: "/admin/overview", label: "Overview", icon: ChartColumn },
+  { id: "report", href: "/admin/report", label: "Report", icon: CalendarRange },
+  { id: "people", href: "/admin/people", label: "People", icon: UserPlus },
   { id: "inbox", href: "/admin/inbox", label: "Inbox", icon: Inbox },
   { id: "flows", href: "/admin/flows", label: "Flows", icon: Route },
   { id: "library", href: "/admin/library", label: "Task library", icon: BookCopy },
   { id: "personas", href: "/admin/personas", label: "Personas", icon: UserRoundCog },
 ];
+
+const SR_TITLE: Partial<Record<Section, string>> = { students: "Students", inbox: "Inbox" };
 
 /** What phones get: allocation and the inbox. Everything else is desktop only. */
 const PHONE_NAV: typeof DESKTOP_NAV = [
@@ -57,8 +65,11 @@ function Frame({ me, section, phone, children }: { me: Me; section: Section; pho
   const inbox = useStaffThreads(false);
   const unread = totalUnread(inbox.data?.pages.flatMap((p) => p.items) ?? []);
   const nav = desktop ? DESKTOP_NAV : PHONE_NAV;
+  const personas = personaMap(useAllPersonas().data);
+  useUnreadTitle(unread);
+  useBrowserNotifications("staff", (id) => personas.get(id)?.name);
   return (
-    <div className="flex h-dvh flex-col">
+    <div className="flex h-dvh flex-col print:h-auto">
       <AppHeader user={me.user}>
         {desktop === null ? null : (
           <nav aria-label="Admin sections" className="-mb-px flex h-14 min-w-0 items-stretch gap-1 overflow-x-auto">
@@ -70,7 +81,7 @@ function Frame({ me, section, phone, children }: { me: Me; section: Section; pho
                   href={n.href}
                   aria-current={active ? "page" : undefined}
                   className={cn(
-                    "text-muted-foreground hover:text-foreground focus-visible:ring-ring flex shrink-0 items-center gap-2 border-b-2 border-transparent px-2.5 text-sm font-medium outline-none focus-visible:ring-2",
+                    "text-muted-foreground hover:text-foreground focus-visible:ring-ring flex shrink-0 items-center gap-2 border-b-2 border-transparent px-2.5 text-sm font-medium outline-none focus-visible:ring-2 focus-visible:ring-inset",
                     active && "border-primary text-foreground",
                   )}
                 >
@@ -87,8 +98,12 @@ function Frame({ me, section, phone, children }: { me: Me; section: Section; pho
           </nav>
         )}
       </AppHeader>
-      <ConnectionBanner status={socket} />
-      <main id="main" className="flex min-h-0 flex-1 flex-col">
+      <div className="print:hidden">
+        <ConnectionBanner status={socket} />
+      </div>
+      <main id="main" className="animate-enter flex min-h-0 flex-1 flex-col print:block">
+        {/* Pages with a visible title render their own h1; the rest get a screen-reader one. */}
+        {SR_TITLE[section] ? <h1 className="sr-only">{SR_TITLE[section]}</h1> : null}
         {desktop === null ? null : !desktop && phone === "gate" ? <DesktopGate /> : children(me, desktop)}
       </main>
     </div>

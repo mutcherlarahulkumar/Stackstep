@@ -1,6 +1,6 @@
 "use client";
 
-import { Check, ExternalLink, FileCheck2, Send, X } from "lucide-react";
+import { Check, Code2, ExternalLink, FileCheck2, ListChecks, Send, X } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
 
@@ -16,6 +16,7 @@ import { ApiError, messageFor } from "@/lib/api/errors";
 import { type Resource, type Submission, type Task } from "@/lib/api/schemas";
 import { ContentBounds, needsLink, validateSubmission } from "@/lib/content";
 import { dateTimeLabel } from "@/lib/format";
+import { handInNote, loadDraft } from "@/lib/practice";
 import { useSession } from "@/lib/session";
 import { cn } from "@/lib/utils";
 import { runeLength } from "@/lib/validation";
@@ -132,7 +133,29 @@ export function HandInDialog({
             {errors.url ? <FieldError>{errors.url}</FieldError> : null}
           </Field>
           <Field data-invalid={!!errors.note}>
-            <FieldLabel htmlFor="hand-in-note">{linkFirst ? "Note (optional)" : "Solution or note"}</FieldLabel>
+            <div className="flex items-center justify-between gap-2">
+              <FieldLabel htmlFor="hand-in-note">{linkFirst ? "Note (optional)" : "Solution or note"}</FieldLabel>
+              {task.content.practice ? (
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="outline"
+                  onClick={() => {
+                    const d = loadDraft(task.id);
+                    const p = task.content.practice;
+                    if (!d || !p) {
+                      setErrors((e) => ({ ...e, note: "Nothing in the practice pad yet. Write your solution there first." }));
+                      return;
+                    }
+                    setNote(handInNote(d.code, d.result, p.tests.length, ContentBounds.submissionNoteMax));
+                    setErrors((e) => ({ ...e, note: "" }));
+                  }}
+                  data-testid="insert-practice"
+                >
+                  <Code2 data-icon="inline-start" aria-hidden /> Insert my practice code
+                </Button>
+              ) : null}
+            </div>
             <Textarea
               id="hand-in-note"
               rows={linkFirst ? 3 : 7}
@@ -176,6 +199,7 @@ export function QuizPlayer({ task, onGraded, disabled }: { task: Task; onGraded:
   if (!quiz) return null;
   const unanswered = answers.filter((a) => a === null).length;
   const lastCorrect = stats?.last_correct ?? [];
+  const lastAnswers = stats?.last_answers ?? [];
 
   const submit = async () => {
     if (unanswered > 0) {
@@ -232,6 +256,7 @@ export function QuizPlayer({ task, onGraded, disabled }: { task: Task; onGraded:
                   {q.options.map((o, oi) => {
                     const id = `q${i}-o${oi}`;
                     const key = finished && q.answer === oi;
+                    const mine = finished && lastAnswers[i] === oi;
                     return (
                       <label
                         key={oi}
@@ -239,6 +264,7 @@ export function QuizPlayer({ task, onGraded, disabled }: { task: Task; onGraded:
                         className={cn(
                           "hover:bg-muted/60 flex cursor-pointer items-center gap-2.5 rounded-md border px-3 py-2 text-sm has-[:checked]:border-primary has-[:checked]:bg-primary/5",
                           key && "border-success bg-success/10",
+                          mine && !key && "border-destructive bg-destructive/10",
                           finished && "cursor-default",
                         )}
                       >
@@ -251,7 +277,8 @@ export function QuizPlayer({ task, onGraded, disabled }: { task: Task; onGraded:
                           onChange={() => setAnswers((a) => a.map((x, j) => (j === i ? oi : x)))}
                         />
                         <span className="flex-1">{o}</span>
-                        {key ? <Check className="text-success size-4" aria-label="Right answer" /> : null}
+                        {mine ? <span className="text-muted-foreground text-xs">Your answer</span> : null}
+                        {key ? <Check className="text-success size-4" aria-label="Right answer" /> : mine ? <X className="text-destructive size-4" aria-label="Wrong" /> : null}
                       </label>
                     );
                   })}
@@ -272,6 +299,38 @@ export function QuizPlayer({ task, onGraded, disabled }: { task: Task; onGraded:
           {unanswered > 0 ? `Answer ${unanswered} more` : "Check my answers"}
         </Button>
       ) : null}
+    </section>
+  );
+}
+
+/** The reviewer's checklist: what they'll look at, then which ones were met. */
+export function RubricView({ criteria, submission }: { criteria: string[]; submission: Submission | null }) {
+  if (criteria.length === 0) return null;
+  const ticks = submission?.rubric ?? null;
+  const met = ticks ? ticks.filter(Boolean).length : 0;
+  return (
+    <section aria-labelledby="rubric-title" className="mt-6" data-testid="rubric">
+      <h3 id="rubric-title" className="mb-2 flex items-center gap-2 text-sm font-medium">
+        <ListChecks className="text-muted-foreground size-4" aria-hidden />
+        {ticks ? `Review: ${met} of ${criteria.length} met` : "What your reviewer checks"}
+      </h3>
+      <ul className="flex flex-col gap-1.5">
+        {criteria.map((c, i) => {
+          const t = ticks?.[i];
+          return (
+            <li key={i} className="flex items-start gap-2 text-sm">
+              {t === undefined ? (
+                <span className="bg-muted-foreground/40 mt-2 size-1.5 shrink-0 rounded-full" aria-hidden />
+              ) : t ? (
+                <Check className="text-success mt-0.5 size-4 shrink-0" aria-label="Met" />
+              ) : (
+                <X className="text-destructive mt-0.5 size-4 shrink-0" aria-label="Not yet" />
+              )}
+              <span className={cn(t === false && "text-muted-foreground")}>{c}</span>
+            </li>
+          );
+        })}
+      </ul>
     </section>
   );
 }

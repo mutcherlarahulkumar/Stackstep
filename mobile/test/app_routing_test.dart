@@ -35,7 +35,11 @@ void main() {
     final client = MockClient(
       (req) async => switch (req.url.path) {
         '/v1/auth/refresh' => json(tokensJson()),
-        '/v1/me' => json({'user': userJson(role: 'admin', login: 'admin-demo', name: 'Platform Admin'), 'enrollment': null}),
+        '/v1/me' => json({
+          'user': userJson(role: 'admin', login: 'admin-demo', name: 'Platform Admin'),
+          'enrollment': null,
+          'account': accountJson(),
+        }),
         '/v1/admin/personas' => json({
           'items': [personaJson(), personaJson(id: managerId, name: 'Priya Sharma', title: 'Engineering Manager', color: 'blue')],
         }),
@@ -117,7 +121,7 @@ void main() {
     final client = MockClient(
       (req) async => switch (req.url.path) {
         '/v1/auth/refresh' => json(tokensJson()),
-        '/v1/me' => json({'user': userJson(), 'enrollment': enrollmentJson()}),
+        '/v1/me' => json({'user': userJson(), 'enrollment': enrollmentJson(), 'account': accountJson()}),
         '/v1/me/tasks' => json({
           'items': [taskJson(personaId: managerId, reviewMode: 'self', status: 'in_progress')],
         }),
@@ -173,7 +177,7 @@ void main() {
     final client = MockClient(
       (req) async => switch (req.url.path) {
         '/v1/auth/refresh' => json(tokensJson()),
-        '/v1/me' => json({'user': userJson(login: 'nora-dev', name: 'Nora Das'), 'enrollment': null}),
+        '/v1/me' => json({'user': userJson(login: 'nora-dev', name: 'Nora Das'), 'enrollment': null, 'account': accountJson()}),
         _ => json({
           'error': {'code': 'not_found', 'message': ''},
         }, 404),
@@ -195,5 +199,101 @@ void main() {
     final client = MockClient((req) async => throw http.ClientException('offline'));
     await pumpApp(tester, client);
     expect(find.textContaining("Can't reach Stackstep"), findsOneWidget);
+  });
+
+  testWidgets('first sign-in asks for consent, then shows the four-step guide once (AC1–AC3)', (tester) async {
+    var consented = false;
+    var onboarded = false;
+    final client = MockClient(
+      (req) async => switch (req.url.path) {
+        '/v1/auth/refresh' => json(tokensJson()),
+        '/v1/me' => json({
+          'user': userJson(),
+          'enrollment': enrollmentJson(),
+          'account': accountJson(consentRequired: true, onboarded: false),
+        }),
+        '/v1/me/consent' => () {
+          expect(jsonDecode(req.body), {'version': 1});
+          consented = true;
+          return json(accountJson(onboarded: false));
+        }(),
+        '/v1/me/onboarded' => () {
+          onboarded = true;
+          return json(accountJson());
+        }(),
+        '/v1/me/tasks' => json({'items': <Object>[]}),
+        '/v1/me/threads' => json({
+          'items': [threadJson(last: messageJson(body: 'Welcome!'))],
+        }),
+        _ => json({
+          'error': {'code': 'not_found', 'message': ''},
+        }, 404),
+      },
+    );
+    await pumpApp(tester, client);
+    expect(find.text('Hi Asha, a quick check first'), findsOneWidget);
+    // The button waits for the checkbox.
+    await tester.scrollUntilVisible(find.byKey(const Key('consent-accept')), 200);
+    await tester.tap(find.byKey(const Key('consent-accept')));
+    await tester.pumpAndSettle();
+    expect(consented, isFalse);
+    await tester.tap(find.byKey(const Key('consent-check')));
+    await tester.pump();
+    await tester.tap(find.byKey(const Key('consent-accept')));
+    await tester.pumpAndSettle();
+    expect(consented, isTrue);
+
+    expect(find.text('Step 1 of 4'), findsOneWidget);
+    for (var i = 0; i < 3; i++) {
+      await tester.tap(find.byKey(const Key('onboarding-next')));
+      await tester.pumpAndSettle();
+    }
+    expect(find.text('Points, credits and the AI helper'), findsOneWidget);
+    await tester.tap(find.byKey(const Key('onboarding-done')));
+    await tester.pumpAndSettle();
+    expect(onboarded, isTrue);
+    expect(find.byKey(const Key('onboarding')), findsNothing);
+    expect(find.text('Chats'), findsWidgets);
+  });
+
+  testWidgets('task notes: write, share with the reviewer and save (TN2, TN3)', (tester) async {
+    Object? saved;
+    final client = MockClient(
+      (req) async => switch (req.url.path) {
+        '/v1/auth/refresh' => json(tokensJson()),
+        '/v1/me' => json({'user': userJson(), 'enrollment': enrollmentJson(), 'account': accountJson()}),
+        '/v1/me/tasks' => json({
+          'items': [taskJson(status: 'in_progress')],
+        }),
+        '/v1/me/threads' => json({
+          'items': [threadJson(last: messageJson(body: 'Morning!'))],
+        }),
+        final p when p.endsWith('/note') && req.method == 'GET' => json({'body': '', 'shared': false, 'updated_at': null}),
+        final p when p.endsWith('/note') && req.method == 'PUT' => () {
+          saved = jsonDecode(req.body);
+          return json({'body': 'Tried a debounce', 'shared': true, 'updated_at': '2026-10-24T10:00:00Z'});
+        }(),
+        _ => json({
+          'error': {'code': 'not_found', 'message': ''},
+        }, 404),
+      },
+    );
+    await pumpApp(tester, client);
+    await tester.tap(find.text('Tasks'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Add filtering'));
+    await tester.pumpAndSettle();
+    await tester.scrollUntilVisible(find.byKey(const Key('note-save')), 200, scrollable: find.byType(Scrollable).last);
+    expect(find.text('Only you can see your notes unless you share them.'), findsOneWidget);
+    await tester.enterText(
+      find.descendant(of: find.byKey(const Key('note-body')), matching: find.byType(EditableText)),
+      'Tried a debounce',
+    );
+    await tester.tap(find.byKey(const Key('note-share')));
+    await tester.pump();
+    expect(find.text('Unsaved changes'), findsOneWidget);
+    await tester.tap(find.byKey(const Key('note-save')));
+    await tester.pumpAndSettle();
+    expect(saved, {'body': 'Tried a debounce', 'shared': true});
   });
 }

@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shadcn_ui/shadcn_ui.dart';
 import 'package:stackstep/core/providers.dart';
 import 'package:stackstep/core/theme.dart';
+import 'package:stackstep/features/account/consent_screen.dart';
 import 'package:stackstep/features/login/login_screen.dart';
 import 'package:stackstep/features/shell/shells.dart';
 
@@ -42,6 +43,7 @@ class _Root extends ConsumerWidget {
     final screen = switch (session) {
       SessionLoading() => const SplashScreen(),
       SignedOut(:final message) => LoginScreen(key: ValueKey('login-$message'), initialMessage: message),
+      SignedIn(:final me) when me.account.consentRequired => ConsentScreen(me: me),
       SignedIn(:final me) when me.user.role.isStaff => AdminShell(me: me),
       SignedIn(:final me) when me.enrollment == null => NoEnrollmentScreen(me: me),
       SignedIn(:final me) => StudentShell(me: me),

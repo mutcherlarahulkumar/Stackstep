@@ -1,4 +1,5 @@
 import 'package:intl/intl.dart';
+import 'package:stackstep/api/models.dart';
 
 /// "Due in 3h", "Due tomorrow, 6:00 PM", "Overdue by 2d".
 String dueLabel(DateTime due, DateTime now) {
@@ -59,3 +60,13 @@ String previewLine(String body, {int max = 90}) {
   final runes = one.runes;
   return runes.length <= max ? one : '${String.fromCharCodes(runes.take(max - 1))}…';
 }
+
+/// What a task card says about time: finished or cancelled tasks never show a due countdown.
+String taskTimeLabel(Task t, DateTime now) => switch (t.status) {
+  TaskStatus.done => 'Finished ${dateTimeLabel(t.updatedAt)}',
+  TaskStatus.cancelled => 'Cancelled',
+  _ => dueLabel(t.dueAt, now),
+};
+
+/// Honest label for who is behind a persona (same words as the web app).
+String personaTag(Persona p) => p.autoReply ? 'Mentor · some replies automatic' : 'Played by a mentor';

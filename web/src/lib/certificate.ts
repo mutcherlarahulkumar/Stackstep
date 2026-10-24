@@ -23,3 +23,9 @@ export function programLabel(c: Pick<Certificate, "program_days" | "program_slug
   const track = c.program_slug.includes("fullstack") ? "Full-stack" : c.program_slug.includes("frontend") ? "Frontend" : "Software";
   return `${c.program_days}-day ${track} Engineering Internship`;
 }
+
+/** The last day the certificate covers: the internship's end, or the issue date if earlier. */
+export function periodEnd(c: Pick<Certificate, "end_date" | "issued_at">): string {
+  const issued = c.issued_at.toISOString().slice(0, 10);
+  return issued < c.end_date ? issued : c.end_date;
+}

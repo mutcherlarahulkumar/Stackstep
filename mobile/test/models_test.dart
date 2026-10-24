@@ -1,6 +1,7 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:stackstep/api/json.dart';
 import 'package:stackstep/api/models.dart';
+import 'package:stackstep/shared/format.dart';
 
 import 'fixtures.dart';
 
@@ -35,11 +36,70 @@ void main() {
     });
 
     test('me with and without enrollment', () {
-      final withE = Me.fromJson(JsonReader({'user': userJson(), 'enrollment': enrollmentJson()}));
+      final withE = Me.fromJson(JsonReader({'user': userJson(), 'enrollment': enrollmentJson(), 'account': accountJson()}));
       expect(withE.enrollment?.dayNumber, 3);
-      final without = Me.fromJson(JsonReader({'user': userJson(role: 'admin'), 'enrollment': null}));
+      final without = Me.fromJson(
+        JsonReader({'user': userJson(role: 'admin'), 'enrollment': null, 'account': accountJson(consentRequired: true)}),
+      );
       expect(without.enrollment, isNull);
       expect(without.user.role.isStaff, isTrue);
+      expect(without.account.consentRequired, isTrue);
+      expect(without.withAccount(Account.fromJson(JsonReader(accountJson()))).account.consentRequired, isFalse);
+      // The account block is required, so an older API can't skip the consent step (AC6).
+      expect(() => Me.fromJson(JsonReader({'user': userJson(), 'enrollment': null})), throwsA(isA<ContractViolation>()));
+    });
+
+    test('practice tests decode with any JSON and label calls (DP2)', () {
+      final c = TaskContent.fromJson(
+        const JsonReader({
+          'resources': <Object?>[],
+          'quiz': null,
+          'practice': {
+            'function_name': 'twoSum',
+            'starter': '',
+            'tests': [
+              {
+                'args': [
+                  [2, 7],
+                  9,
+                ],
+                'expected': [0, 1],
+              },
+            ],
+          },
+        }),
+      );
+      expect(c.practice?.label(0), 'twoSum([2,7], 9) → [0,1]');
+      expect(TaskContent.fromJson(const JsonReader({'resources': <Object?>[], 'quiz': null, 'practice': null})).practice, isNull);
+    });
+
+    test('rubric criteria and the reviewer ticks decode (RB4)', () {
+      final c = TaskContent.fromJson(
+        const JsonReader({
+          'resources': <Object?>[],
+          'quiz': null,
+          'practice': null,
+          'rubric': ['Tests pass', 'README explains setup'],
+        }),
+      );
+      expect(c.rubric, ['Tests pass', 'README explains setup']);
+      final s = Submission.fromJson(
+        const JsonReader({
+          'attempt': 1,
+          'url': null,
+          'note': 'n',
+          'submitted_at': '2026-10-24T10:00:00Z',
+          'checks': <Object?>[],
+          'rubric': [true, false],
+          'reviewed_at': '2026-10-24T11:00:00Z',
+        }),
+      );
+      expect(s.rubric, [true, false]);
+    });
+
+    test('persona tag says who is behind a persona (PT1)', () {
+      expect(personaTag(Persona.fromJson(JsonReader({...personaJson(), 'auto_reply': true}))), 'Mentor · some replies automatic');
+      expect(personaTag(Persona.fromJson(JsonReader({...personaJson(), 'auto_reply': false}))), 'Played by a mentor');
     });
 
     test('frames', () {
@@ -107,6 +167,7 @@ void main() {
               'best_score': 0,
               'passed': false,
               'last_correct': [false],
+              'last_answers': [1],
             },
           ),
         ),

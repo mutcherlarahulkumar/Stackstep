@@ -33,15 +33,18 @@ func (e Env) Valid() bool {
 
 // Config is the fully validated process configuration.
 type Config struct {
-	Env                  Env
-	HTTPAddr             string
-	DatabaseURL          string
-	JWTSecret            []byte
-	StateSecret          []byte
-	WebBaseURL           *url.URL
-	MobileRedirectURL    *url.URL
-	AllowedOrigins       []string
-	TrustedProxies       []netip.Prefix
+	Env               Env
+	HTTPAddr          string
+	DatabaseURL       string
+	JWTSecret         []byte
+	StateSecret       []byte
+	WebBaseURL        *url.URL
+	MobileRedirectURL *url.URL
+	AllowedOrigins    []string
+	TrustedProxies    []netip.Prefix
+	// ProxySecret lets the web app's server-side proxy pass the visitor's IP (X-Client-IP)
+	// for rate limiting. Empty disables it.
+	ProxySecret          string
 	CookieSecure         bool
 	GitHubClientID       string
 	GitHubClientSecret   string
@@ -156,6 +159,11 @@ func Load() (Config, error) {
 			continue
 		}
 		cfg.TrustedProxies = append(cfg.TrustedProxies, pfx.Masked())
+	}
+
+	cfg.ProxySecret = get("PROXY_SHARED_SECRET", "")
+	if cfg.ProxySecret != "" && len(cfg.ProxySecret) < 32 {
+		errs = append(errs, errors.New("PROXY_SHARED_SECRET must be at least 32 bytes"))
 	}
 
 	cfg.BootstrapAdminLogins = map[string]struct{}{}

@@ -109,7 +109,13 @@ func (w *Workspace) StaffTasks(ctx context.Context, u domain.User, enrollmentID 
 	if err != nil {
 		return nil, e, err
 	}
-	return tasks, e, store.EnrichTasks(ctx, w.Store.Pool, tasks)
+	if err := store.EnrichTasks(ctx, w.Store.Pool, tasks); err != nil {
+		return nil, e, err
+	}
+	if err := store.AddHandInChecks(ctx, w.Store.Pool, tasks); err != nil {
+		return nil, e, err
+	}
+	return tasks, e, store.AddSharedNotes(ctx, w.Store.Pool, tasks)
 }
 
 // CreateTask assigns a task to a student and has the lead announce it in chat.
@@ -175,6 +181,8 @@ type TransitionInput struct {
 	// Submission is the student's hand-in: required when submitting for review, optional
 	// when finishing a self-reviewed task, ignored otherwise.
 	Submission *domain.Submission
+	// Rubric is the reviewer's ticks, one per criterion, when approving or requesting changes.
+	Rubric []bool
 }
 
 // Transition moves a task along the graph if the actor is allowed to.
@@ -238,6 +246,13 @@ func (w *Workspace) Transition(ctx context.Context, u domain.User, taskID uuid.U
 		if t.Type == domain.TaskQuiz && actor == domain.ActorStudent && in.To == domain.StatusDone {
 			return apperr.New(apperr.CodeInvalidTransition, "Quizzes are finished by submitting your answers.")
 		}
+		if actor == domain.ActorStaff {
+			if msg := domain.ValidateRubricResult(t.Content.Rubric, in.Rubric, in.To); msg != "" {
+				return apperr.Validation(map[string]string{"rubric": msg})
+			}
+		} else if len(in.Rubric) > 0 {
+			return apperr.Validation(map[string]string{"rubric": "Only reviewers fill in the rubric."})
+		}
 		var sub *domain.Submission
 		if actor == domain.ActorStudent && (in.To == domain.StatusInReview || in.To == domain.StatusDone) {
 			var subErrs map[string]string
@@ -253,13 +268,31 @@ func (w *Workspace) Transition(ctx context.Context, u domain.User, taskID uuid.U
 				return fmt.Errorf("insert submission: %w", err)
 			}
 		}
+		if actor == domain.ActorStaff && t.Status == domain.StatusInReview && (in.To == domain.StatusDone || in.To == domain.StatusChangesRequested) {
+			var ticks []bool
+			if len(t.Content.Rubric) > 0 {
+				ticks = in.Rubric
+			}
+			if err := store.RecordReview(ctx, q, t.ID, u.ID, ticks, now); err != nil {
+				return fmt.Errorf("record review: %w", err)
+			}
+		}
 		if err := awardFinished(ctx, q, out, now); err != nil {
 			return err
 		}
 		if out, err = store.EnrichTask(ctx, q, out); err != nil {
 			return err
 		}
-		if msg := lead.AnnounceTransition(out, in.To, note); actor == domain.ActorStaff && msg != "" {
+		if actor == domain.ActorStudent {
+			if err := w.handIn(ctx, q, e, u, out, t.Status, in.To, sub, nil, now); err != nil {
+				return err
+			}
+		}
+		msg := lead.AnnounceTransition(out, in.To, note)
+		if msg != "" && len(t.Content.Rubric) > 0 && len(in.Rubric) > 0 {
+			msg += "\n\nRubric: " + domain.RubricSummary(in.Rubric) + ". Open the task to see which."
+		}
+		if actor == domain.ActorStaff && msg != "" {
 			id := out.ID
 			by := u.ID
 			if _, _, err := store.InsertMessage(ctx, q, store.NewMessage{
@@ -472,7 +505,7 @@ func (w *Workspace) Students(ctx context.Context, u domain.User, search string, 
 		}
 		college = u.CollegeID
 	}
-	rows, err := store.ListStudents(ctx, w.Store.Pool, college, search, after, limit+1)
+	rows, err := store.ListStudents(ctx, w.Store.Pool, college, search, after, limit+1, w.Clock.Now())
 	if err != nil {
 		return nil, "", err
 	}
@@ -556,8 +589,48 @@ func (w *Workspace) SubmitQuiz(ctx context.Context, u domain.User, taskID uuid.U
 		if t, err = store.EnrichTask(ctx, q, t); err != nil {
 			return err
 		}
+		if t.Status == domain.StatusDone {
+			best := res.Score
+			if t.Quiz != nil {
+				best = max(best, t.Quiz.BestScore)
+			}
+			if err := w.handIn(ctx, q, e, u, t, domain.StatusInProgress, domain.StatusDone, nil, &best, now); err != nil {
+				return err
+			}
+		}
 		out = QuizOutcome{Task: t, Result: res}
 		return store.Notify(ctx, q, store.Event{Kind: store.EventTask, ID: t.ID, EnrollmentID: e.ID})
 	})
 	return out, err
+}
+
+// handIn posts the student's hand-in in the assigner's chat and schedules the assigner's
+// short reply (an "ok" for reviews, a reflection question for finished work), so the work
+// and the conversation about it stay together.
+func (w *Workspace) handIn(ctx context.Context, q store.Q, e domain.Enrollment, student domain.User, t domain.Task, from, to domain.TaskStatus,
+	sub *domain.Submission, quizScore *int, now time.Time) error {
+	body := lead.HandInMessage(t, from, to, sub, quizScore)
+	if body == "" {
+		return nil
+	}
+	id := t.ID
+	if _, _, err := store.InsertMessage(ctx, q, store.NewMessage{
+		EnrollmentID: e.ID, PersonaID: t.PersonaID, Author: domain.AuthorStudent, Body: body, TaskID: &id, DeliverAt: now,
+	}, now); err != nil {
+		return fmt.Errorf("hand-in message: %w", err)
+	}
+	ack := lead.Acknowledge(t, to, student.Name, quizScore)
+	if ack == "" {
+		return nil
+	}
+	var delay time.Duration
+	if d, ok := w.Lead.(lead.Delayer); ok {
+		delay = d.ReplyDelay()
+	}
+	if _, _, err := store.InsertMessage(ctx, q, store.NewMessage{
+		EnrollmentID: e.ID, PersonaID: t.PersonaID, Author: domain.AuthorPersona, Body: ack, TaskID: &id, DeliverAt: now.Add(delay),
+	}, now); err != nil {
+		return fmt.Errorf("hand-in reply: %w", err)
+	}
+	return nil
 }

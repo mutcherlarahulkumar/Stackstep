@@ -18,13 +18,16 @@ import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { messageFor } from "@/lib/api/errors";
 import { type Overview, type OverviewRow, type Student } from "@/lib/api/schemas";
 import { formatCode } from "@/lib/certificate";
+import { saveBlob } from "@/lib/download";
 import { FILTER_LABEL, isOverviewFilter, lastActiveLabel, matchesFilter, NUDGE_DRAFT, OVERVIEW_FILTERS, sortRows, type OverviewFilter, type Sort, type SortKey } from "@/lib/overview";
 import { useSession } from "@/lib/session";
 import { cn } from "@/lib/utils";
 import { Bounds } from "@/lib/validation";
 
+import { PAGE, PageHeader } from "../app/page-header";
 import { choiceItem } from "../app/choice";
-import { EmptyState, ErrorState, ListSkeleton } from "../app/state";
+import { TableSkeleton } from "../app/loading";
+import { EmptyState, ErrorState } from "../app/state";
 import { AdminShell } from "./admin-shell";
 import { BroadcastDialog } from "./broadcast-dialog";
 import { StudentDetail } from "./review";
@@ -49,12 +52,7 @@ function OverviewPage() {
     setExporting(true);
     try {
       const { blob, filename } = await api.exportOverview(q);
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement("a");
-      a.href = url;
-      a.download = filename;
-      a.click();
-      setTimeout(() => URL.revokeObjectURL(url), 1000);
+      saveBlob(blob, filename);
       toast.success(`Downloaded ${filename}`);
     } catch (e) {
       toast.error(messageFor(e));
@@ -69,12 +67,8 @@ function OverviewPage() {
 
   return (
     <div className="min-h-0 flex-1 overflow-y-auto">
-      <div className="mx-auto flex max-w-7xl flex-col gap-6 p-6">
-        <div className="flex flex-wrap items-end justify-between gap-4">
-          <div>
-            <h1 className="text-xl font-semibold">Placement overview</h1>
-            <p className="text-muted-foreground text-sm">Every student you manage, with progress, activity and certificates.</p>
-          </div>
+      <div className={cn(PAGE, "gap-6")}>
+        <PageHeader title="Placement overview" description="Every student you manage, with progress, activity and certificates.">
           <div className="flex flex-wrap items-center gap-2">
             <InputGroup className="w-64">
               <InputGroupAddon>
@@ -97,10 +91,10 @@ function OverviewPage() {
               <BellRing data-icon="inline-start" aria-hidden /> Nudge {inactive.length > 0 ? inactive.length : ""} inactive
             </Button>
           </div>
-        </div>
+        </PageHeader>
 
         {data.isPending ? (
-          <ListSkeleton rows={6} className="h-12" />
+          <TableSkeleton rows={6} cols={6} />
         ) : data.isError ? (
           <ErrorState message={messageFor(data.error)} onRetry={() => void data.refetch()} />
         ) : o ? (
@@ -293,6 +287,7 @@ const SOON: { icon: LucideIcon; title: string; body: string }[] = [
   { icon: CreditCard, title: "Payments (Razorpay)", body: "Paid seats, college bulk seats and invoices. Enrollment is manual for now." },
   { icon: GitPullRequest, title: "GitHub PR checks", body: "Automatic checks and hidden tests on every pull request. Review links by hand for now." },
   { icon: Sparkles, title: "AI review suggestions", body: "Draft review notes for admins to edit. Reviews are fully manual for now." },
+  { icon: BellRing, title: "Push notifications on phones", body: "Needs a push service (Firebase / Web Push keys). Browser notifications work today while a tab is open." },
   { icon: FileImage, title: "Certificate artwork (Orshot)", body: "Designed certificate images and share cards. The printable certificate works today." },
 ];
 

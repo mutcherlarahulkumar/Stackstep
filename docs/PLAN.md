@@ -51,7 +51,7 @@ in their college's cohorts. Platform admins (`admin`) see everyone.
 
 ```
 api/openapi.yaml        HTTP contract shared by web and mobile (enum drift checked in CI)
-backend/                Go modular monolith (cmd/api, cmd/seed, internal/*)
+backend/                Go modular monolith (cmd/api, cmd/dbadmin, cmd/seed = test fixtures, internal/*)
 web/                    Next.js app: student workspace + admin console
 mobile/                 Flutter app: student chat/tasks + admin task allocation
 e2e/                    Playwright tests driving web against the real API
@@ -97,6 +97,7 @@ Each slice goes **backend → mobile app → web**, with E2E before it is called
 | 4 | **Points, credits and the AI study helper** (Groq; students only, rate limited, hints not answers) | ✅ built — `docs/features/04-points-credits-ai.md` |
 | 5 | **Progress, hand-issued certificates, public verify and printable certificate** | ✅ built — `docs/features/05-progress-certificates.md` |
 | 6 | **Placement overview, CSV export, nudges** | ✅ built — `docs/features/06-placement-overview.md` |
+| 7 | **People: enrollment by login or CSV, colleges and cohorts, internship status, staff roles** | ✅ built — `docs/features/07-people.md` |
 | — | GitHub App ingest + PR checks (webhooks, runner, hidden tests) | coming soon — needs a GitHub App |
 | — | AI review suggestions and an LLM team lead | coming soon — reviews and replies are manual for now |
 | — | Razorpay payments, entitlements, college seats, bulk import | coming soon — needs Razorpay keys |

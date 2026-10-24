@@ -22,7 +22,7 @@ const STATUS_STYLE: Record<TaskStatus, string> = {
   in_progress: "bg-primary/12 text-primary",
   in_review: "bg-warning/14 text-warning",
   changes_requested: "bg-destructive/12 text-destructive",
-  done: "bg-success/14 text-success",
+  done: "bg-success/14 text-success-strong",
   cancelled: "bg-muted text-muted-foreground",
 };
 

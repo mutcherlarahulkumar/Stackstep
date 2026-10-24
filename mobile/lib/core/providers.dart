@@ -98,8 +98,6 @@ final class SessionController extends Notifier<SessionState> {
     return await _complete(() => _api.exchangeCode(code: code, verifier: pkce.verifier));
   }
 
-  Future<String?> devLogin(String login) => _complete(() => _api.devLogin(login));
-
   Future<String?> _complete(Future<void> Function() signIn) async {
     try {
       await signIn();
@@ -123,6 +121,12 @@ final class SessionController extends Notifier<SessionState> {
     } on Exception {
       // Keep the current state; screens show their own errors.
     }
+  }
+
+  /// Applies fresh consent/onboarding state without refetching /me.
+  void setAccount(Account a) {
+    final s = state;
+    if (s is SignedIn) state = SignedIn(s.me.withAccount(a));
   }
 
   Future<void> signOut() async {

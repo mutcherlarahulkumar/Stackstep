@@ -70,6 +70,8 @@ const Toaster = ({ ...props }: ToasterProps) => {
       toastOptions={{
         classNames: {
           toast: "rounded-2xl",
+          // 24px close target (WCAG 2.5.8), placed inside the toast so it isn't clipped.
+          closeButton: "!size-6 !left-auto !right-1 !top-1 !translate-x-0 !translate-y-0",
         },
       }}
       {...props}

@@ -2,6 +2,7 @@ package httpapi
 
 import (
 	"net/http"
+	"time"
 
 	"github.com/gin-gonic/gin"
 
@@ -17,12 +18,52 @@ func (s *Server) me(c *gin.Context) {
 		s.fail(c, err)
 		return
 	}
-	out := meDTO{User: toUser(u)}
+	acct, err := s.workspace.Account(c.Request.Context(), u)
+	if err != nil {
+		s.fail(c, err)
+		return
+	}
+	out := meDTO{User: toUser(u), Account: toAccount(acct)}
 	if e != nil {
 		dto := toEnrollment(*e, s.clock.Now())
 		out.Enrollment = &dto
 	}
 	c.JSON(http.StatusOK, out)
+}
+
+func (s *Server) consent(c *gin.Context) {
+	var req consentReq
+	if err := decode(c, &req); err != nil {
+		s.fail(c, err)
+		return
+	}
+	a, err := s.workspace.Consent(c.Request.Context(), currentUser(c), req.Version)
+	if err != nil {
+		s.fail(c, err)
+		return
+	}
+	c.JSON(http.StatusOK, toAccount(a))
+}
+
+func (s *Server) onboarded(c *gin.Context) {
+	a, err := s.workspace.Onboarded(c.Request.Context(), currentUser(c))
+	if err != nil {
+		s.fail(c, err)
+		return
+	}
+	c.JSON(http.StatusOK, toAccount(a))
+}
+
+// exportMe sends the caller's data as a JSON download.
+func (s *Server) exportMe(c *gin.Context) {
+	b, err := s.workspace.Export(c.Request.Context(), currentUser(c))
+	if err != nil {
+		s.fail(c, err)
+		return
+	}
+	c.Header("Content-Disposition", `attachment; filename="stackstep-my-data-`+s.clock.Now().UTC().Format(time.DateOnly)+`.json"`)
+	c.Header("Cache-Control", "no-store")
+	c.Data(http.StatusOK, "application/json; charset=utf-8", b)
 }
 
 func (s *Server) myTasks(c *gin.Context) {
@@ -145,6 +186,43 @@ func (s *Server) transition(c *gin.Context) {
 		return
 	}
 	c.JSON(http.StatusOK, toTask(t, u.Role.IsStaff()))
+}
+
+func (s *Server) myNote(c *gin.Context) {
+	id, err := pathUUID(c, "id")
+	if err != nil {
+		s.fail(c, err)
+		return
+	}
+	n, err := s.workspace.MyNote(c.Request.Context(), currentUser(c), id)
+	if err != nil {
+		s.fail(c, err)
+		return
+	}
+	c.JSON(http.StatusOK, toNote(n))
+}
+
+func (s *Server) saveNote(c *gin.Context) {
+	id, err := pathUUID(c, "id")
+	if err != nil {
+		s.fail(c, err)
+		return
+	}
+	var req noteReq
+	if err := decodeLimit(c, &req, MaxNoteBodyBytes); err != nil {
+		s.fail(c, err)
+		return
+	}
+	if req.Body == nil || req.Shared == nil {
+		s.fail(c, apperr.Validation(map[string]string{"body": "Send body and shared."}))
+		return
+	}
+	n, err := s.workspace.SaveNote(c.Request.Context(), currentUser(c), id, *req.Body, *req.Shared)
+	if err != nil {
+		s.fail(c, err)
+		return
+	}
+	c.JSON(http.StatusOK, toNote(n))
 }
 
 func (s *Server) submitQuiz(c *gin.Context) {

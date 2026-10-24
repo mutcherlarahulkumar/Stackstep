@@ -30,9 +30,23 @@ Each has a spec with every edge case and the test that covers it, in [`docs/feat
 5. **Certificates** — progress against a 70% bar, issued by hand, public `/verify` page and a
    printable certificate.
 6. **Placement overview** — cohort table, CSV export and nudges for inactive students.
+7. **People** — enroll by GitHub login, roster CSV import, colleges, cohorts, internship status
+   and staff roles.
+8. **Account** — consent at first sign-in, privacy and terms pages, a first-run guide,
+   honest persona tags and "Download my data".
+9. **Task notes** — private Markdown notes per task, optionally shared with the reviewer.
+10. **DSA practice pad** — run a JavaScript solution against example tests in your own browser.
+11. **Review rubrics** — what the reviewer checks, up front, and which criteria were met.
+12. **Weekly report** — per-cohort week summary for placement cells (print and CSV) and a
+    "This week" recap for students.
+13. **Notifications** — opt-in browser notifications while a tab is in the background, and an
+    unread count in the tab title.
+
+Also: a review queue with hand-in authenticity warnings, and hand-ins posted in the assigning
+persona's chat with an acknowledgement.
 
 Coming soon (labelled in the UI, nothing faked): Razorpay payments, GitHub PR checks,
-AI review suggestions, Orshot certificate artwork.
+AI review suggestions, push notifications on phones, Orshot certificate artwork.
 
 ## Who uses what
 
@@ -40,17 +54,23 @@ AI review suggestions, Orshot certificate artwork.
 - **Admins and college admins**: the web console on a desktop. On phones (web or app) they
   get a "switch to desktop" prompt, but **task allocation works everywhere**.
 
+## Docs
+
+- [What every feature does](docs/FEATURES.md) (plain-language guide)
+- [Going to production, step by step](docs/PRODUCTION.md) (Neon, Render, Vercel, GitHub, mobile)
+- [Every setting and local setup](docs/SETUP.md) · [Releases and app builds](docs/RELEASING.md)
+
 ## Run it locally
 
 ```bash
-cp .env.example .env          # optional: GROQ_API_KEY for the AI helper, GitHub OAuth
-make up                       # Postgres + API + web in Docker, seeded
-open http://localhost:3000    # use "Developer sign-in" on /login
+cp .env.example .env          # GitHub OAuth app + BOOTSTRAP_ADMIN_GITHUB_LOGINS (you), optional GROQ_API_KEY
+make up                       # Postgres + API + web in Docker, empty database
+open http://localhost:3000    # "Continue with GitHub"; your login becomes the first admin
 ```
 
-Or run pieces on the host: `make db seed`, then `make api`, `make web`, `make mobile`.
-Seeded logins: `asha-dev`, `ravi-dev`, `meera-dev` (students), `kiran-dev` (paused),
-`nora-dev` (no internship), `anits-tpo` (college admin), `admin-demo` (admin).
+Or run pieces on the host: `make db`, then `make api`, `make web`, `make mobile`.
+Automated tests use their own fixture data (`backend/internal/seed`); nothing is seeded into
+real databases.
 
 Real GitHub sign-in, the Groq key, production settings and every variable are in
 [`docs/SETUP.md`](docs/SETUP.md).

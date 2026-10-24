@@ -2,6 +2,7 @@ import { type z } from "zod";
 
 import { ApiError, NetworkError, toErrorCode } from "./errors";
 import * as S from "./schemas";
+import { type CohortKind, type EnrollmentStatus } from "./schemas";
 
 /**
  * Talks to the Go API through the same-origin /api proxy. The access token lives in memory
@@ -20,7 +21,29 @@ export type CreateTaskInput = {
 };
 
 /** Content as sent: quiz answers are always set by the author. */
-export type ContentInput = { resources: S.Resource[]; quiz: { questions: { prompt: string; options: string[]; answer: number }[]; pass_percent: number } | null };
+/** Example tests are edited as JSON text and parsed when sent (see wireContent). */
+export type PracticeDraft = { function_name: string; starter: string; tests: { args: string; expected: string }[] };
+export type ContentInput = {
+  resources: S.Resource[];
+  quiz: { questions: { prompt: string; options: string[]; answer: number }[]; pass_percent: number } | null;
+  practice: PracticeDraft | null;
+  rubric: string[];
+};
+
+/** Parses practice test text into JSON for the API. Validation (validateContent) runs first. */
+export function wireContent(c: ContentInput) {
+  const parse = (s: string): unknown => {
+    try {
+      return JSON.parse(s) as unknown;
+    } catch {
+      return s; // the server rejects it with a field error
+    }
+  };
+  return {
+    ...c,
+    practice: c.practice ? { ...c.practice, tests: c.practice.tests.map((t) => ({ args: parse(t.args), expected: parse(t.expected) })) } : null,
+  };
+}
 export type SubmissionInput = { url: string; note: string };
 export type AIQuestionInput = { task_id: string | null; goal: string; tried: string; error: string; code: string };
 export type AIFollowUpInput = { tried_since: string; body: string };
@@ -32,6 +55,18 @@ export type DraftItemInput = TemplateInput & { day: number; template_id: string 
 export type TemplateFilter = { q?: string; type?: S.TaskType | null; personaId?: string | null; includeArchived?: boolean };
 
 type Method = "GET" | "POST" | "PUT" | "PATCH";
+export type PersonInput = { github_login: string; name?: string; email?: string };
+export type EnrollSettings = { cohort_id: string | null; program_slug?: string; start_date: string | null; timezone: string; flow_id: string | null };
+export type CohortInput = {
+  kind: CohortKind;
+  name: string;
+  college_id: string | null;
+  program_slug: string;
+  start_date: string;
+  timezone: string;
+  seats_total: number;
+};
+
 type SendOpts = { body?: unknown; query?: Record<string, string | null>; auth?: boolean; retried?: boolean };
 
 type Options = { baseUrl?: string; fetch?: typeof fetch; now?: () => number; timeoutMs?: number };
@@ -70,10 +105,6 @@ export class ApiClient {
     return this.refresh();
   }
 
-  async devLogin(githubLogin: string): Promise<void> {
-    this.accept(await this.send("POST", "/v1/auth/dev-login", S.AccessToken, { body: { github_login: githubLogin }, auth: false }));
-  }
-
   async logout(): Promise<void> {
     this.access = null;
     this.accessExpiresAt = 0;
@@ -98,6 +129,21 @@ export class ApiClient {
     return this.send("GET", "/v1/me", S.Me);
   }
 
+  acceptTerms(version: number) {
+    return this.send("POST", "/v1/me/consent", S.Account, { body: { version } });
+  }
+
+  finishOnboarding() {
+    return this.send("POST", "/v1/me/onboarded", S.Account);
+  }
+
+  /** Everything we hold about the caller, as a JSON file. */
+  async exportMyData(): Promise<{ blob: Blob; filename: string }> {
+    const res = await this.raw("GET", "/v1/me/export", {});
+    const name = /filename="([^"]+)"/.exec(res.headers.get("Content-Disposition") ?? "")?.[1] ?? "stackstep-my-data.json";
+    return { blob: await res.blob(), filename: name };
+  }
+
   async myTasks() {
     return (await this.send("GET", "/v1/me/tasks", S.TaskList)).items;
   }
@@ -118,10 +164,18 @@ export class ApiClient {
     await this.send("POST", `/v1/me/threads/${seg(personaId)}/read`, null);
   }
 
-  transition(taskId: string, to: S.TaskStatus, expectedVersion: number, note = "", submission: SubmissionInput | null = null) {
+  transition(taskId: string, to: S.TaskStatus, expectedVersion: number, note = "", submission: SubmissionInput | null = null, rubric: boolean[] | null = null) {
     return this.send("POST", `/v1/tasks/${seg(taskId)}/transitions`, S.Task, {
-      body: { to, expected_version: expectedVersion, note, submission },
+      body: { to, expected_version: expectedVersion, note, submission, ...(rubric ? { rubric } : {}) },
     });
+  }
+
+  myNote(taskId: string) {
+    return this.send("GET", `/v1/tasks/${seg(taskId)}/note`, S.TaskNote);
+  }
+
+  saveNote(taskId: string, body: string, shared: boolean) {
+    return this.send("PUT", `/v1/tasks/${seg(taskId)}/note`, S.TaskNote, { body: { body, shared } });
   }
 
   submitQuiz(taskId: string, expectedVersion: number, answers: number[]) {
@@ -194,6 +248,64 @@ export class ApiClient {
     return this.send("GET", `/v1/certificates/${seg(code)}`, S.Certificate, { auth: false });
   }
 
+  // ---- Review queue ----
+
+  reviews(personaId: string | null) {
+    return this.send("GET", "/v1/admin/reviews", S.ReviewQueue, { query: { persona_id: personaId } });
+  }
+
+  // ---- People ----
+
+  async colleges() {
+    return (await this.send("GET", "/v1/admin/colleges", S.CollegeList)).items;
+  }
+
+  createCollege(name: string) {
+    return this.send("POST", "/v1/admin/colleges", S.College, { body: { name } });
+  }
+
+  async programs() {
+    return (await this.send("GET", "/v1/admin/programs", S.ProgramList)).items;
+  }
+
+  async cohorts() {
+    return (await this.send("GET", "/v1/admin/cohorts", S.CohortList)).items;
+  }
+
+  createCohort(input: CohortInput) {
+    return this.send("POST", "/v1/admin/cohorts", S.Cohort, { body: input });
+  }
+
+  enroll(person: PersonInput, settings: EnrollSettings) {
+    return this.send("POST", "/v1/admin/enrollments", S.EnrollResult, { body: { ...person, ...settings } });
+  }
+
+  importEnrollments(rows: PersonInput[], settings: EnrollSettings) {
+    return this.send("POST", "/v1/admin/enrollments/import", S.ImportResult, { body: { ...settings, rows } });
+  }
+
+  setEnrollmentStatus(enrollmentId: string, status: EnrollmentStatus) {
+    return this.send("POST", `/v1/admin/enrollments/${seg(enrollmentId)}/status`, S.Enrollment, { body: { status } });
+  }
+
+  async staff() {
+    return (await this.send("GET", "/v1/admin/staff", S.StaffList)).items;
+  }
+
+  grantStaff(person: PersonInput, role: "admin" | "college_admin", collegeId: string | null) {
+    return this.send("POST", "/v1/admin/staff", S.StaffMember, { body: { ...person, role, college_id: collegeId } });
+  }
+
+  revokeStaff(userId: string) {
+    return this.send("POST", `/v1/admin/staff/${seg(userId)}/revoke`, S.StaffMember);
+  }
+
+  // ---- Weekly report ----
+
+  weeklyReport(week: string | null) {
+    return this.send("GET", "/v1/admin/reports/weekly", S.WeeklyReport, { query: { week } });
+  }
+
   // ---- Placement overview ----
 
   overview(q: string) {
@@ -227,7 +339,7 @@ export class ApiClient {
         brief: input.brief,
         scheduled_for: input.scheduled_for?.toISOString() ?? null,
         due_at: input.due_at.toISOString(),
-        content: input.content,
+        content: wireContent(input.content),
       },
     });
   }
@@ -293,11 +405,11 @@ export class ApiClient {
   }
 
   createTemplate(input: TemplateInput) {
-    return this.send("POST", "/v1/admin/task-templates", S.TaskTemplate, { body: input });
+    return this.send("POST", "/v1/admin/task-templates", S.TaskTemplate, { body: { ...input, content: wireContent(input.content) } });
   }
 
   updateTemplate(id: string, input: TemplateInput & { archived: boolean }, expectedVersion: number) {
-    return this.send("PATCH", `/v1/admin/task-templates/${seg(id)}`, S.TaskTemplate, { body: { ...input, expected_version: expectedVersion } });
+    return this.send("PATCH", `/v1/admin/task-templates/${seg(id)}`, S.TaskTemplate, { body: { ...input, content: wireContent(input.content), expected_version: expectedVersion } });
   }
 
   async flows(includeArchived = false) {
@@ -318,7 +430,9 @@ export class ApiClient {
 
   /** Replaces the draft's items. `expectedRevision` 0 starts a new draft from the published version. */
   saveDraft(id: string, expectedRevision: number, items: DraftItemInput[]) {
-    return this.send("PUT", `/v1/admin/flows/${seg(id)}/draft`, S.FlowDetail, { body: { expected_revision: expectedRevision, items } });
+    return this.send("PUT", `/v1/admin/flows/${seg(id)}/draft`, S.FlowDetail, {
+      body: { expected_revision: expectedRevision, items: items.map((i) => ({ ...i, content: wireContent(i.content) })) },
+    });
   }
 
   publishFlow(id: string, expectedRevision: number) {

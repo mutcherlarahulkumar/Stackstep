@@ -8,6 +8,8 @@ import { type Me } from "@/lib/api/schemas";
 import { homeFor, useSession } from "@/lib/session";
 
 import { BrandMark } from "./brand";
+import { ConsentScreen } from "./consent-screen";
+import { Quip } from "./loading";
 
 export function FullPageLoader() {
   return (
@@ -16,9 +18,13 @@ export function FullPageLoader() {
         <BrandMark />
         <Skeleton className="h-4 w-28" />
       </div>
-      <div className="grid flex-1 gap-4 p-6 lg:grid-cols-[3fr_2fr]">
-        <Skeleton className="h-full min-h-64" />
-        <Skeleton className="hidden h-full lg:block" />
+      <div className="flex flex-1 flex-col items-center justify-center gap-4 p-6">
+        <BrandMark className="size-12 animate-pulse" />
+        <Quip />
+        <div className="flex w-full max-w-sm flex-col gap-2" aria-hidden>
+          <Skeleton className="h-2.5 w-full" />
+          <Skeleton className="mx-auto h-2.5 w-2/3" />
+        </div>
       </div>
     </div>
   );
@@ -40,5 +46,6 @@ export function RequireSession({ audience, children }: { audience: "student" | "
   }, [router, target]);
 
   if (state.status !== "signed_in" || target) return <FullPageLoader />;
+  if (state.me.account.consent_required) return <ConsentScreen me={state.me} />;
   return children(state.me);
 }

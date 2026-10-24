@@ -9,23 +9,28 @@ import { messageFor } from "@/lib/api/errors";
 import { type Message, type StaffThread, type Thread } from "@/lib/api/schemas";
 import { inboxTimeLabel, previewLine, threadKey } from "@/lib/inbox";
 import { useStaffThreads, useStudentThreads } from "@/lib/inbox-queries";
+import { firstName } from "@/lib/format";
 import { cn } from "@/lib/utils";
 
 import { PERSONA_DOT, PersonaAvatar, PersonAvatar } from "../app/persona-avatar";
 import { AIAvatar } from "../ai/ai-helper";
-import { EmptyState, ErrorState, ListSkeleton } from "../app/state";
+import { EmptyState, ErrorState } from "../app/state";
+import { RowsSkeleton, stagger } from "../app/loading";
 
-function preview(m: Message | null, staff: boolean): string {
+/** The last message, prefixed with who said it. Staff see the persona's name, since
+ *  persona messages may be automatic (the lead's scripted replies), not their own. */
+function preview(m: Message | null, staff: boolean, personaName?: string): string {
   if (!m) return "No messages yet";
-  const mine = staff ? m.author === "persona" : m.author === "student";
-  return `${mine ? "You: " : ""}${previewLine(m.body)}`;
+  if (staff) return `${m.author === "persona" ? `${firstName(personaName ?? "Persona")}: ` : ""}${previewLine(m.body)}`;
+  return `${m.author === "student" ? "You: " : ""}${previewLine(m.body)}`;
 }
 
 function UnreadBadge({ count }: { count: number }) {
   if (count === 0) return null;
   return (
     <span className="bg-primary text-primary-foreground inline-flex h-5 min-w-5 items-center justify-center rounded-full px-1.5 text-[11px] font-semibold tabular-nums">
-      {count > 99 ? "99+" : count}
+      <span aria-hidden>{count > 99 ? "99+" : count}</span>
+      <span className="sr-only">{count} unread</span>
     </span>
   );
 }
@@ -40,7 +45,9 @@ function Row({
   selected,
   onSelect,
   testId,
+  personaName,
 }: {
+  personaName?: string;
   avatar: ReactNode;
   title: string;
   tag: ReactNode;
@@ -58,7 +65,6 @@ function Row({
       type="button"
       onClick={onSelect}
       aria-current={selected ? "true" : undefined}
-      aria-label={`${title}${unread ? `, ${unread} unread` : ""}`}
       data-testid={testId}
       className={cn(
         "hover:bg-muted/70 focus-visible:ring-ring flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-left outline-none focus-visible:ring-2",
@@ -73,7 +79,7 @@ function Row({
         </span>
         <span className="text-muted-foreground truncate text-xs">{tag}</span>
         <span className="flex items-center gap-2">
-          <span className={cn("min-w-0 flex-1 truncate text-sm", bold ? "text-foreground" : "text-muted-foreground")}>{preview(last, staff)}</span>
+          <span className={cn("min-w-0 flex-1 truncate text-sm", bold ? "text-foreground" : "text-muted-foreground")}>{preview(last, staff, personaName)}</span>
           <UnreadBadge count={unread} />
         </span>
       </span>
@@ -114,7 +120,7 @@ export function StudentThreadList({ selected, onSelect, onAI }: { selected: stri
       <AIRow selected={selected === AI_THREAD} onSelect={onAI} />
     </li>
   );
-  if (q.isPending) return <ListSkeleton rows={4} className="h-16" />;
+  if (q.isPending) return <RowsSkeleton rows={4} />;
   if (q.isError) return <ErrorState message={messageFor(q.error)} onRetry={() => void q.refetch()} />;
   if (q.data.length === 0) {
     return (
@@ -129,8 +135,8 @@ export function StudentThreadList({ selected, onSelect, onAI }: { selected: stri
   return (
     <ul className="flex flex-col gap-0.5" aria-label="Chats">
       {ai}
-      {q.data.map((t) => (
-        <li key={t.persona.id}>
+      {q.data.map((t, i) => (
+        <li key={t.persona.id} className="animate-enter-stagger" style={stagger(i + 1)}>
           <Row
             avatar={<PersonaAvatar persona={t.persona} size="lg" />}
             title={t.persona.name}
@@ -152,7 +158,7 @@ export function StudentThreadList({ selected, onSelect, onAI }: { selected: stri
 export function StaffThreadList({ unreadOnly, selected, onSelect }: { unreadOnly: boolean; selected: string | null; onSelect: (t: StaffThread) => void }) {
   const q = useStaffThreads(unreadOnly);
   const items = q.data?.pages.flatMap((p) => p.items) ?? [];
-  if (q.isPending) return <ListSkeleton rows={6} className="h-16" />;
+  if (q.isPending) return <RowsSkeleton rows={6} />;
   if (q.isError) return <ErrorState message={messageFor(q.error)} onRetry={() => void q.refetch()} />;
   if (items.length === 0) {
     return (
@@ -164,9 +170,10 @@ export function StaffThreadList({ unreadOnly, selected, onSelect }: { unreadOnly
   return (
     <>
       <ul className="flex flex-col gap-0.5" aria-label="Conversations">
-        {items.map((t) => (
-          <li key={threadKey(t)}>
+        {items.map((t, i) => (
+          <li key={threadKey(t)} className="animate-enter-stagger" style={stagger(i)}>
             <Row
+              personaName={t.persona.name}
               avatar={<PersonAvatar name={t.student.name} login={t.student.github_login} url={t.student.avatar_url} size="lg" />}
               title={t.student.name}
               tag={

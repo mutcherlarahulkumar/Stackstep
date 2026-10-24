@@ -82,15 +82,20 @@ func TestOverview(t *testing.T) {
 
 	// PO3: two quiet days flag the student; a chat message clears it.
 	e.clock.Advance(domain.InactiveAfter + time.Minute)
-	adm, stu = e.login(seed.AdminLogin), e.login(seed.StudentLogin) // tokens expired meanwhile
+	adm = e.login(seed.AdminLogin) // tokens expired meanwhile
+	ravi := e.login(seed.Student2Login)
 	e.expect(e.do("GET", "/v1/admin/overview", adm, nil), 200).json(t, &o)
-	if !o.Items[o.row(t, seed.StudentLogin)].Inactive || o.Summary.Inactive < 1 {
+	if !o.Items[o.row(t, seed.Student2Login)].Inactive || o.Summary.Inactive < 1 {
 		t.Fatalf("quiet student not flagged: %+v", o.Summary)
 	}
-	pid := domain.DefaultPersonaID.String()
-	e.expect(e.do("POST", "/v1/me/threads/"+pid+"/messages", stu, map[string]any{"client_id": uuid.New(), "body": "Sorry, I was ill. Back now."}), 201)
-	e.expect(e.do("GET", "/v1/admin/overview", adm, nil), 200).json(t, &o)
+	// Certified students have finished and are never flagged for a nudge.
 	if o.Items[o.row(t, seed.StudentLogin)].Inactive {
+		t.Fatal("certified student flagged inactive")
+	}
+	pid := domain.DefaultPersonaID.String()
+	e.expect(e.do("POST", "/v1/me/threads/"+pid+"/messages", ravi, map[string]any{"client_id": uuid.New(), "body": "Sorry, I was ill. Back now."}), 201)
+	e.expect(e.do("GET", "/v1/admin/overview", adm, nil), 200).json(t, &o)
+	if o.Items[o.row(t, seed.Student2Login)].Inactive {
 		t.Fatal("still flagged after a message")
 	}
 
@@ -105,6 +110,7 @@ func TestOverview(t *testing.T) {
 			t.Fatal("college admin sees an independent student")
 		}
 	}
+	stu = e.login(seed.StudentLogin)
 	e.expect(e.do("GET", "/v1/admin/overview", stu, nil), 403)
 	e.expect(e.do("GET", "/v1/admin/overview/export", stu, nil), 403)
 
@@ -134,5 +140,29 @@ func TestCSVSafe(t *testing.T) {
 		if got[i] != want[i] {
 			t.Fatalf("csvSafe[%d] = %q, want %q", i, got[i], want[i])
 		}
+	}
+}
+
+// TestStudentCountsOnlyReleased: the admin list counts what the student can see (SC1).
+func TestStudentCountsOnlyReleased(t *testing.T) {
+	e := newEnv(t)
+	adm := e.login(seed.AdminLogin)
+	enr := e.enrollmentOf(seed.StudentLogin)
+	body := validTask(e.clock.Now())
+	body["scheduled_for"] = e.clock.Now().Add(48 * time.Hour)
+	body["due_at"] = e.clock.Now().Add(52 * time.Hour)
+	e.expect(e.createTask(adm, enr, body), 201)
+	e.mustCreateTask(adm, enr)
+	var list struct {
+		Items []struct {
+			User struct {
+				GitHubLogin string `json:"github_login"`
+			} `json:"user"`
+			OpenTasks int `json:"open_tasks"`
+		} `json:"items"`
+	}
+	e.expect(e.do("GET", "/v1/admin/students?q=asha", adm, nil), 200).json(t, &list)
+	if len(list.Items) != 1 || list.Items[0].OpenTasks != 1 {
+		t.Fatalf("open tasks = %+v (the future task must not count)", list.Items)
 	}
 }

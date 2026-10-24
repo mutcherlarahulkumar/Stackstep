@@ -26,9 +26,12 @@ describe("contract schemas", () => {
   });
 
   it("me with and without enrollment; days must be 30 or 60", () => {
-    expect(Me.parse({ user: user(), enrollment: enrollment() }).enrollment?.day_number).toBe(3);
-    expect(Me.parse({ user: user({ role: "admin" }), enrollment: null }).enrollment).toBeNull();
-    expect(Me.safeParse({ user: user(), enrollment: enrollment({ program: { slug: "x", days: 45, track: "frontend" } }) }).success).toBe(false);
+    const account = { terms_version: 1, consent_required: false, onboarded: true };
+    expect(Me.parse({ user: user(), enrollment: enrollment(), account }).enrollment?.day_number).toBe(3);
+    expect(Me.parse({ user: user({ role: "admin" }), enrollment: null, account }).enrollment).toBeNull();
+    expect(Me.safeParse({ user: user(), enrollment: enrollment({ program: { slug: "x", days: 45, track: "frontend" } }), account }).success).toBe(false);
+    // The account block is required: an older API would otherwise skip the consent step.
+    expect(Me.safeParse({ user: user(), enrollment: null }).success).toBe(false);
   });
 
   it("frames are a closed union", () => {

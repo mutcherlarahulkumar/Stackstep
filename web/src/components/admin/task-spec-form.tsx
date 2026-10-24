@@ -16,7 +16,7 @@ import { choiceItem } from "../app/choice";
 import { PersonaAvatar } from "../app/persona-avatar";
 import { TYPE_ICON } from "../app/task-badges";
 import { REVIEW_HINT, REVIEW_LABEL } from "./assign-task-form";
-import { QuizEditor, ResourcesEditor } from "./content-editors";
+import { PracticeEditor, QuizEditor, ResourcesEditor, RubricEditor } from "./content-editors";
 
 /** A task spec as the admin edits it: quiz answers are always set. */
 export type SpecDraft = TemplateInput;
@@ -45,6 +45,8 @@ export function withType(s: SpecDraft, type: TaskType): SpecDraft {
     next.review_mode = "self";
     next.content = { ...s.content, quiz: s.content.quiz ?? { pass_percent: ContentBounds.passDefault, questions: [blankQuestion()] } };
   } else next.content = { ...s.content, quiz: null };
+  if (type !== "dsa") next.content = { ...next.content, practice: null };
+  if (type === "quiz") next.content = { ...next.content, rubric: [] };
   return next;
 }
 
@@ -77,7 +79,7 @@ export function emptySpec(personaId: string): SpecDraft {
 
 /** Client checks mirroring domain.ValidateTaskSpec. */
 export function validateSpec(s: SpecDraft, personaOk: (id: string) => boolean): SpecErrors {
-  const e: SpecErrors = validateContent(s.content, s.type);
+  const e: SpecErrors = validateContent(s.content, s.type, s.review_mode);
   if (s.type === "quiz" && s.review_mode !== "self") e.review_mode = "Quizzes are graded automatically, so the student finishes them.";
   const [h = 0, m = 0] = s.release_time.split(":").map(Number);
   if (s.release_window < 0 || s.release_window > ContentBounds.windowMax) e.release_window = "A surprise window can be at most 8 hours.";
@@ -190,7 +192,8 @@ export function SpecFields({
           variant="outline"
           value={value.review_mode}
           onValueChange={(v) => {
-            if (v === "manual" || v === "self") set("review_mode", v);
+            if (v === "self") onChange({ ...value, review_mode: v, content: { ...value.content, rubric: [] } });
+            else if (v === "manual") set("review_mode", v);
           }}
           className="justify-start"
           disabled={value.type === "quiz"}
@@ -212,6 +215,12 @@ export function SpecFields({
         <QuizEditor value={value.content.quiz} onChange={(quiz) => set("content", { ...value.content, quiz })} errors={errors} idPrefix={id("quiz")} />
       ) : null}
       {errors.quiz ? <FieldError>{errors.quiz}</FieldError> : null}
+      {value.review_mode === "manual" && value.type !== "quiz" ? (
+        <RubricEditor value={value.content.rubric} onChange={(rubric) => set("content", { ...value.content, rubric })} errors={errors} idPrefix={id("rubric")} />
+      ) : null}
+      {value.type === "dsa" ? (
+        <PracticeEditor value={value.content.practice} onChange={(practice) => set("content", { ...value.content, practice })} errors={errors} idPrefix={id("practice")} />
+      ) : null}
       <ResourcesEditor value={value.content.resources} onChange={(resources) => set("content", { ...value.content, resources })} errors={errors} idPrefix={id("links")} />
       <div className="grid gap-4 sm:grid-cols-2">
         <Field data-invalid={!!errors.release_time}>
@@ -240,7 +249,7 @@ export function SpecFields({
         <Field data-invalid={!!errors.release_window}>
           <FieldLabel htmlFor={id("window")}>Surprise</FieldLabel>
           <Select value={String(value.release_window)} onValueChange={(v) => set("release_window", Number(v))}>
-            <SelectTrigger id={id("window")} className="w-full sm:w-72">
+            <SelectTrigger id={id("window")} className="w-full">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>

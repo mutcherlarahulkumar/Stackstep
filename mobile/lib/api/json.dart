@@ -59,6 +59,8 @@ extension type const JsonReader(Json raw) {
     return parsed.toUtc();
   }
 
+  DateTime? dateTimeOrNull(String key) => stringOrNull(key) == null ? null : dateTime(key);
+
   JsonReader object(String key) => JsonReader(_req<Json>(key));
 
   JsonReader? objectOrNull(String key) {
@@ -67,6 +69,12 @@ extension type const JsonReader(Json raw) {
     if (value is Json) return JsonReader(value);
     throw ContractViolation(key, 'object or null');
   }
+
+  /// A typed array, or null when the key is null or missing.
+  List<T>? valuesOrNull<T>(String key) => raw[key] == null ? null : values<T>(key);
+
+  /// A JSON array of any values (practice test arguments).
+  List<Object?> anyList(String key) => _req<List<Object?>>(key);
 
   List<T> list<T>(String key, T Function(JsonReader) decode) {
     final value = _req<List<Object?>>(key);

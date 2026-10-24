@@ -9,6 +9,7 @@ import 'package:stackstep/core/theme.dart';
 import 'package:stackstep/features/tasks/task_work.dart';
 import 'package:stackstep/shared/errors.dart';
 import 'package:stackstep/shared/format.dart';
+import 'package:stackstep/shared/motion.dart';
 import 'package:stackstep/shared/state_views.dart';
 import 'package:stackstep/ui/ui.dart';
 
@@ -23,14 +24,16 @@ class ProgressScreen extends ConsumerWidget {
     final p = ref.watch(progressProvider);
     return Scaffold(
       appBar: AppBar(title: const Text('Your progress')),
-      body: switch (p) {
-        AsyncData(:final value) => RefreshIndicator(
-          onRefresh: () => ref.refresh(progressProvider.future),
-          child: ProgressDetails(progress: value),
-        ),
-        AsyncError(:final error) => ErrorState(message: messageFor(error), onRetry: () => ref.invalidate(progressProvider)),
-        _ => const SkeletonList(rows: 3, height: 90),
-      },
+      body: FadeSwitch(
+        child: switch (p) {
+          AsyncData(:final value) => RefreshIndicator(
+            onRefresh: () => ref.refresh(progressProvider.future),
+            child: ProgressDetails(progress: value),
+          ),
+          AsyncError(:final error) => ErrorState(message: messageFor(error), onRetry: () => ref.invalidate(progressProvider)),
+          _ => const SkeletonList(rows: 3, height: 90),
+        },
+      ),
     );
   }
 }
@@ -64,6 +67,27 @@ class ProgressDetails extends StatelessWidget {
         Text(
           '${p.done} of ${p.released} released tasks done. The certificate bar is ${p.barPercent}%.',
           style: t.textTheme.muted.copyWith(fontSize: 12),
+        ),
+        const SizedBox(height: Space.lg),
+        ShadCard(
+          key: const Key('this-week'),
+          padding: const EdgeInsets.all(Space.lg),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Semantics(
+                header: true,
+                child: Text('This week', style: t.textTheme.small.copyWith(fontWeight: FontWeight.w600)),
+              ),
+              const SizedBox(height: Space.xs),
+              Text(p.thisWeek.line, style: t.textTheme.p),
+              const SizedBox(height: Space.xs),
+              Text(
+                '${p.thisWeek.done} finished · ${p.thisWeek.onTime} on time · ${p.thisWeek.points} points · ${p.thisWeek.handIns} hand-ins',
+                style: t.textTheme.muted.copyWith(fontSize: 12),
+              ),
+            ],
+          ),
         ),
         const SizedBox(height: Space.lg),
         GridView.count(

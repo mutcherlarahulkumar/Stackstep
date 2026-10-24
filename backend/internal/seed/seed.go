@@ -1,8 +1,10 @@
-// Package seed loads deterministic demo data for local development and E2E tests.
+// Package seed holds the test fixtures (accounts, catalog, internships) that E2E and live
+// tests run against, plus the production maintenance used by cmd/dbadmin (see admin.go).
 package seed
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"time"
 
@@ -60,17 +62,20 @@ func Run(ctx context.Context, q store.Q, now time.Time) error {
 	for _, p := range people {
 		var id uuid.UUID
 		err := q.QueryRow(ctx, `
-			INSERT INTO users (github_login, name, role, college_id, created_at, updated_at)
-			VALUES ($1, $2, $3, $4, $5, $5)
+			INSERT INTO users (github_login, name, role, college_id, created_at, updated_at, consent_version, consent_at, onboarded_at)
+			VALUES ($1, $2, $3, $4, $5, $5, $6, $5, $5)
 			ON CONFLICT ((lower(github_login))) DO UPDATE SET name = users.name
-			RETURNING id`, p.login, p.name, p.role, p.college, now).Scan(&id)
+			RETURNING id`, p.login, p.name, p.role, p.college, now, domain.TermsVersion).Scan(&id)
 		if err != nil {
 			return fmt.Errorf("user %s: %w", p.login, err)
 		}
 		ids[p.login] = id
 	}
 
-	today := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, time.UTC)
+	// Seeded students are on day 3 in their own time zone (enrollments default to Kolkata),
+	// whatever the server's UTC date is.
+	local := now.In(seedZone)
+	today := time.Date(local.Year(), local.Month(), local.Day(), 0, 0, 0, 0, time.UTC)
 	start := today.AddDate(0, 0, -2)
 	var cohortID uuid.UUID
 	if err := q.QueryRow(ctx, `SELECT id FROM cohorts WHERE name = 'ANITS Batch 1'`).Scan(&cohortID); err != nil {
@@ -80,27 +85,26 @@ func Run(ctx context.Context, q store.Q, now time.Time) error {
 		}
 	}
 
-	enroll := func(login string, cohort *uuid.UUID, status string) (uuid.UUID, error) {
+	enroll := func(login string, cohort *uuid.UUID, status string) error {
 		var id uuid.UUID
 		err := q.QueryRow(ctx, `SELECT id FROM enrollments WHERE user_id = $1 AND status IN ('active', 'paused')`, ids[login]).Scan(&id)
 		if err == nil {
-			return id, nil
+			return nil
 		}
-		err = q.QueryRow(ctx, `INSERT INTO enrollments (user_id, program_id, cohort_id, start_date, end_date, status)
-			VALUES ($1, $2, $3, $4, $5, $6) RETURNING id`, ids[login], programID, cohort, start, start.AddDate(0, 0, 29), status).Scan(&id)
-		return id, err
+		_, err = q.Exec(ctx, `INSERT INTO enrollments (user_id, program_id, cohort_id, start_date, end_date, status)
+			VALUES ($1, $2, $3, $4, $5, $6)`, ids[login], programID, cohort, start, start.AddDate(0, 0, 29), status)
+		return err
 	}
-	asha, err := enroll(StudentLogin, &cohortID, "active")
-	if err != nil {
+	if err := enroll(StudentLogin, &cohortID, "active"); err != nil {
 		return fmt.Errorf("enroll asha: %w", err)
 	}
-	if _, err := enroll(Student2Login, &cohortID, "active"); err != nil {
+	if err := enroll(Student2Login, &cohortID, "active"); err != nil {
 		return fmt.Errorf("enroll ravi: %w", err)
 	}
-	if _, err := enroll(IndieStudentLogin, nil, "active"); err != nil {
+	if err := enroll(IndieStudentLogin, nil, "active"); err != nil {
 		return fmt.Errorf("enroll meera: %w", err)
 	}
-	if _, err := enroll(PausedLogin, &cohortID, "paused"); err != nil {
+	if err := enroll(PausedLogin, &cohortID, "paused"); err != nil {
 		return fmt.Errorf("enroll kiran: %w", err)
 	}
 
@@ -117,24 +121,38 @@ func Run(ctx context.Context, q store.Q, now time.Time) error {
 		}
 	}
 
-	var hasMessages bool
-	if err := q.QueryRow(ctx, `SELECT EXISTS (SELECT 1 FROM chat_messages WHERE enrollment_id = $1)`, asha).Scan(&hasMessages); err != nil {
-		return err
-	}
-	if !hasMessages {
-		if _, err := q.Exec(ctx, `INSERT INTO chat_threads (enrollment_id, persona_id) VALUES ($1, $2) ON CONFLICT DO NOTHING`,
-			asha, domain.DefaultPersonaID); err != nil {
+	// The team lead welcomes every seeded student, as real enrollments do.
+	welcome := map[string]string{StudentLogin: "Asha", Student2Login: "Ravi", IndieStudentLogin: "Meera", PausedLogin: "Kiran"}
+	for login, first := range welcome {
+		e, err := store.OpenEnrollmentForUser(ctx, q, ids[login])
+		if err != nil {
+			return fmt.Errorf("load %s: %w", login, err)
+		}
+		var has bool
+		if err := q.QueryRow(ctx, `SELECT EXISTS (SELECT 1 FROM chat_messages WHERE enrollment_id = $1 AND persona_id = $2)`, e.ID, domain.DefaultPersonaID).Scan(&has); err != nil {
 			return err
 		}
-		if _, err := q.Exec(ctx, `INSERT INTO chat_messages (enrollment_id, persona_id, author, body, created_at, deliver_at, delivered_at)
-			VALUES ($1, $4, 'persona', $2, $3, $3, $3)`, asha,
-			"Welcome to Stackstep, Asha. I'm your team lead for the next 30 days. Each morning I'll post a standup and drop tickets on your board. Ask me anything here.",
-			now.Add(-time.Hour), domain.DefaultPersonaID); err != nil {
-			return fmt.Errorf("welcome message: %w", err)
+		if has {
+			continue
+		}
+		if _, _, err := store.InsertMessage(ctx, q, store.NewMessage{
+			EnrollmentID: e.ID, PersonaID: domain.DefaultPersonaID, Author: domain.AuthorPersona, DeliverAt: now.Add(-time.Hour),
+			Body: fmt.Sprintf("Welcome to Stackstep, %s. I'm your team lead for the next 30 days. Each morning I'll post a standup and drop tickets on your board. Ask me anything here.", first),
+		}, now.Add(-time.Hour)); err != nil {
+			return fmt.Errorf("welcome %s: %w", login, err)
 		}
 	}
 	return nil
 }
+
+// seedZone is the time zone seeded enrollments use (the column default).
+var seedZone = func() *time.Location {
+	loc, err := time.LoadLocation(domain.DefaultTimezone)
+	if err != nil {
+		return time.UTC
+	}
+	return loc
+}()
 
 // Seeded catalog ids, fixed so tests and demos can refer to them.
 var (
@@ -174,8 +192,11 @@ func seedCatalog(ctx context.Context, q store.Q, admin uuid.UUID, now time.Time)
 	tasks := []seedTask{
 		{1, domain.TaskStandup, "Introduce yourself to the team", "Post a short intro: your college, what you want to build, and one thing you want to learn.", domain.DefaultPersonaID, domain.ReviewSelf, "10:00", 240, 0, domain.TaskContent{}},
 		{1, domain.TaskGitChore, "Set up Git and open your first PR", "Clone the starter repo, add your name to README.md on branch `chore/intro`, and open a PR.", DeliveryManagerID, domain.ReviewManual, "11:00", 480, 0, domain.TaskContent{}},
-		{2, domain.TaskDSA, "Two Sum", "Solve Two Sum in O(n). Explain your approach in two sentences.", EngineeringManagerID, domain.ReviewManual, "10:30", 360, 0, domain.TaskContent{}},
-		{2, domain.TaskFeature, "Build the portfolio hero section", "Name, title, a short bio and links. Mobile first. Branch: `feat/hero`.", DeliveryManagerID, domain.ReviewManual, "11:00", 1440, 0, domain.TaskContent{}},
+		{2, domain.TaskDSA, "Two Sum", "Solve Two Sum in O(n). Explain your approach in two sentences.", EngineeringManagerID, domain.ReviewManual, "10:30", 360, 0,
+			domain.TaskContent{Practice: practice("twoSum", "function twoSum(nums, target) {\n  // Return the indices of the two numbers that add up to target.\n}\n",
+				"[[2,7,11,15],9]", "[0,1]", "[[3,2,4],6]", "[1,2]", "[[3,3],6]", "[0,1]")}},
+		{2, domain.TaskFeature, "Build the portfolio hero section", "Name, title, a short bio and links. Mobile first. Branch: `feat/hero`.", DeliveryManagerID, domain.ReviewManual, "11:00", 1440, 0,
+			domain.TaskContent{Rubric: []string{"Looks right at 360px wide", "Links open in a new tab", "Work is on feat/hero with a PR"}}},
 		{3, domain.TaskDocReading, "Read MDN: Flexbox", "Read the MDN Flexbox guide and note three properties you will use this week.", DeliveryManagerID, domain.ReviewSelf, "09:30", 240, 0,
 			domain.TaskContent{Resources: []domain.Resource{{Title: "MDN: Basic concepts of flexbox", URL: "https://developer.mozilla.org/en-US/docs/Web/CSS/CSS_flexible_box_layout/Basic_concepts_of_flexbox"}}}},
 		{4, domain.TaskQuiz, "Git basics quiz", "Five quick questions on the commands you used this week.", DeliveryManagerID, domain.ReviewSelf, "16:00", 240, 0,
@@ -186,10 +207,15 @@ func seedCatalog(ctx context.Context, q store.Q, admin uuid.UUID, now time.Time)
 				{Prompt: "What does a pull request ask for?", Options: []string{"A review before merging", "A copy of the repo", "Admin access"}, Answer: 0},
 				{Prompt: "What does `git status` show?", Options: []string{"Commit history", "Changed and staged files", "Remote branches"}, Answer: 1},
 			}}}},
-		{3, domain.TaskDSA, "Valid Anagram", "Use a frequency map. Mention the time and space complexity.", EngineeringManagerID, domain.ReviewManual, "12:00", 360, 0, domain.TaskContent{}},
+		{3, domain.TaskDSA, "Valid Anagram", "Use a frequency map. Mention the time and space complexity.", EngineeringManagerID, domain.ReviewManual, "12:00", 360, 0,
+			domain.TaskContent{Practice: practice("isAnagram", "function isAnagram(s, t) {\n  // true when t uses exactly the letters of s.\n}\n",
+				`["anagram","nagaram"]`, "true", `["rat","car"]`, "false", `["a","ab"]`, "false")}},
 		{3, domain.TaskBlog, "Write: what I learned in week one", "300–500 words on your setup, your first PR and one mistake you fixed. Publish on Hashnode or dev.to.", ContentLeadID, domain.ReviewManual, "15:00", 2880, 0, domain.TaskContent{}},
-		{4, domain.TaskFeature, "Projects grid with filters", "Show your projects as cards with tag filters. Branch: `feat/projects`.", DeliveryManagerID, domain.ReviewManual, "10:00", 1440, 0, domain.TaskContent{}},
-		{4, domain.TaskDSA, "Best Time to Buy and Sell Stock", "One pass, constant space.", EngineeringManagerID, domain.ReviewManual, "12:00", 360, 0, domain.TaskContent{}},
+		{4, domain.TaskFeature, "Projects grid with filters", "Show your projects as cards with tag filters. Branch: `feat/projects`.", DeliveryManagerID, domain.ReviewManual, "10:00", 1440, 0,
+			domain.TaskContent{Rubric: []string{"Filters combine (tag and search)", "Empty state when nothing matches", "Cards are keyboard reachable"}}},
+		{4, domain.TaskDSA, "Best Time to Buy and Sell Stock", "One pass, constant space.", EngineeringManagerID, domain.ReviewManual, "12:00", 360, 0,
+			domain.TaskContent{Practice: practice("maxProfit", "function maxProfit(prices) {\n  // Best profit from one buy and one later sell, or 0.\n}\n",
+				"[[7,1,5,3,6,4]]", "5", "[[7,6,4,3,1]]", "0", "[[2,4,1]]", "2")}},
 		{5, domain.TaskStandup, "Friday standup", "What shipped this week, what's blocked, what's next.", domain.DefaultPersonaID, domain.ReviewSelf, "15:00", 120, 120, domain.TaskContent{}},
 	}
 	if _, err := q.Exec(ctx, `INSERT INTO flows (id, name, stream, description, days, created_by, created_at, updated_at)
@@ -223,4 +249,13 @@ func seedCatalog(ctx context.Context, q store.Q, admin uuid.UUID, now time.Time)
 		perDay[t.day]++
 	}
 	return store.InsertFlowItems(ctx, q, versionID, items)
+}
+
+// practice builds a seeded practice pad from (args, expected) JSON pairs.
+func practice(fn, starter string, pairs ...string) *domain.Practice {
+	p := &domain.Practice{FunctionName: fn, Starter: starter}
+	for i := 0; i+1 < len(pairs); i += 2 {
+		p.Tests = append(p.Tests, domain.PracticeTest{Args: json.RawMessage(pairs[i]), Expected: json.RawMessage(pairs[i+1])})
+	}
+	return p
 }

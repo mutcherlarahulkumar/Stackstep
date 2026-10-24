@@ -2,8 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shadcn_ui/shadcn_ui.dart';
 import 'package:stackstep/api/models.dart';
+import 'package:stackstep/core/config.dart';
 import 'package:stackstep/core/providers.dart';
 import 'package:stackstep/core/theme.dart';
+import 'package:stackstep/features/account/onboarding_sheet.dart';
 import 'package:stackstep/features/admin/assign_screen.dart';
 import 'package:stackstep/features/admin/broadcast_screen.dart';
 import 'package:stackstep/features/ai/ai_screen.dart';
@@ -11,6 +13,7 @@ import 'package:stackstep/features/chat/inbox_controller.dart';
 import 'package:stackstep/features/chat/inbox_screen.dart';
 import 'package:stackstep/features/progress/progress_screen.dart';
 import 'package:stackstep/features/tasks/board_screen.dart';
+import 'package:stackstep/features/tasks/task_work.dart';
 import 'package:stackstep/shared/brand_mark.dart';
 import 'package:stackstep/shared/state_views.dart';
 
@@ -24,7 +27,18 @@ class _AccountMenu extends ConsumerWidget {
       tooltip: 'Account',
       offset: const Offset(0, 48),
       onSelected: (v) async {
-        if (v != 'out') return;
+        switch (v) {
+          case 'privacy':
+            return await openLink(context, AppConfig.webUrl('/privacy'));
+          case 'terms':
+            return await openLink(context, AppConfig.webUrl('/terms'));
+          case 'data':
+            return await openLink(context, AppConfig.webUrl('/workspace'));
+          case 'out':
+            break;
+          default:
+            return;
+        }
         final ok = await showShadDialog<bool>(
           context: context,
           builder: (ctx) => ShadDialog.alert(
@@ -40,6 +54,10 @@ class _AccountMenu extends ConsumerWidget {
       },
       itemBuilder: (_) => [
         PopupMenuItem(enabled: false, child: Text('${user.name}\n@${user.githubLogin}')),
+        const PopupMenuDivider(),
+        const PopupMenuItem(value: 'data', child: Text('Download my data (on the web)')),
+        const PopupMenuItem(value: 'privacy', child: Text('Privacy')),
+        const PopupMenuItem(value: 'terms', child: Text('Terms')),
         const PopupMenuDivider(),
         const PopupMenuItem(value: 'out', child: Text('Sign out')),
       ],
@@ -63,6 +81,12 @@ class StudentShell extends ConsumerStatefulWidget {
 class _StudentShellState extends ConsumerState<StudentShell> {
   var _tab = 0;
   String? _focusTask;
+
+  @override
+  void initState() {
+    super.initState();
+    maybeShowOnboarding(context, ref, onboarded: widget.me.account.onboarded);
+  }
 
   @override
   Widget build(BuildContext context) {

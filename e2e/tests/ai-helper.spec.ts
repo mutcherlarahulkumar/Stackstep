@@ -44,14 +44,14 @@ test("AI helper: explain it in one go, get hints in Markdown, wait before follow
   await signIn(admin, "admin-demo");
   await admin.getByLabel("Search students").fill("ravi");
   await admin.getByTestId("student-ravi-dev").click();
-  const panel = admin.getByTestId("wallet-panel");
-  await expect(panel).toContainText("19 credits");
-  await panel.getByRole("button", { name: /AI today/ }).click();
+  await expect(admin.getByRole("button", { name: /Credits\s*19/ })).toBeVisible();
+  await admin.getByRole("button", { name: /AI helper today/ }).click();
   await admin.getByRole("button", { name: /Filter the task list by status/ }).click();
   await expect(admin.getByTestId("ai-answer").first()).toContainText("Try this next");
   await admin.keyboard.press("Escape");
 
-  await panel.getByTestId("open-credits").click();
+  await admin.getByTestId("student-more").click();
+  await admin.getByTestId("open-credits").click();
   await admin.getByTestId("credits-save").click();
   await expect(admin.getByText("Say why, so the student understands the change.")).toBeVisible();
   await admin.getByLabel("Reason").fill("Helped a teammate debug");

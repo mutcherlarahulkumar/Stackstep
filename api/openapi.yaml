@@ -1,7 +1,7 @@
 openapi: 3.1.0
 info:
   title: Stackstep API
-  version: 0.6.0
+  version: 0.14.0
   description: |
     Workspace core (feature 01). All timestamps are RFC 3339 UTC. All errors use the
     `Error` envelope; clients switch on `error.code`, never on `message`.
@@ -28,6 +28,8 @@ tags:
     description: Endpoints that need no sign-in
   - name: inbox
     description: Admin conversations with students, as manager personas
+  - name: people
+    description: Colleges, cohorts, enrollment (one or by CSV), internship status and staff roles
 paths:
   /v1/auth/dev-login:
     post:
@@ -138,6 +140,52 @@ paths:
             application/json:
               schema: { $ref: "#/components/schemas/Me" }
         "401": { $ref: "#/components/responses/Error" }
+  /v1/me/consent:
+    post:
+      tags: [student]
+      operationId: acceptTerms
+      summary: Accept the current privacy notice and terms (version must equal terms_version)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [version]
+              properties:
+                version: { type: integer, minimum: 1 }
+      responses:
+        "200":
+          description: Updated account state
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Account" }
+        "400": { $ref: "#/components/responses/Error" }
+        "401": { $ref: "#/components/responses/Error" }
+        "422": { $ref: "#/components/responses/Error" }
+  /v1/me/onboarded:
+    post:
+      tags: [student]
+      operationId: finishOnboarding
+      summary: Mark the first-run guide as seen (idempotent)
+      responses:
+        "200":
+          description: Updated account state
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Account" }
+        "401": { $ref: "#/components/responses/Error" }
+  /v1/me/export:
+    get:
+      tags: [student]
+      operationId: exportMyData
+      summary: Everything Stackstep holds about the caller, as a JSON download
+      responses:
+        "200":
+          description: "Sections: exported_at, profile, internships (tasks with hand-ins and quiz attempts, delivered chat, AI helper conversations, credits, points, certificates)"
+          content: { application/json: { schema: { type: object } } }
+        "401": { $ref: "#/components/responses/Error" }
   /v1/me/tasks:
     get:
       tags: [student]
@@ -222,6 +270,11 @@ paths:
               properties:
                 to: { $ref: "#/components/schemas/TaskStatus" }
                 expected_version: { type: integer, minimum: 1 }
+                rubric:
+                  description: Staff only. One tick per rubric criterion; required when approving or requesting changes on a task with a rubric.
+                  type: array
+                  maxItems: 8
+                  items: { type: boolean }
                 note: { type: string, maxLength: 2000, description: Required when to = changes_requested }
                 submission:
                   description: |
@@ -233,6 +286,49 @@ paths:
         "200": { description: Moved, content: { application/json: { schema: { $ref: "#/components/schemas/Task" } } } }
         "404": { $ref: "#/components/responses/Error" }
         "409": { $ref: "#/components/responses/Error" }
+        "422": { $ref: "#/components/responses/Error" }
+  /v1/tasks/{id}/note:
+    get:
+      tags: [student]
+      operationId: getMyTaskNote
+      summary: The student's own notes on a released task (empty when none)
+      parameters: [{ $ref: "#/components/parameters/Id" }]
+      responses:
+        "200":
+          description: The note
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/TaskNote" }
+        "401": { $ref: "#/components/responses/Error" }
+        "403": { $ref: "#/components/responses/Error" }
+        "404": { $ref: "#/components/responses/Error" }
+    put:
+      tags: [student]
+      operationId: saveMyTaskNote
+      summary: Replace the note; an empty, unshared note is removed. Shared notes show to reviewers.
+      parameters: [{ $ref: "#/components/parameters/Id" }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [body, shared]
+              properties:
+                body: { type: string, maxLength: 20000, description: Markdown; whitespace is kept }
+                shared: { type: boolean }
+      responses:
+        "200":
+          description: The saved note
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/TaskNote" }
+        "400": { $ref: "#/components/responses/Error" }
+        "401": { $ref: "#/components/responses/Error" }
+        "403": { $ref: "#/components/responses/Error" }
+        "404": { $ref: "#/components/responses/Error" }
+        "413": { $ref: "#/components/responses/Error" }
         "422": { $ref: "#/components/responses/Error" }
   /v1/tasks/{id}/quiz:
     post:
@@ -515,6 +611,21 @@ paths:
         - { name: q, in: query, schema: { type: string, maxLength: 100 } }
       responses:
         "200": { description: Every managed student (at most 1000), content: { application/json: { schema: { $ref: "#/components/schemas/Overview" } } } }
+        "403": { $ref: "#/components/responses/Error" }
+        "422": { $ref: "#/components/responses/Error" }
+  /v1/admin/reports/weekly:
+    get:
+      tags: [admin]
+      operationId: weeklyReport
+      summary: Week summary per cohort for the students the caller manages (college admins see their college)
+      parameters:
+        - { name: week, in: query, description: "Any day in the week (YYYY-MM-DD); weeks start Monday UTC. Defaults to this week; up to 52 weeks back.", schema: { type: string, format: date } }
+      responses:
+        "200":
+          description: The report
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/WeeklyReport" }
         "403": { $ref: "#/components/responses/Error" }
         "422": { $ref: "#/components/responses/Error" }
   /v1/admin/overview/export:
@@ -849,6 +960,217 @@ paths:
       summary: Clear the inbox unread count
       responses:
         "204": { description: Marked read }
+  /v1/admin/reviews:
+    get:
+      tags: [admin]
+      operationId: reviewQueue
+      summary: Hand-ins waiting for review in scope, oldest first, with reviewer warnings (max 200)
+      parameters:
+        - { name: persona_id, in: query, schema: { type: string, format: uuid } }
+      responses:
+        "200":
+          description: Oldest first
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [items, overdue, sla_hours]
+                properties:
+                  items:
+                    type: array
+                    items:
+                      type: object
+                      required: [task, student, waiting_hours, overdue]
+                      properties:
+                        task: { $ref: "#/components/schemas/Task" }
+                        student: { $ref: "#/components/schemas/User" }
+                        waiting_hours: { type: integer, minimum: 0 }
+                        overdue: { type: boolean, description: Waiting at least sla_hours }
+                  overdue: { type: integer, minimum: 0 }
+                  sla_hours: { type: integer }
+        "403": { $ref: "#/components/responses/Error" }
+        "422": { $ref: "#/components/responses/Error" }
+  /v1/admin/colleges:
+    get:
+      tags: [people]
+      operationId: listColleges
+      summary: Colleges with headcounts (college admins see their own)
+      responses:
+        "200": { description: Colleges by name, content: { application/json: { schema: { type: object, required: [items], properties: { items: { type: array, items: { $ref: "#/components/schemas/College" } } } } } } }
+        "403": { $ref: "#/components/responses/Error" }
+    post:
+      tags: [people]
+      operationId: createCollege
+      summary: Add a college (platform admins)
+      requestBody:
+        required: true
+        content: { application/json: { schema: { type: object, additionalProperties: false, required: [name], properties: { name: { type: string, minLength: 2, maxLength: 200 } } } } }
+      responses:
+        "201": { description: Created, content: { application/json: { schema: { $ref: "#/components/schemas/College" } } } }
+        "403": { $ref: "#/components/responses/Error" }
+        "422": { $ref: "#/components/responses/Error" }
+  /v1/admin/programs:
+    get:
+      tags: [people]
+      operationId: listPrograms
+      summary: Programs students can be enrolled in
+      responses:
+        "200":
+          description: Shortest first
+          content:
+            application/json:
+              schema: { type: object, required: [items], properties: { items: { type: array, items: { $ref: "#/components/schemas/Program" } } } }
+        "403": { $ref: "#/components/responses/Error" }
+  /v1/admin/cohorts:
+    get:
+      tags: [people]
+      operationId: listCohorts
+      summary: Cohorts with seat use (college admins see their college's)
+      responses:
+        "200": { description: Newest start first, content: { application/json: { schema: { type: object, required: [items], properties: { items: { type: array, items: { $ref: "#/components/schemas/Cohort" } } } } } } }
+        "403": { $ref: "#/components/responses/Error" }
+    post:
+      tags: [people]
+      operationId: createCohort
+      summary: Add a cohort (platform admins)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [kind, name, program_slug, start_date, seats_total]
+              properties:
+                kind: { $ref: "#/components/schemas/CohortKind" }
+                name: { type: string, minLength: 2, maxLength: 200 }
+                college_id: { type: [string, "null"], format: uuid, description: "Required for college cohorts, absent for groups" }
+                program_slug: { type: string }
+                start_date: { type: string, format: date, description: "Within 30 days ago and a year ahead, in timezone" }
+                timezone: { type: string, description: IANA zone; defaults to Asia/Kolkata }
+                seats_total: { type: integer, minimum: 1, maximum: 100000 }
+      responses:
+        "201": { description: Created, content: { application/json: { schema: { $ref: "#/components/schemas/Cohort" } } } }
+        "403": { $ref: "#/components/responses/Error" }
+        "422": { $ref: "#/components/responses/Error" }
+  /v1/admin/enrollments:
+    post:
+      tags: [people]
+      operationId: enroll
+      summary: Enroll a GitHub login (created if they haven't signed in yet; linked on first GitHub sign-in)
+      description: College admins must pick one of their college's cohorts. The team lead welcomes the student when the internship opens.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              allOf:
+                - $ref: "#/components/schemas/PersonInput"
+                - $ref: "#/components/schemas/EnrollSettings"
+      responses:
+        "201":
+          description: Enrolled
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [student, user_created]
+                properties:
+                  student: { $ref: "#/components/schemas/Student" }
+                  user_created: { type: boolean, description: True when the login had never signed in }
+        "403": { $ref: "#/components/responses/Error" }
+        "422": { $ref: "#/components/responses/Error" }
+  /v1/admin/enrollments/import:
+    post:
+      tags: [people]
+      operationId: importEnrollments
+      summary: Enroll up to 500 logins with shared settings; each row succeeds or fails on its own
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              allOf:
+                - $ref: "#/components/schemas/EnrollSettings"
+                - type: object
+                  required: [rows]
+                  properties:
+                    rows: { type: array, minItems: 1, maxItems: 500, items: { $ref: "#/components/schemas/PersonInput" } }
+      responses:
+        "200":
+          description: Per-row results
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [created, items]
+                properties:
+                  created: { type: integer, minimum: 0 }
+                  items:
+                    type: array
+                    items:
+                      type: object
+                      required: [github_login, student, user_created, error]
+                      properties:
+                        github_login: { type: string }
+                        student: { oneOf: [{ $ref: "#/components/schemas/Student" }, { type: "null" }] }
+                        user_created: { type: boolean }
+                        error: { oneOf: [{ $ref: "#/components/schemas/ItemError" }, { type: "null" }] }
+        "403": { $ref: "#/components/responses/Error" }
+        "422": { $ref: "#/components/responses/Error" }
+  /v1/admin/enrollments/{id}/status:
+    post:
+      tags: [people]
+      operationId: setEnrollmentStatus
+      summary: Pause, resume, complete or cancel an internship (completed and cancelled are final)
+      parameters: [{ $ref: "#/components/parameters/Id" }]
+      requestBody:
+        required: true
+        content: { application/json: { schema: { type: object, additionalProperties: false, required: [status], properties: { status: { $ref: "#/components/schemas/EnrollmentStatus" } } } } }
+      responses:
+        "200": { description: Updated, content: { application/json: { schema: { $ref: "#/components/schemas/Enrollment" } } } }
+        "403": { $ref: "#/components/responses/Error" }
+        "404": { $ref: "#/components/responses/Error" }
+        "422": { $ref: "#/components/responses/Error" }
+  /v1/admin/staff:
+    get:
+      tags: [people]
+      operationId: listStaff
+      summary: Admins and college admins (platform admins)
+      responses:
+        "200": { description: Admins first, content: { application/json: { schema: { type: object, required: [items], properties: { items: { type: array, items: { $ref: "#/components/schemas/StaffMember" } } } } } } }
+        "403": { $ref: "#/components/responses/Error" }
+    post:
+      tags: [people]
+      operationId: grantStaff
+      summary: Make a GitHub login an admin or a college admin (created if needed)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              allOf:
+                - $ref: "#/components/schemas/PersonInput"
+                - type: object
+                  required: [role]
+                  properties:
+                    role: { type: string, enum: [admin, college_admin] }
+                    college_id: { type: [string, "null"], format: uuid, description: Required for college admins }
+      responses:
+        "200": { description: Granted, content: { application/json: { schema: { $ref: "#/components/schemas/StaffMember" } } } }
+        "403": { $ref: "#/components/responses/Error" }
+        "422": { $ref: "#/components/responses/Error" }
+  /v1/admin/staff/{id}/revoke:
+    post:
+      tags: [people]
+      operationId: revokeStaff
+      summary: Turn a staff member back into a regular user (not yourself)
+      parameters: [{ $ref: "#/components/parameters/Id" }]
+      responses:
+        "200": { description: Revoked, content: { application/json: { schema: { $ref: "#/components/schemas/StaffMember" } } } }
+        "403": { $ref: "#/components/responses/Error" }
+        "404": { $ref: "#/components/responses/Error" }
+        "422": { $ref: "#/components/responses/Error" }
   /v1/admin/broadcasts:
     post:
       tags: [inbox]
@@ -1055,16 +1377,24 @@ components:
                 version: { type: integer, minimum: 1 }
     Me:
       type: object
-      required: [user, enrollment]
+      required: [user, enrollment, account]
       properties:
         user: { $ref: "#/components/schemas/User" }
         enrollment:
           oneOf:
             - $ref: "#/components/schemas/Enrollment"
             - type: "null"
+        account: { $ref: "#/components/schemas/Account" }
+    Account:
+      type: object
+      required: [terms_version, consent_required, onboarded]
+      properties:
+        terms_version: { type: integer, description: Current terms version to send to acceptTerms }
+        consent_required: { type: boolean, description: True until the current terms are accepted }
+        onboarded: { type: boolean, description: True once the first-run guide was finished or skipped }
     Task:
       type: object
-      required: [id, enrollment_id, type, title, brief, status, scheduled_for, due_at, version, created_at, updated_at, review_mode, persona_id, from_flow, content, submission, quiz_result]
+      required: [id, enrollment_id, type, title, brief, status, scheduled_for, due_at, version, created_at, updated_at, review_mode, persona_id, from_flow, content, submission, quiz_result, shared_note]
       properties:
         id: { type: string, format: uuid }
         enrollment_id: { type: string, format: uuid }
@@ -1083,6 +1413,16 @@ components:
         content: { $ref: "#/components/schemas/TaskContent" }
         submission: { oneOf: [{ $ref: "#/components/schemas/Submission" }, { type: "null" }] }
         quiz_result: { oneOf: [{ $ref: "#/components/schemas/QuizStats" }, { type: "null" }] }
+        shared_note:
+          description: The student's note when they shared it. Staff views only; always null for students.
+          oneOf: [{ $ref: "#/components/schemas/TaskNote" }, { type: "null" }]
+    TaskNote:
+      type: object
+      required: [body, shared, updated_at]
+      properties:
+        body: { type: string, maxLength: 20000 }
+        shared: { type: boolean }
+        updated_at: { oneOf: [{ type: string, format: date-time }, { type: "null" }] }
     Resource:
       type: object
       required: [title, url]
@@ -1108,6 +1448,30 @@ components:
       properties:
         resources: { type: array, maxItems: 5, items: { $ref: "#/components/schemas/Resource" } }
         quiz: { oneOf: [{ $ref: "#/components/schemas/Quiz" }, { type: "null" }], description: Only (and always) on quiz tasks }
+        rubric:
+          description: Reviewer checklist (admin-reviewed, non-quiz tasks); responses always include it ([] when none)
+          type: array
+          maxItems: 8
+          items: { type: string, minLength: 3, maxLength: 120 }
+        practice:
+          description: DSA tasks only. Example tests the student runs in their own browser; responses always include it (null when absent).
+          oneOf: [{ $ref: "#/components/schemas/Practice" }, { type: "null" }]
+    Practice:
+      type: object
+      required: [function_name, starter, tests]
+      properties:
+        function_name: { type: string, pattern: "^[A-Za-z_$][A-Za-z0-9_$]{0,39}$" }
+        starter: { type: string, maxLength: 4000 }
+        tests:
+          type: array
+          minItems: 1
+          maxItems: 10
+          items:
+            type: object
+            required: [args, expected]
+            properties:
+              args: { type: array, description: "Arguments as JSON (≤ 2000 characters compact)" }
+              expected: { description: "Expected return value: any JSON (≤ 2000 characters compact)" }
     SubmissionInput:
       type: object
       additionalProperties: false
@@ -1116,21 +1480,34 @@ components:
         note: { type: string, maxLength: 4000 }
     Submission:
       type: object
-      required: [attempt, url, note, submitted_at]
+      required: [attempt, url, note, submitted_at, checks, rubric, reviewed_at]
       properties:
         attempt: { type: integer, minimum: 1 }
         url: { type: [string, "null"] }
         note: { type: string }
         submitted_at: { type: string, format: date-time }
+        checks: { type: array, description: "Reviewer warnings (staff only; always empty for students)", items: { $ref: "#/components/schemas/HandInCheck" } }
+        rubric:
+          description: The reviewer's ticks for this hand-in, one per rubric criterion; null until reviewed with a rubric
+          oneOf: [{ type: array, items: { type: boolean } }, { type: "null" }]
+        reviewed_at: { oneOf: [{ type: string, format: date-time }, { type: "null" }] }
+    HandInCheckCode: { type: string, enum: [foreign_repo, reused_link] }
+    HandInCheck:
+      type: object
+      required: [code, message]
+      properties:
+        code: { $ref: "#/components/schemas/HandInCheckCode" }
+        message: { type: string }
     QuizStats:
       type: object
-      required: [attempts, attempts_left, best_score, passed, last_correct]
+      required: [attempts, attempts_left, best_score, passed, last_correct, last_answers]
       properties:
         attempts: { type: integer, minimum: 0, maximum: 3 }
         attempts_left: { type: integer, minimum: 0, maximum: 3 }
         best_score: { type: integer, minimum: 0, maximum: 100 }
         passed: { type: boolean }
         last_correct: { type: array, items: { type: boolean } }
+        last_answers: { type: array, items: { type: integer, minimum: 0 }, description: Options picked in the latest attempt }
     QuizAttemptResult:
       type: object
       required: [attempt, score, passed, correct, attempts_left]
@@ -1200,9 +1577,48 @@ components:
         truncated: { type: boolean, description: More than 1000 students matched; narrow with q }
         inactive_after_hours: { type: integer }
         generated_at: { type: string, format: date-time }
+    ReportGroup:
+      type: object
+      required: [cohort, college, students, active, done, on_time_percent, points, hand_ins, certificates, inactive, avg_completion]
+      properties:
+        cohort: { type: string, description: Cohort name or "Independent students" }
+        college: { type: [string, "null"] }
+        students: { type: integer, minimum: 0 }
+        active: { type: integer, minimum: 0 }
+        done: { type: integer, minimum: 0, description: Tasks finished in the week }
+        on_time_percent: { type: integer, minimum: 0, maximum: 100 }
+        points: { type: integer, minimum: 0 }
+        hand_ins: { type: integer, minimum: 0 }
+        certificates: { type: integer, minimum: 0, description: Issued in the week and still valid }
+        inactive: { type: integer, minimum: 0, description: Quiet for two days right now }
+        avg_completion: { type: integer, minimum: 0, maximum: 100 }
+    ReportStudent:
+      type: object
+      required: [name, github_login, cohort, done, points, hand_ins, overdue, reason]
+      properties:
+        name: { type: string }
+        github_login: { type: string }
+        cohort: { type: string }
+        done: { type: integer, minimum: 0 }
+        points: { type: integer, minimum: 0 }
+        hand_ins: { type: integer, minimum: 0 }
+        overdue: { type: integer, minimum: 0 }
+        reason: { type: [string, "null"], description: Why they need attention }
+    WeeklyReport:
+      type: object
+      required: [week_start, week_end, groups, totals, top, attention, truncated, generated_at]
+      properties:
+        week_start: { type: string, format: date }
+        week_end: { type: string, format: date, description: "Sunday, inclusive" }
+        groups: { type: array, items: { $ref: "#/components/schemas/ReportGroup" } }
+        totals: { $ref: "#/components/schemas/ReportGroup" }
+        top: { type: array, maxItems: 5, items: { $ref: "#/components/schemas/ReportStudent" } }
+        attention: { type: array, maxItems: 20, items: { $ref: "#/components/schemas/ReportStudent" } }
+        truncated: { type: boolean }
+        generated_at: { type: string, format: date-time }
     Progress:
       type: object
-      required: [released, done, in_review, overdue, on_time, points, day_number, days, completion_percent, bar_percent, meets_bar, certificate]
+      required: [released, done, in_review, overdue, on_time, points, day_number, days, completion_percent, bar_percent, meets_bar, certificate, this_week]
       properties:
         released: { type: integer, minimum: 0 }
         done: { type: integer, minimum: 0 }
@@ -1216,6 +1632,16 @@ components:
         bar_percent: { type: integer, description: Suggested completion before issuing a certificate }
         meets_bar: { type: boolean }
         certificate: { oneOf: [{ $ref: "#/components/schemas/Certificate" }, { type: "null" }] }
+        this_week:
+          type: object
+          description: Activity since Monday 00:00 UTC
+          required: [start, done, on_time, points, hand_ins]
+          properties:
+            start: { type: string, format: date }
+            done: { type: integer, minimum: 0 }
+            on_time: { type: integer, minimum: 0 }
+            points: { type: integer, minimum: 0 }
+            hand_ins: { type: integer, minimum: 0 }
     CreditReason: { type: string, enum: [welcome, task_done, admin_grant, admin_revoke, ai_question, ai_refund] }
     AIRole: { type: string, enum: [student, assistant] }
     AIMessageStatus: { type: string, enum: [pending, answered, failed, ok] }
@@ -1415,6 +1841,59 @@ components:
         flow: { $ref: "#/components/schemas/Flow" }
         draft: { oneOf: [{ $ref: "#/components/schemas/FlowVersion" }, { type: "null" }] }
         published: { oneOf: [{ $ref: "#/components/schemas/FlowVersion" }, { type: "null" }] }
+    CohortKind: { type: string, enum: [group, college] }
+    Program:
+      type: object
+      required: [slug, days, track]
+      properties:
+        slug: { type: string }
+        days: { type: integer, enum: [30, 60] }
+        track: { type: string, enum: [frontend, fullstack] }
+    College:
+      type: object
+      required: [id, name, students, cohorts, college_admins, created_at]
+      properties:
+        id: { type: string, format: uuid }
+        name: { type: string }
+        students: { type: integer, minimum: 0, description: Active or paused internships }
+        cohorts: { type: integer, minimum: 0 }
+        college_admins: { type: integer, minimum: 0 }
+        created_at: { type: string, format: date-time }
+    Cohort:
+      type: object
+      required: [id, kind, name, college_id, college_name, program, start_date, seats_total, seats_used]
+      properties:
+        id: { type: string, format: uuid }
+        kind: { $ref: "#/components/schemas/CohortKind" }
+        name: { type: string }
+        college_id: { type: [string, "null"], format: uuid }
+        college_name: { type: [string, "null"] }
+        program: { $ref: "#/components/schemas/Program" }
+        start_date: { type: string, format: date }
+        seats_total: { type: integer, minimum: 1 }
+        seats_used: { type: integer, minimum: 0, description: Active or paused internships }
+    PersonInput:
+      type: object
+      required: [github_login]
+      properties:
+        github_login: { type: string, maxLength: 40, description: "GitHub username; a leading @ is ignored" }
+        name: { type: string, maxLength: 200, description: Defaults to the login until they sign in }
+        email: { type: string, maxLength: 320 }
+    EnrollSettings:
+      type: object
+      properties:
+        cohort_id: { type: [string, "null"], format: uuid, description: Required for college admins }
+        program_slug: { type: string, description: Required without a cohort; must match the cohort's program otherwise }
+        start_date: { type: [string, "null"], format: date, description: Defaults to the cohort's start date }
+        timezone: { type: string, description: IANA zone; defaults to Asia/Kolkata }
+        flow_id: { type: [string, "null"], format: uuid, description: Optional published flow to schedule }
+    StaffMember:
+      type: object
+      required: [user, college_name, signed_in]
+      properties:
+        user: { $ref: "#/components/schemas/User" }
+        college_name: { type: [string, "null"] }
+        signed_in: { type: boolean, description: Has linked a GitHub account }
     ItemError:
       type: object
       required: [code, message]

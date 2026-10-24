@@ -282,6 +282,7 @@ class _QuizPlayerState extends ConsumerState<QuizPlayer> {
                     label: o,
                     selected: _answers[i] == oi,
                     isKey: finished && q.answer == oi,
+                    mine: finished && stats != null && i < stats.lastAnswers.length && stats.lastAnswers[i] == oi,
                     enabled: !finished && !_busy,
                     onTap: () => setState(() => _answers[i] = oi),
                   ),
@@ -306,11 +307,22 @@ class _QuizPlayerState extends ConsumerState<QuizPlayer> {
 }
 
 class _Option extends StatelessWidget {
-  const _Option({required this.label, required this.selected, required this.isKey, required this.enabled, required this.onTap, super.key});
+  const _Option({
+    required this.label,
+    required this.selected,
+    required this.isKey,
+    required this.enabled,
+    required this.onTap,
+    this.mine = false,
+    super.key,
+  });
 
   final String label;
   final bool selected;
   final bool isKey;
+
+  /// The student's pick in their latest attempt (shown once the quiz is finished).
+  final bool mine;
   final bool enabled;
   final VoidCallback onTap;
 
@@ -318,15 +330,18 @@ class _Option extends StatelessWidget {
   Widget build(BuildContext context) {
     final t = ShadTheme.of(context);
     final c = t.colorScheme;
+    final wrongPick = mine && !isKey;
     final border = isKey
         ? Brand.success
+        : wrongPick
+        ? c.destructive
         : selected
         ? c.primary
         : c.border;
     return Semantics(
       inMutuallyExclusiveGroup: true,
       checked: selected,
-      label: isKey ? '$label, right answer' : label,
+      label: [label, if (mine) 'your answer', if (isKey) 'right answer'].join(', '),
       child: Padding(
         padding: const EdgeInsets.only(top: Space.xs),
         child: InkWell(
@@ -340,6 +355,8 @@ class _Option extends StatelessWidget {
               borderRadius: const BorderRadius.all(Radii.md),
               color: isKey
                   ? Brand.success.withValues(alpha: 0.08)
+                  : wrongPick
+                  ? c.destructive.withValues(alpha: 0.08)
                   : selected
                   ? c.primary.withValues(alpha: 0.06)
                   : null,
@@ -349,7 +366,12 @@ class _Option extends StatelessWidget {
                 Icon(selected ? LucideIcons.circleDot : LucideIcons.circle, size: 18, color: selected ? c.primary : c.mutedForeground),
                 const SizedBox(width: Space.sm),
                 Expanded(child: Text(label, style: t.textTheme.p)),
-                if (isKey) const Icon(LucideIcons.check, size: 18, color: Brand.success),
+                if (mine) Text('Your answer', style: t.textTheme.muted.copyWith(fontSize: 12)),
+                if (mine) const SizedBox(width: Space.xs),
+                if (isKey)
+                  const Icon(LucideIcons.check, size: 18, color: Brand.success)
+                else if (wrongPick)
+                  Icon(LucideIcons.x, size: 18, color: c.destructive),
               ],
             ),
           ),

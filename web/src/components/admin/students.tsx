@@ -17,7 +17,8 @@ import { cn } from "@/lib/utils";
 import { normalizeLineSafe } from "./util";
 import { Bounds } from "@/lib/validation";
 
-import { EmptyState, ErrorState, ListSkeleton } from "../app/state";
+import { EmptyState, ErrorState } from "../app/state";
+import { RowsSkeleton, stagger } from "../app/loading";
 
 export function useStudents(query: string) {
   const { api } = useSession();
@@ -59,7 +60,7 @@ export function StudentList({ selectedId, onSelect }: { selectedId: string | nul
       </div>
       <div className="min-h-0 flex-1 overflow-y-auto px-3 pb-3">
         {q.isPending ? (
-          <ListSkeleton rows={6} className="h-14" />
+          <RowsSkeleton rows={6} />
         ) : q.isError ? (
           <ErrorState message={messageFor(q.error)} onRetry={() => void q.refetch()} />
         ) : items.length === 0 ? (
@@ -68,8 +69,8 @@ export function StudentList({ selectedId, onSelect }: { selectedId: string | nul
           </EmptyState>
         ) : (
           <ul className="flex flex-col gap-1" aria-label="Students">
-            {items.map((s) => (
-              <li key={s.user.id}>
+            {items.map((s, i) => (
+              <li key={s.user.id} className="animate-enter-stagger" style={stagger(i)}>
                 <StudentRow student={s} selected={s.user.id === selectedId} onSelect={() => onSelect(s)} />
               </li>
             ))}

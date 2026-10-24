@@ -2,12 +2,12 @@ import { CloudOff, RefreshCw, type LucideIcon } from "lucide-react";
 import { type ReactNode } from "react";
 
 import { Button } from "@/components/ui/button";
+import { LoadingPanel } from "./loading";
 import { Empty, EmptyContent, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle } from "@/components/ui/empty";
-import { Skeleton } from "@/components/ui/skeleton";
 
 export function EmptyState({ icon: Icon, title, children, action }: { icon: LucideIcon; title: string; children: ReactNode; action?: ReactNode }) {
   return (
-    <Empty>
+    <Empty className="animate-enter">
       <EmptyHeader>
         <EmptyMedia variant="icon">
           <Icon aria-hidden />
@@ -39,12 +39,7 @@ export function ErrorState({ message, onRetry }: { message: string; onRetry: () 
   );
 }
 
-export function ListSkeleton({ rows = 4, className = "h-20" }: { rows?: number; className?: string }) {
-  return (
-    <div role="status" aria-label="Loading" className="flex flex-col gap-3">
-      {Array.from({ length: rows }, (_, i) => (
-        <Skeleton key={i} className={className} />
-      ))}
-    </div>
-  );
+/** Shimmering rows that ease in; three or more rows also get a rotating industry one-liner. */
+export function ListSkeleton({ rows = 4, className = "h-20", quip }: { rows?: number; className?: string; quip?: boolean }) {
+  return <LoadingPanel rows={rows} className={className} quip={quip ?? rows >= 3} />;
 }

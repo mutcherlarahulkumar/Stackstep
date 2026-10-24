@@ -21,7 +21,7 @@ reads. Nothing outside this file is required.
 | Tool | Version | Needed for |
 |---|---|---|
 | Docker + Docker Compose | recent | the one-command stack |
-| Go | 1.27 | API, seed, backend tests |
+| Go | 1.27 | API, database tools, backend tests |
 | Node.js + pnpm | Node 24 LTS, pnpm 10 | web, E2E, contract check |
 | Flutter | 3.47 | mobile app |
 | Postgres | 18 (16+ works) | only if you don't use Docker for it |
@@ -29,20 +29,13 @@ reads. Nothing outside this file is required.
 ## 2. Quick start with Docker
 
 ```bash
-cp .env.example .env          # optional: add GROQ_API_KEY and GitHub OAuth here
-make up                       # Postgres + API + web, migrated and seeded
+cp .env.example .env          # GitHub OAuth (§5) and BOOTSTRAP_ADMIN_GITHUB_LOGINS=<you>
+make up                       # Postgres + API + web, migrated, empty
 ```
 
-Open <http://localhost:3000/login> and use **Developer sign-in**. Seeded accounts:
-
-| Login | Who |
-|---|---|
-| `asha-dev`, `ravi-dev` | students in a college cohort |
-| `meera-dev` | independent student on the seeded React flow |
-| `kiran-dev` | student whose internship is paused |
-| `nora-dev` | signed up, no internship (empty state) |
-| `anits-tpo` | college admin (sees only their college) |
-| `admin-demo` | platform admin |
+Open <http://localhost:3000/login> and **Continue with GitHub**. The login in
+`BOOTSTRAP_ADMIN_GITHUB_LOGINS` becomes an admin on first sign-in; from the console you then add
+personas, tasks, flows, colleges, cohorts and students.
 
 Docker Compose reads the repo-root `.env` only to fill in `GROQ_API_KEY`, `GITHUB_*` and
 `BOOTSTRAP_ADMIN_GITHUB_LOGINS`; everything else for local Docker is set in
@@ -52,17 +45,20 @@ Docker Compose reads the repo-root `.env` only to fill in `GROQ_API_KEY`, `GITHU
 
 ```bash
 make db                                   # Postgres in Docker (+ a stackstep_test database)
-cp backend/.env.example backend/.env      # edit if you like; `make api`/`make seed` load it
-make seed                                 # migrate + reset to the demo data
+cp backend/.env.example backend/.env      # GitHub OAuth + BOOTSTRAP_ADMIN_GITHUB_LOGINS; `make api` loads it
 make api                                  # http://localhost:8080 (migrates on start)
 cp web/.env.example web/.env.local
 make web                                  # http://localhost:3000
 make mobile                               # Flutter app against the local API
 ```
 
-The API runs migrations on every start, so a fresh database needs nothing else. `make seed`
-(`go run ./cmd/seed -reset`) wipes workspace data and loads the demo again — never run it
-against production.
+The API runs migrations on every start, so a fresh database needs nothing else.
+
+**Test fixtures.** The E2E and mobile live tests sign in as fixture accounts through a dev-only
+endpoint and need fixture data: `make seed` (`go run ./cmd/seed -reset`) wipes the local
+database and loads it. It refuses `APP_ENV=production`, isn't in the production image, and the
+production API refuses dev sign-in. To make real admins on any database, use
+`go run ./cmd/dbadmin admins -logins <you>` or the **Database · seed admins** workflow.
 
 Using your own Postgres: set `DATABASE_URL` (and `DB_URL`/`TEST_DB_URL` for the Makefile), e.g.
 `postgres://user:pass@localhost:5432/stackstep?sslmode=disable`.
@@ -96,7 +92,7 @@ GROQ_API_KEY=e2e GROQ_BASE_URL=http://localhost:8099 make api
 
 ## 5. Real GitHub sign-in
 
-Dev sign-in works only when `APP_ENV` isn't `production`. For real sign-in:
+GitHub is the only way to sign in (the test-only dev endpoint is refused in production):
 
 1. GitHub → Settings → Developer settings → **OAuth Apps** → New OAuth App.
 2. Homepage URL: your web URL (local: `http://localhost:3000`).
@@ -128,6 +124,7 @@ every problem. Template: [`backend/.env.example`](../backend/.env.example).
 | `ALLOWED_ORIGINS` | origin of `WEB_BASE_URL` | Comma-separated origins allowed to call the API and open the WebSocket. |
 | `MOBILE_REDIRECT_URL` | `stackstep://auth` | Where GitHub sign-in returns to the app. |
 | `TRUSTED_PROXIES` | `127.0.0.1/32,::1/128` | CIDRs whose `X-Forwarded-For` is trusted (for rate limits and logs). Include the web server / load balancer. |
+| `PROXY_SHARED_SECRET` | empty | ≥ 32 characters. Set the **same value on the web app**; its proxy then passes each visitor's IP so rate limits are per student, not per proxy. Needed when the web app and API are on different hosts (e.g. Vercel + Render). |
 | `AUTH_RATE_PER_MINUTE` | `30` | Per-IP limit for sign-in and public certificate checks. Raise (e.g. `1000`) for E2E. |
 | `LEAD_REPLY_DELAY` | `45s` | How long the scripted team lead waits before replying (0–2h). |
 | `DELIVERY_INTERVAL` | `1s` | How often scheduled messages are delivered (100ms–1m). |
@@ -166,7 +163,6 @@ Template: [`web/.env.example`](../web/.env.example) → copy to `web/.env.local`
 |---|---|---|
 | `API_INTERNAL_URL` | `http://localhost:8080` (Docker: `http://api:8080`) | Where the web server proxies `/api/*`. The browser never calls the API directly, so the refresh token stays an HttpOnly same-site cookie. |
 | `PUBLIC_WS_URL` | `ws://localhost:8080/v1/ws` (prod: `wss://api.example.com/v1/ws`) | WebSocket the browser opens for live chat and boards. Its origin must be in the API's `ALLOWED_ORIGINS`. |
-| `DEV_LOGIN` | `true` | Shows the seeded-user sign-in panel. **Never enable in production** (the API refuses dev sign-in there anyway). |
 
 Public pages (`/verify`, `/verify/{code}`, `/certificate/{code}`) need no extra settings.
 
@@ -179,7 +175,6 @@ Passed as `--dart-define` at build time:
 | `API_BASE_URL` | `http://localhost:8080` (Android emulator: `http://10.0.2.2:8080`) | The API. Use https in release builds. |
 | `WEB_BASE_URL` | `https://stackstep.app` | Public web app; certificate verification links open here. |
 | `WEB_CONSOLE_URL` | `https://stackstep.app/admin` | Desktop console link shown to admins. |
-| `DEV_LOGIN` | off (on in debug builds) | Compile dev sign-in into a QA release build. |
 
 ```bash
 cd mobile
@@ -196,10 +191,10 @@ flutter run --dart-define=API_BASE_URL=http://localhost:8080 --dart-define=WEB_B
 | `make check-web` / `cd web && pnpm check` | Node + pnpm |
 | `make check-mobile` | Flutter |
 | `make e2e` | API with `AUTH_RATE_PER_MINUTE=1000` and the fake Groq (§4), web built and started (`pnpm build && pnpm start`); Chromium via Playwright |
-| `cd mobile && STACKSTEP_LIVE_API=http://localhost:8080 flutter test test/live` | a seeded API; runs the app's API client against it |
+| `cd mobile && STACKSTEP_LIVE_API=http://localhost:8080 flutter test test/live` | a local API with test fixtures (`make seed`); runs the app's API client against it |
 
 Screenshots for design review: `node e2e/scripts/screenshots.mjs <out-dir>` with the stack
-running and freshly seeded.
+running and test fixtures loaded (`make seed`).
 
 ## 10. Production checklist
 
@@ -208,9 +203,8 @@ running and freshly seeded.
 - GitHub OAuth app with the production callback; `BOOTSTRAP_ADMIN_GITHUB_LOGINS` for the first admin.
 - `DATABASE_URL` with TLS; back it up (certificates and ledgers live there).
 - `TRUSTED_PROXIES` covers your load balancer and the web server, so per-IP limits see real clients.
-- `DEV_LOGIN` unset on the web; don't build mobile with `DEV_LOGIN`.
 - `GROQ_API_KEY` set if you want the helper; tune the `AI_*` limits to your Groq plan.
-- Never run `seed -reset` against production.
+- Never run `make seed` (test fixtures) against production; make admins with `dbadmin admins`.
 - Container images: `ghcr.io/<owner>/stackstep-api` and `stackstep-web` (see `docs/RELEASING.md`).
 
 ## 11. CI and release settings
@@ -228,7 +222,7 @@ Release builds read repository **variables** `MOBILE_API_BASE_URL`, `WEB_BASE_UR
 | Symptom | Fix |
 |---|---|
 | API exits listing config errors | Fix each listed variable; in production all secrets and GitHub OAuth are required. |
-| "Developer sign-in" missing | Set `DEV_LOGIN=true` for the web and keep `APP_ENV` non-production. |
+| Signed in but not an admin | Add your login to `BOOTSTRAP_ADMIN_GITHUB_LOGINS` and sign in again, or run `dbadmin admins -logins <you>`. |
 | Live chat never connects | `PUBLIC_WS_URL` must reach the API and its origin must be in `ALLOWED_ORIGINS`. |
 | Everyone hits "Too many attempts" behind a proxy | Add the proxy's CIDR to `TRUSTED_PROXIES`. |
 | AI helper says "not set up yet" | Set `GROQ_API_KEY` and restart the API. |

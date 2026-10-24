@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"strings"
+	"time"
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
@@ -76,8 +77,10 @@ type StudentRow struct {
 }
 
 // ListStudents returns students with an open enrollment, ordered by name, optionally limited to one college.
-func ListStudents(ctx context.Context, q Q, college *uuid.UUID, search string, after *Cursor, limit int) ([]StudentRow, error) {
-	args := []any{}
+// Open and in-review counts only include tasks the student can see (released by now), the
+// same rule as progress and the overview.
+func ListStudents(ctx context.Context, q Q, college *uuid.UUID, search string, after *Cursor, limit int, now time.Time) ([]StudentRow, error) {
+	args := []any{now}
 	where := []string{"e.status IN ('active', 'paused')", "u.role = 'student'"}
 	add := func(cond string, v any) {
 		args = append(args, v)
@@ -98,8 +101,8 @@ func ListStudents(ctx context.Context, q Q, college *uuid.UUID, search string, a
 	sql := `
 		SELECT ` + userCols + `, e.id, e.user_id, COALESCE(c.college_id, u.college_id), p.slug, p.days, p.track,
 		       e.start_date, e.end_date, e.timezone, e.status, f.id, fv.id, f.name, fv.number,
-		       (SELECT count(*) FROM tasks t WHERE t.enrollment_id = e.id AND t.status IN ('todo', 'in_progress', 'changes_requested')),
-		       (SELECT count(*) FROM tasks t WHERE t.enrollment_id = e.id AND t.status = 'in_review'),
+		       (SELECT count(*) FROM tasks t WHERE t.enrollment_id = e.id AND t.scheduled_for <= $1 AND t.status IN ('todo', 'in_progress', 'changes_requested')),
+		       (SELECT count(*) FROM tasks t WHERE t.enrollment_id = e.id AND t.scheduled_for <= $1 AND t.status = 'in_review'),
 		       lower(u.name)
 		FROM enrollments e
 		JOIN users u ON u.id = e.user_id

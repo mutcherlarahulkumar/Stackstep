@@ -104,7 +104,7 @@ test("inbox: admin answers as the persona and the student sees it live; broadcas
 
   const neha = student.getByRole("navigation", { name: "Chats" }).getByTestId("thread-Neha Kapoor");
   await expect(neha).toContainText(notice, { timeout: 10_000 });
-  await expect(neha).toHaveAttribute("aria-label", /1 unread/);
+  await expect(neha).toHaveAccessibleName(/Neha Kapoor.*1 unread/);
 });
 
 test("personas and library validate before saving (P1, L1)", async ({ page }) => {

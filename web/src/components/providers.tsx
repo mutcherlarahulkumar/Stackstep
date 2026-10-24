@@ -29,7 +29,7 @@ export function Providers({ children }: { children: ReactNode }) {
         <SessionProvider>
           <TooltipProvider delayDuration={300}>{children}</TooltipProvider>
         </SessionProvider>
-        <Toaster position="top-center" richColors closeButton />
+        <Toaster position="bottom-right" richColors closeButton />
       </QueryClientProvider>
     </ThemeProvider>
   );

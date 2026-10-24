@@ -154,3 +154,69 @@ func AnnounceTransition(t domain.Task, to domain.TaskStatus, note string) string
 		return ""
 	}
 }
+
+// ReplyDelay is how long the scripted lead waits before replying.
+func (s Scripted) ReplyDelay() time.Duration { return s.Delay }
+
+// Delayer is implemented by agents with a fixed reply delay.
+type Delayer interface{ ReplyDelay() time.Duration }
+
+// HandInMessage is the student's note in the assigner's chat when they move a task, so the
+// hand-in and the conversation about it live in one place. "" means no message.
+func HandInMessage(t domain.Task, from, to domain.TaskStatus, sub *domain.Submission, quizScore *int) string {
+	var head string
+	switch {
+	case quizScore != nil:
+		return fmt.Sprintf("Finished the quiz “%s”: %d%%.", t.Title, *quizScore)
+	case to == domain.StatusInReview && from == domain.StatusChangesRequested:
+		head = fmt.Sprintf("Pushed the fixes and resubmitted “%s” for review.", t.Title)
+	case to == domain.StatusInReview:
+		head = fmt.Sprintf("Sent “%s” for review.", t.Title)
+	case to == domain.StatusDone:
+		head = fmt.Sprintf("Done with “%s”.", t.Title)
+	default:
+		return ""
+	}
+	if sub != nil && sub.URL != "" {
+		head += "\n" + sub.URL
+	}
+	if sub != nil && sub.Note != "" {
+		head += "\n\n" + sub.Note
+	}
+	return head
+}
+
+// reflection questions keep finished work from being a dead end; one is picked per task so
+// a retry never changes it.
+var reflection = []string{
+	"Quick one: what was the trickiest part?",
+	"What would you do differently if you started it again?",
+	"What's one thing you learned that you'd tell a teammate?",
+	"How long did it take compared to what you expected?",
+	"Anything you'd still improve if you had another hour?",
+}
+
+func pick(t domain.Task, n int) int {
+	h := 0
+	for _, b := range t.ID {
+		h = (h*31 + int(b)) % 1_000_003
+	}
+	return h % n
+}
+
+// Acknowledge is the assigner's short reply to a hand-in: an "ok" for reviews, and a nudge
+// plus one reflection question for finished work. "" means no reply.
+func Acknowledge(t domain.Task, to domain.TaskStatus, studentName string, quizScore *int) string {
+	first := firstName(studentName)
+	switch {
+	case quizScore != nil && *quizScore >= 80:
+		return fmt.Sprintf("Solid, %s — %d%% on “%s”. %s", first, *quizScore, t.Title, reflection[pick(t, len(reflection))])
+	case quizScore != nil:
+		return fmt.Sprintf("Thanks for finishing “%s”, %s. Open the card to see the answer key, and ask here about anything that still doesn't click.", t.Title, first)
+	case to == domain.StatusInReview:
+		return fmt.Sprintf("Got it, %s 👍 I'll review “%s” and reply right here. Meanwhile, pick up your next card.", first, t.Title)
+	case to == domain.StatusDone:
+		return fmt.Sprintf("Nice work on “%s”, %s! 🎉 %s", t.Title, first, reflection[pick(t, len(reflection))])
+	}
+	return ""
+}

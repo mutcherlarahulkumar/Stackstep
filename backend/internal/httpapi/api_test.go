@@ -618,3 +618,28 @@ func TestSignInRateLimited(t *testing.T) {
 	// Refresh has its own, larger bucket, so a throttled sign-in doesn't lock out signed-in users.
 	e.expect(e.do("POST", "/v1/auth/refresh", "", map[string]string{"refresh_token": "nope"}, "X-Client", "mobile"), 401)
 }
+
+// TestClientIPFromProxy: the web proxy's vouched address is used only with the right secret (RL1).
+func TestClientIPFromProxy(t *testing.T) {
+	secret := strings.Repeat("s", 32)
+	req := func(h map[string]string) *http.Request {
+		r := httptest.NewRequest("GET", "/", nil)
+		r.RemoteAddr = "10.1.2.3:4444"
+		for k, v := range h {
+			r.Header.Set(k, v)
+		}
+		return r
+	}
+	if got := clientIP(req(map[string]string{"X-Proxy-Secret": secret, "X-Client-IP": "203.0.113.7"}), nil, secret); got != "203.0.113.7" {
+		t.Fatalf("vouched = %s", got)
+	}
+	if got := clientIP(req(map[string]string{"X-Proxy-Secret": "wrong", "X-Client-IP": "203.0.113.7"}), nil, secret); got != "10.1.2.3" {
+		t.Fatalf("wrong secret = %s", got)
+	}
+	if got := clientIP(req(map[string]string{"X-Client-IP": "203.0.113.7"}), nil, ""); got != "10.1.2.3" {
+		t.Fatalf("disabled = %s", got)
+	}
+	if got := clientIP(req(map[string]string{"X-Proxy-Secret": secret, "X-Client-IP": "not-an-ip"}), nil, secret); got != "10.1.2.3" {
+		t.Fatalf("garbage = %s", got)
+	}
+}

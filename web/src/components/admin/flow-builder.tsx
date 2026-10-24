@@ -596,7 +596,7 @@ function ItemSheet({
   return (
     <Sheet open={editing !== null} onOpenChange={(o) => !o && onClose()}>
       <SheetContent className="w-full overflow-y-auto sm:max-w-xl">
-        <SheetHeader>
+        <SheetHeader className="bg-popover sticky top-0 z-10 border-b">
           <SheetTitle>{readOnly ? "Task" : current ? "Edit task" : `New task on day ${day}`}</SheetTitle>
           <SheetDescription>
             {templateId ? "A copy of a library task. Changes here stay in this flow." : "Only in this flow. Save it to the library to reuse it elsewhere."}

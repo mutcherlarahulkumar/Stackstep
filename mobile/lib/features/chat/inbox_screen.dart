@@ -11,6 +11,7 @@ import 'package:stackstep/features/chat/chat_screen.dart';
 import 'package:stackstep/features/chat/inbox_controller.dart';
 import 'package:stackstep/shared/errors.dart';
 import 'package:stackstep/shared/format.dart';
+import 'package:stackstep/shared/motion.dart';
 import 'package:stackstep/shared/state_views.dart';
 import 'package:stackstep/ui/ui.dart';
 
@@ -58,7 +59,7 @@ Future<void> openStudentThread(BuildContext context, Persona p, {void Function(S
       target: (personaId: p.id, enrollmentId: null),
       avatar: PersonaAvatar(p),
       title: p.name,
-      subtitle: p.title,
+      subtitle: '${p.title} · ${personaTag(p)}',
       onOpenTask: onOpenTask == null
           ? null
           : (id) {
@@ -201,10 +202,15 @@ class _ThreadTile extends ConsumerWidget {
   }
 }
 
-String _preview(Message? m, {required bool staff}) {
+/// The last message, prefixed with who said it. Staff see the persona's name, since persona
+/// messages may be automatic (the lead's scripted replies), not their own.
+String _preview(Message? m, {required bool staff, String? personaName}) {
   if (m == null) return 'No messages yet';
-  final mine = staff ? m.author == Author.persona : m.author == Author.student;
-  return '${mine ? 'You: ' : ''}${previewLine(m.body)}';
+  if (staff) {
+    final who = m.author == Author.persona ? '${(personaName ?? 'Persona').split(' ').first}: ' : '';
+    return '$who${previewLine(m.body)}';
+  }
+  return '${m.author == Author.student ? 'You: ' : ''}${previewLine(m.body)}';
 }
 
 /// The pinned AI helper row at the top of the student's chats.
@@ -259,49 +265,51 @@ class StudentInboxScreen extends ConsumerWidget {
       children: [
         ConnectionBanner(status: rt.status),
         Expanded(
-          child: switch (inbox) {
-            AsyncData(:final value) when value.isEmpty => RefreshIndicator(
-              onRefresh: () => ref.read(studentInboxProvider.notifier).refresh(),
-              child: ListView(
-                children: const [
-                  _AIRow(),
-                  Divider(height: 1),
-                  SizedBox(
-                    height: 420,
-                    child: EmptyState(
-                      icon: LucideIcons.messagesSquare,
-                      title: 'No chats yet',
-                      body: 'Your team posts tickets and updates here once your internship starts. Each person gets their own chat.',
+          child: FadeSwitch(
+            child: switch (inbox) {
+              AsyncData(:final value) when value.isEmpty => RefreshIndicator(
+                onRefresh: () => ref.read(studentInboxProvider.notifier).refresh(),
+                child: ListView(
+                  children: const [
+                    _AIRow(),
+                    Divider(height: 1),
+                    SizedBox(
+                      height: 420,
+                      child: EmptyState(
+                        icon: LucideIcons.messagesSquare,
+                        title: 'No chats yet',
+                        body: 'Your team posts tickets and updates here once your internship starts. Each person gets their own chat.',
+                      ),
                     ),
-                  ),
-                ],
+                  ],
+                ),
               ),
-            ),
-            AsyncData(:final value) => RefreshIndicator(
-              onRefresh: () => ref.read(studentInboxProvider.notifier).refresh(),
-              child: ListView.separated(
-                key: const Key('student-inbox'),
-                itemCount: value.length + 1,
-                separatorBuilder: (_, _) => const Divider(height: 1, indent: 76),
-                itemBuilder: (context, index) {
-                  if (index == 0) return const _AIRow();
-                  final th = value[index - 1];
-                  return _ThreadTile(
-                    tileKey: Key('thread-${th.persona.id}'),
-                    avatar: PersonaAvatar(th.persona),
-                    title: th.persona.name,
-                    tag: Text(th.persona.title, style: ShadTheme.of(context).textTheme.muted.copyWith(fontSize: 12)),
-                    preview: _preview(th.lastMessage, staff: false),
-                    at: th.lastMessage?.sentAt,
-                    unread: th.unread,
-                    onTap: () => openStudentThread(context, th.persona, onOpenTask: onOpenTask),
-                  );
-                },
+              AsyncData(:final value) => RefreshIndicator(
+                onRefresh: () => ref.read(studentInboxProvider.notifier).refresh(),
+                child: ListView.separated(
+                  key: const Key('student-inbox'),
+                  itemCount: value.length + 1,
+                  separatorBuilder: (_, _) => const Divider(height: 1, indent: 76),
+                  itemBuilder: (context, index) {
+                    if (index == 0) return const _AIRow();
+                    final th = value[index - 1];
+                    return _ThreadTile(
+                      tileKey: Key('thread-${th.persona.id}'),
+                      avatar: PersonaAvatar(th.persona),
+                      title: th.persona.name,
+                      tag: Text(th.persona.title, style: ShadTheme.of(context).textTheme.muted.copyWith(fontSize: 12)),
+                      preview: _preview(th.lastMessage, staff: false),
+                      at: th.lastMessage?.sentAt,
+                      unread: th.unread,
+                      onTap: () => openStudentThread(context, th.persona, onOpenTask: onOpenTask),
+                    );
+                  },
+                ),
               ),
-            ),
-            AsyncError(:final error) => ErrorState(message: messageFor(error), onRetry: () => ref.invalidate(studentInboxProvider)),
-            _ => const SkeletonList(rows: 4, height: 64),
-          },
+              AsyncError(:final error) => ErrorState(message: messageFor(error), onRetry: () => ref.invalidate(studentInboxProvider)),
+              _ => const SkeletonList(rows: 4, height: 64),
+            },
+          ),
         ),
       ],
     );
@@ -340,62 +348,64 @@ class StaffInboxScreen extends ConsumerWidget {
           ),
         ),
         Expanded(
-          child: switch (inbox) {
-            AsyncData(:final value) when value.items.isEmpty => EmptyState(
-              icon: LucideIcons.inbox,
-              title: value.unreadOnly ? 'All caught up' : 'No conversations yet',
-              body: value.unreadOnly
-                  ? 'Nothing waiting on a reply. New student messages show up here live.'
-                  : 'Conversations start when a persona posts a task or a student writes in.',
-            ),
-            AsyncData(:final value) => RefreshIndicator(
-              onRefresh: () => ref.read(staffInboxProvider.notifier).refresh(),
-              child: ListView.separated(
-                key: const Key('staff-inbox'),
-                itemCount: value.items.length + (value.nextCursor != null ? 1 : 0),
-                separatorBuilder: (_, _) => const Divider(height: 1, indent: 76),
-                itemBuilder: (context, i) {
-                  if (i == value.items.length) {
-                    unawaited(ref.read(staffInboxProvider.notifier).loadMore());
-                    return const Padding(
-                      padding: EdgeInsets.all(Space.lg),
-                      child: Center(child: SizedBox.square(dimension: 18, child: CircularProgressIndicator(strokeWidth: 2))),
-                    );
-                  }
-                  final th = value.items[i];
-                  return _ThreadTile(
-                    tileKey: Key('staff-thread-${th.key}'),
-                    avatar: _StudentAvatar(name: th.studentName ?? 'Student'),
-                    title: th.studentName ?? 'Student',
-                    tag: Row(
-                      children: [
-                        Container(
-                          width: 8,
-                          height: 8,
-                          decoration: BoxDecoration(color: personaColor(th.persona.color), shape: BoxShape.circle),
-                        ),
-                        const SizedBox(width: 6),
-                        Flexible(
-                          child: Text(
-                            'with ${th.persona.name}${th.studentLogin == null ? '' : ' · @${th.studentLogin}'}',
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: t.textTheme.muted.copyWith(fontSize: 12),
-                          ),
-                        ),
-                      ],
-                    ),
-                    preview: _preview(th.lastMessage, staff: true),
-                    at: th.lastMessage?.sentAt,
-                    unread: th.unread,
-                    onTap: () => openStaffThread(context, th),
-                  );
-                },
+          child: FadeSwitch(
+            child: switch (inbox) {
+              AsyncData(:final value) when value.items.isEmpty => EmptyState(
+                icon: LucideIcons.inbox,
+                title: value.unreadOnly ? 'All caught up' : 'No conversations yet',
+                body: value.unreadOnly
+                    ? 'Nothing waiting on a reply. New student messages show up here live.'
+                    : 'Conversations start when a persona posts a task or a student writes in.',
               ),
-            ),
-            AsyncError(:final error) => ErrorState(message: messageFor(error), onRetry: () => ref.invalidate(staffInboxProvider)),
-            _ => const SkeletonList(rows: 6, height: 64),
-          },
+              AsyncData(:final value) => RefreshIndicator(
+                onRefresh: () => ref.read(staffInboxProvider.notifier).refresh(),
+                child: ListView.separated(
+                  key: const Key('staff-inbox'),
+                  itemCount: value.items.length + (value.nextCursor != null ? 1 : 0),
+                  separatorBuilder: (_, _) => const Divider(height: 1, indent: 76),
+                  itemBuilder: (context, i) {
+                    if (i == value.items.length) {
+                      unawaited(ref.read(staffInboxProvider.notifier).loadMore());
+                      return const Padding(
+                        padding: EdgeInsets.all(Space.lg),
+                        child: Center(child: SizedBox.square(dimension: 18, child: CircularProgressIndicator(strokeWidth: 2))),
+                      );
+                    }
+                    final th = value.items[i];
+                    return _ThreadTile(
+                      tileKey: Key('staff-thread-${th.key}'),
+                      avatar: _StudentAvatar(name: th.studentName ?? 'Student'),
+                      title: th.studentName ?? 'Student',
+                      tag: Row(
+                        children: [
+                          Container(
+                            width: 8,
+                            height: 8,
+                            decoration: BoxDecoration(color: personaColor(th.persona.color), shape: BoxShape.circle),
+                          ),
+                          const SizedBox(width: 6),
+                          Flexible(
+                            child: Text(
+                              'with ${th.persona.name}${th.studentLogin == null ? '' : ' · @${th.studentLogin}'}',
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: t.textTheme.muted.copyWith(fontSize: 12),
+                            ),
+                          ),
+                        ],
+                      ),
+                      preview: _preview(th.lastMessage, staff: true, personaName: th.persona.name),
+                      at: th.lastMessage?.sentAt,
+                      unread: th.unread,
+                      onTap: () => openStaffThread(context, th),
+                    );
+                  },
+                ),
+              ),
+              AsyncError(:final error) => ErrorState(message: messageFor(error), onRetry: () => ref.invalidate(staffInboxProvider)),
+              _ => const SkeletonList(rows: 6, height: 64),
+            },
+          ),
         ),
       ],
     );
