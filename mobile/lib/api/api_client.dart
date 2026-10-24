@@ -157,6 +157,11 @@ final class ApiClient {
 
   Future<Me> me() async => Me.fromJson(asObject(await _send('GET', '/v1/me')));
 
+  Future<Account> acceptTerms(int version) async =>
+      Account.fromJson(asObject(await _send('POST', '/v1/me/consent', body: {'version': version})));
+
+  Future<Account> finishOnboarding() async => Account.fromJson(asObject(await _send('POST', '/v1/me/onboarded')));
+
   Future<List<Task>> myTasks() async => asObject(await _send('GET', '/v1/me/tasks')).list('items', Task.fromJson);
 
   Future<List<Thread>> threads() async => asObject(await _send('GET', '/v1/me/threads')).list('items', Thread.fromJson);

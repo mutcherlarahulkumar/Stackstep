@@ -1,6 +1,7 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:stackstep/api/json.dart';
 import 'package:stackstep/api/models.dart';
+import 'package:stackstep/shared/format.dart';
 
 import 'fixtures.dart';
 
@@ -35,11 +36,22 @@ void main() {
     });
 
     test('me with and without enrollment', () {
-      final withE = Me.fromJson(JsonReader({'user': userJson(), 'enrollment': enrollmentJson()}));
+      final withE = Me.fromJson(JsonReader({'user': userJson(), 'enrollment': enrollmentJson(), 'account': accountJson()}));
       expect(withE.enrollment?.dayNumber, 3);
-      final without = Me.fromJson(JsonReader({'user': userJson(role: 'admin'), 'enrollment': null}));
+      final without = Me.fromJson(
+        JsonReader({'user': userJson(role: 'admin'), 'enrollment': null, 'account': accountJson(consentRequired: true)}),
+      );
       expect(without.enrollment, isNull);
       expect(without.user.role.isStaff, isTrue);
+      expect(without.account.consentRequired, isTrue);
+      expect(without.withAccount(Account.fromJson(JsonReader(accountJson()))).account.consentRequired, isFalse);
+      // The account block is required, so an older API can't skip the consent step (AC6).
+      expect(() => Me.fromJson(JsonReader({'user': userJson(), 'enrollment': null})), throwsA(isA<ContractViolation>()));
+    });
+
+    test('persona tag says who is behind a persona (PT1)', () {
+      expect(personaTag(Persona.fromJson(JsonReader({...personaJson(), 'auto_reply': true}))), 'Mentor · some replies automatic');
+      expect(personaTag(Persona.fromJson(JsonReader({...personaJson(), 'auto_reply': false}))), 'Played by a mentor');
     });
 
     test('frames', () {

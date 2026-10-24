@@ -67,3 +67,6 @@ String taskTimeLabel(Task t, DateTime now) => switch (t.status) {
   TaskStatus.cancelled => 'Cancelled',
   _ => dueLabel(t.dueAt, now),
 };
+
+/// Honest label for who is behind a persona (same words as the web app).
+String personaTag(Persona p) => p.autoReply ? 'Mentor · some replies automatic' : 'Played by a mentor';

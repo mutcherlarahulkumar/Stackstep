@@ -222,15 +222,34 @@ final class Enrollment {
 }
 
 final class Me {
-  const Me({required this.user, required this.enrollment});
+  const Me({required this.user, required this.enrollment, required this.account});
 
   factory Me.fromJson(JsonReader j) {
     final e = j.objectOrNull('enrollment');
-    return Me(user: User.fromJson(j.object('user')), enrollment: e == null ? null : Enrollment.fromJson(e));
+    return Me(
+      user: User.fromJson(j.object('user')),
+      enrollment: e == null ? null : Enrollment.fromJson(e),
+      account: Account.fromJson(j.object('account')),
+    );
   }
 
   final User user;
   final Enrollment? enrollment;
+  final Account account;
+
+  Me withAccount(Account a) => Me(user: user, enrollment: enrollment, account: a);
+}
+
+/// Consent and first-run state, shared with the web app.
+final class Account {
+  const Account({required this.termsVersion, required this.consentRequired, required this.onboarded});
+
+  factory Account.fromJson(JsonReader j) =>
+      Account(termsVersion: j.integer('terms_version'), consentRequired: j.boolean('consent_required'), onboarded: j.boolean('onboarded'));
+
+  final int termsVersion;
+  final bool consentRequired;
+  final bool onboarded;
 }
 
 final class Task {

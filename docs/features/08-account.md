@@ -28,6 +28,8 @@ stored on the server (`onboarded_at`), so it shows once across web and app.
 `GET /v1/me/export` returns one JSON file: profile, internships with released tasks, hand-ins,
 quiz attempts, delivered chat, AI helper conversations, credits, points and certificates.
 Staff-only data (review checks, staff read state) is left out. Account menu → "Download my data".
+The app's account menu links to the web app for the download (no file-sharing plugin needed),
+plus Privacy and Terms.
 
 ## Edge cases
 
@@ -41,4 +43,5 @@ Staff-only data (review checks, staff read state) is left out. Account menu → 
 | AC6 | API without `account` in `/me` | client rejects the response (no silent skip of consent) | web `schemas.test.ts` |
 | AX1 | Student export | attachment, `no-store`, own profile, internship, released tasks and chat | backend `TestExportMyData`, E2E `account.spec.ts` |
 | AX2 | Staff export | own profile, no internships, nothing about students | backend `TestExportMyData` |
-| PT1 | Persona tag | label follows `auto_reply` | web `inbox.test.ts`, E2E `people.spec.ts` |
+| PT1 | Persona tag | label follows `auto_reply` | web `inbox.test.ts`, Flutter `models_test.dart`, E2E `people.spec.ts` |
+| AM1 | App: consent, then the guide once | consent screen, button waits for the box; guide's four steps; finish stored | Flutter `app_routing_test.dart` |

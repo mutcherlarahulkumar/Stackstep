@@ -125,6 +125,12 @@ final class SessionController extends Notifier<SessionState> {
     }
   }
 
+  /// Applies fresh consent/onboarding state without refetching /me.
+  void setAccount(Account a) {
+    final s = state;
+    if (s is SignedIn) state = SignedIn(s.me.withAccount(a));
+  }
+
   Future<void> signOut() async {
     await _api.logout();
     state = const SignedOut();

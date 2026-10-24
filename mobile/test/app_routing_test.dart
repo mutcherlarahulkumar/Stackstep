@@ -35,7 +35,11 @@ void main() {
     final client = MockClient(
       (req) async => switch (req.url.path) {
         '/v1/auth/refresh' => json(tokensJson()),
-        '/v1/me' => json({'user': userJson(role: 'admin', login: 'admin-demo', name: 'Platform Admin'), 'enrollment': null}),
+        '/v1/me' => json({
+          'user': userJson(role: 'admin', login: 'admin-demo', name: 'Platform Admin'),
+          'enrollment': null,
+          'account': accountJson(),
+        }),
         '/v1/admin/personas' => json({
           'items': [personaJson(), personaJson(id: managerId, name: 'Priya Sharma', title: 'Engineering Manager', color: 'blue')],
         }),
@@ -117,7 +121,7 @@ void main() {
     final client = MockClient(
       (req) async => switch (req.url.path) {
         '/v1/auth/refresh' => json(tokensJson()),
-        '/v1/me' => json({'user': userJson(), 'enrollment': enrollmentJson()}),
+        '/v1/me' => json({'user': userJson(), 'enrollment': enrollmentJson(), 'account': accountJson()}),
         '/v1/me/tasks' => json({
           'items': [taskJson(personaId: managerId, reviewMode: 'self', status: 'in_progress')],
         }),
@@ -173,7 +177,7 @@ void main() {
     final client = MockClient(
       (req) async => switch (req.url.path) {
         '/v1/auth/refresh' => json(tokensJson()),
-        '/v1/me' => json({'user': userJson(login: 'nora-dev', name: 'Nora Das'), 'enrollment': null}),
+        '/v1/me' => json({'user': userJson(login: 'nora-dev', name: 'Nora Das'), 'enrollment': null, 'account': accountJson()}),
         _ => json({
           'error': {'code': 'not_found', 'message': ''},
         }, 404),
@@ -195,5 +199,60 @@ void main() {
     final client = MockClient((req) async => throw http.ClientException('offline'));
     await pumpApp(tester, client);
     expect(find.textContaining("Can't reach Stackstep"), findsOneWidget);
+  });
+
+  testWidgets('first sign-in asks for consent, then shows the four-step guide once (AC1–AC3)', (tester) async {
+    var consented = false;
+    var onboarded = false;
+    final client = MockClient(
+      (req) async => switch (req.url.path) {
+        '/v1/auth/refresh' => json(tokensJson()),
+        '/v1/me' => json({
+          'user': userJson(),
+          'enrollment': enrollmentJson(),
+          'account': accountJson(consentRequired: true, onboarded: false),
+        }),
+        '/v1/me/consent' => () {
+          expect(jsonDecode(req.body), {'version': 1});
+          consented = true;
+          return json(accountJson(onboarded: false));
+        }(),
+        '/v1/me/onboarded' => () {
+          onboarded = true;
+          return json(accountJson());
+        }(),
+        '/v1/me/tasks' => json({'items': <Object>[]}),
+        '/v1/me/threads' => json({
+          'items': [threadJson(last: messageJson(body: 'Welcome!'))],
+        }),
+        _ => json({
+          'error': {'code': 'not_found', 'message': ''},
+        }, 404),
+      },
+    );
+    await pumpApp(tester, client);
+    expect(find.text('Hi Asha, a quick check first'), findsOneWidget);
+    // The button waits for the checkbox.
+    await tester.scrollUntilVisible(find.byKey(const Key('consent-accept')), 200);
+    await tester.tap(find.byKey(const Key('consent-accept')));
+    await tester.pumpAndSettle();
+    expect(consented, isFalse);
+    await tester.tap(find.byKey(const Key('consent-check')));
+    await tester.pump();
+    await tester.tap(find.byKey(const Key('consent-accept')));
+    await tester.pumpAndSettle();
+    expect(consented, isTrue);
+
+    expect(find.text('Step 1 of 4'), findsOneWidget);
+    for (var i = 0; i < 3; i++) {
+      await tester.tap(find.byKey(const Key('onboarding-next')));
+      await tester.pumpAndSettle();
+    }
+    expect(find.text('Points, credits and the AI helper'), findsOneWidget);
+    await tester.tap(find.byKey(const Key('onboarding-done')));
+    await tester.pumpAndSettle();
+    expect(onboarded, isTrue);
+    expect(find.byKey(const Key('onboarding')), findsNothing);
+    expect(find.text('Chats'), findsWidgets);
   });
 }

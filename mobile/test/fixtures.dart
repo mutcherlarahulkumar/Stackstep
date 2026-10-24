@@ -96,3 +96,9 @@ Json tokensJson({String access = 'access-1', String refresh = 'refresh-1', Strin
   'refresh_token': refresh,
   'refresh_expires_at': '2999-02-01T00:00:00Z',
 };
+
+Map<String, Object?> accountJson({bool consentRequired = false, bool onboarded = true}) => {
+  'terms_version': 1,
+  'consent_required': consentRequired,
+  'onboarded': onboarded,
+};

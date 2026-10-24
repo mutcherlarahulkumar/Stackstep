@@ -28,5 +28,8 @@ abstract final class AppConfig {
 
   static String verifyUrl(String code) => '${webBaseUrl.replaceAll(RegExp(r'/+$'), '')}/verify/${Uri.encodeComponent(code)}';
 
+  /// A page on the public web app, e.g. webUrl('/privacy').
+  static String webUrl(String path) => '${webBaseUrl.replaceAll(RegExp(r'/+$'), '')}$path';
+
   static const callbackScheme = 'stackstep';
 }

@@ -59,7 +59,7 @@ Future<void> openStudentThread(BuildContext context, Persona p, {void Function(S
       target: (personaId: p.id, enrollmentId: null),
       avatar: PersonaAvatar(p),
       title: p.name,
-      subtitle: p.title,
+      subtitle: '${p.title} · ${personaTag(p)}',
       onOpenTask: onOpenTask == null
           ? null
           : (id) {
