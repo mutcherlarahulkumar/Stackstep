@@ -54,6 +54,12 @@ AI review suggestions, push notifications on phones, Orshot certificate artwork.
 - **Admins and college admins**: the web console on a desktop. On phones (web or app) they
   get a "switch to desktop" prompt, but **task allocation works everywhere**.
 
+## Docs
+
+- [What every feature does](docs/FEATURES.md) (plain-language guide)
+- [Going to production, step by step](docs/PRODUCTION.md) (Neon, Render, Vercel, GitHub, mobile)
+- [Every setting and local setup](docs/SETUP.md) · [Releases and app builds](docs/RELEASING.md)
+
 ## Run it locally
 
 ```bash
