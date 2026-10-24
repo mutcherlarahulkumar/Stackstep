@@ -54,6 +54,33 @@ void main() {
       expect((await api.threads()).firstWhere((t) => t.persona.id == _lead).unread, 0);
     });
 
+    test('student: account, tasks, notes round-trip and the week recap', () async {
+      final admin = await _signIn('admin-demo');
+      final meera = (await admin.students(query: 'meera')).items.single;
+      final now = DateTime.now().toUtc();
+      final t = await admin.createTask(meera.enrollment.id, (
+        type: TaskType.feature,
+        personaId: _lead,
+        reviewMode: ReviewMode.manual,
+        title: 'Live notes ${now.millisecondsSinceEpoch}',
+        brief: '',
+        scheduledFor: null,
+        dueAt: now.add(const Duration(hours: 2)),
+        resources: const [],
+      ));
+      final api = await _signIn('meera-dev');
+      final me = await api.me();
+      expect(me.account.consentRequired, isFalse); // seeded users have accepted
+      await api.myTasks(); // strict decoding covers rubric and practice content
+      final saved = await api.saveNote(t.id, body: '## From the app', shared: true);
+      expect(saved.shared, isTrue);
+      expect((await api.myNote(t.id)).body, '## From the app');
+      final cleared = await api.saveNote(t.id, body: '', shared: false);
+      expect(cleared.updatedAt, isNull);
+      final progress = await api.progress();
+      expect(progress.thisWeek.done, greaterThanOrEqualTo(0));
+    });
+
     test('student: validation errors come back typed', () async {
       final api = await _signIn('asha-dev');
       await expectLater(
