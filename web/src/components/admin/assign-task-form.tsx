@@ -26,7 +26,7 @@ import { Bounds, normalizeLine, runeLength, validateBrief, validateSchedule, val
 import { choiceItem } from "../app/choice";
 import { DateTimePicker } from "../app/date-picker";
 import { PersonaAvatar } from "../app/persona-avatar";
-import { PracticeEditor, QuizEditor, ResourcesEditor } from "./content-editors";
+import { PracticeEditor, QuizEditor, ResourcesEditor, RubricEditor } from "./content-editors";
 import { TYPE_ICON } from "../app/task-badges";
 
 type DuePreset = "2h" | "today" | "tomorrow" | "custom";
@@ -68,6 +68,7 @@ export function AssignTaskForm({ student, onAssigned }: { student: Student; onAs
       setContent((c) => ({ ...c, quiz: c.quiz ?? { pass_percent: ContentBounds.passDefault, questions: [blankQuestion()] } }));
     } else setContent((c) => ({ ...c, quiz: null }));
     if (t !== "dsa") setContent((c) => ({ ...c, practice: null }));
+    if (t === "quiz") setContent((c) => ({ ...c, rubric: [] }));
   };
   const personaList = personas.data ?? [];
   // The admin's pick, else the default team lead, else the first persona; null lets the server decide.
@@ -94,7 +95,7 @@ export function AssignTaskForm({ student, onAssigned }: { student: Student; onAs
   const submit = async () => {
     const schedule = validateSchedule(new Date(), start, due);
     const next: Errors = {
-      ...validateContent(content, type),
+      ...validateContent(content, type, reviewMode),
       title: validateTitle(title) ?? undefined,
       brief: validateBrief(brief) ?? undefined,
       scheduled_for: later && !start ? "Pick a start time." : (schedule.scheduled_for ?? undefined),
@@ -117,7 +118,7 @@ export function AssignTaskForm({ student, onAssigned }: { student: Student; onAs
       });
       setTitle("");
       setBrief("");
-      setContent({ resources: [], quiz: type === "quiz" ? { pass_percent: ContentBounds.passDefault, questions: [blankQuestion()] } : null, practice: null });
+      setContent({ resources: [], quiz: type === "quiz" ? { pass_percent: ContentBounds.passDefault, questions: [blankQuestion()] } : null, practice: null, rubric: [] });
       onAssigned(task);
     } catch (e) {
       if (e instanceof ApiError && e.code === "validation_failed" && Object.keys(e.fields).length) setErrors(e.fields as Errors);
@@ -212,6 +213,7 @@ export function AssignTaskForm({ student, onAssigned }: { student: Student; onAs
             value={reviewMode}
             onValueChange={(v) => {
               if (v === "manual" || v === "self") setReviewMode(v);
+              if (v === "self") setContent((c) => ({ ...c, rubric: [] }));
             }}
             className="justify-start"
             disabled={type === "quiz"}
@@ -270,6 +272,9 @@ export function AssignTaskForm({ student, onAssigned }: { student: Student; onAs
         </Field>
         {content.quiz ? (
           <QuizEditor value={content.quiz} onChange={(quiz) => setContent((c) => ({ ...c, quiz }))} errors={errors} idPrefix="assign-quiz" />
+        ) : null}
+        {reviewMode === "manual" && type !== "quiz" ? (
+          <RubricEditor value={content.rubric} onChange={(rubric) => setContent((c) => ({ ...c, rubric }))} errors={errors} idPrefix="assign-rubric" />
         ) : null}
         {type === "dsa" ? (
           <PracticeEditor value={content.practice} onChange={(practice) => setContent((c) => ({ ...c, practice }))} errors={errors} idPrefix="assign-practice" />

@@ -27,6 +27,7 @@ export type ContentInput = {
   resources: S.Resource[];
   quiz: { questions: { prompt: string; options: string[]; answer: number }[]; pass_percent: number } | null;
   practice: PracticeDraft | null;
+  rubric: string[];
 };
 
 /** Parses practice test text into JSON for the API. Validation (validateContent) runs first. */
@@ -167,9 +168,9 @@ export class ApiClient {
     await this.send("POST", `/v1/me/threads/${seg(personaId)}/read`, null);
   }
 
-  transition(taskId: string, to: S.TaskStatus, expectedVersion: number, note = "", submission: SubmissionInput | null = null) {
+  transition(taskId: string, to: S.TaskStatus, expectedVersion: number, note = "", submission: SubmissionInput | null = null, rubric: boolean[] | null = null) {
     return this.send("POST", `/v1/tasks/${seg(taskId)}/transitions`, S.Task, {
-      body: { to, expected_version: expectedVersion, note, submission },
+      body: { to, expected_version: expectedVersion, note, submission, ...(rubric ? { rubric } : {}) },
     });
   }
 

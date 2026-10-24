@@ -134,6 +134,7 @@ type contentDTO struct {
 	Resources []resourceDTO `json:"resources"`
 	Quiz      *quizDTO      `json:"quiz"`
 	Practice  *practiceDTO  `json:"practice"`
+	Rubric    []string      `json:"rubric"`
 }
 
 type practiceDTO struct {
@@ -170,7 +171,7 @@ func (p *practiceDTO) input() *domain.Practice {
 }
 
 func toContent(c domain.TaskContent, showAnswers bool) contentDTO {
-	out := contentDTO{Resources: make([]resourceDTO, len(c.Resources)), Practice: toPractice(c.Practice)}
+	out := contentDTO{Resources: make([]resourceDTO, len(c.Resources)), Practice: toPractice(c.Practice), Rubric: append([]string{}, c.Rubric...)}
 	for i, r := range c.Resources {
 		out.Resources[i] = resourceDTO(r)
 	}
@@ -190,7 +191,7 @@ func toContent(c domain.TaskContent, showAnswers bool) contentDTO {
 
 // input converts a request body; a missing answer becomes -1 so validation flags it.
 func (c contentDTO) input() domain.TaskContent {
-	out := domain.TaskContent{Resources: make([]domain.Resource, len(c.Resources)), Practice: c.Practice.input()}
+	out := domain.TaskContent{Resources: make([]domain.Resource, len(c.Resources)), Practice: c.Practice.input(), Rubric: c.Rubric}
 	for i, r := range c.Resources {
 		out.Resources[i] = domain.Resource(r)
 	}
@@ -214,6 +215,8 @@ type submissionDTO struct {
 	Note        string           `json:"note"`
 	SubmittedAt time.Time        `json:"submitted_at"`
 	Checks      []handInCheckDTO `json:"checks"` // reviewer warnings; always empty for students
+	Rubric      []bool           `json:"rubric"` // reviewer's ticks, null until reviewed with a rubric
+	ReviewedAt  *time.Time       `json:"reviewed_at"`
 }
 
 type handInCheckDTO struct {
@@ -237,7 +240,11 @@ func toTask(t domain.Task, staff bool) taskDTO {
 		ScheduledFor: t.ScheduledFor.UTC(), DueAt: t.DueAt.UTC(), Version: t.Version, CreatedAt: t.CreatedAt.UTC(), UpdatedAt: t.UpdatedAt.UTC(),
 		ReviewMode: t.ReviewMode, PersonaID: t.PersonaID, FromFlow: t.FlowItemID != nil, Content: toContent(t.Content, staff || finished)}
 	if s := t.Submission; s != nil {
-		dto.Submission = &submissionDTO{Attempt: s.Attempt, Note: s.Note, SubmittedAt: s.SubmittedAt.UTC(), Checks: []handInCheckDTO{}}
+		dto.Submission = &submissionDTO{Attempt: s.Attempt, Note: s.Note, SubmittedAt: s.SubmittedAt.UTC(), Checks: []handInCheckDTO{}, Rubric: s.Rubric}
+		if s.ReviewedAt != nil {
+			at := s.ReviewedAt.UTC()
+			dto.Submission.ReviewedAt = &at
+		}
 		if staff {
 			for _, c := range s.Checks {
 				dto.Submission.Checks = append(dto.Submission.Checks, handInCheckDTO{Code: c.Code, Message: c.Message})
@@ -358,6 +365,7 @@ type transitionReq struct {
 	ExpectedVersion int               `json:"expected_version"`
 	Note            string            `json:"note"`
 	Submission      *submissionReq    `json:"submission"`
+	Rubric          []bool            `json:"rubric"`
 }
 
 type submissionReq struct {
@@ -366,7 +374,7 @@ type submissionReq struct {
 }
 
 func (r transitionReq) input() app.TransitionInput {
-	in := app.TransitionInput{To: r.To, ExpectedVersion: r.ExpectedVersion, Note: r.Note}
+	in := app.TransitionInput{To: r.To, ExpectedVersion: r.ExpectedVersion, Note: r.Note, Rubric: r.Rubric}
 	if r.Submission != nil {
 		in.Submission = &domain.Submission{URL: r.Submission.URL, Note: r.Submission.Note}
 	}

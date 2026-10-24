@@ -1,7 +1,7 @@
 openapi: 3.1.0
 info:
   title: Stackstep API
-  version: 0.12.0
+  version: 0.13.0
   description: |
     Workspace core (feature 01). All timestamps are RFC 3339 UTC. All errors use the
     `Error` envelope; clients switch on `error.code`, never on `message`.
@@ -270,6 +270,11 @@ paths:
               properties:
                 to: { $ref: "#/components/schemas/TaskStatus" }
                 expected_version: { type: integer, minimum: 1 }
+                rubric:
+                  description: Staff only. One tick per rubric criterion; required when approving or requesting changes on a task with a rubric.
+                  type: array
+                  maxItems: 8
+                  items: { type: boolean }
                 note: { type: string, maxLength: 2000, description: Required when to = changes_requested }
                 submission:
                   description: |
@@ -1428,6 +1433,11 @@ components:
       properties:
         resources: { type: array, maxItems: 5, items: { $ref: "#/components/schemas/Resource" } }
         quiz: { oneOf: [{ $ref: "#/components/schemas/Quiz" }, { type: "null" }], description: Only (and always) on quiz tasks }
+        rubric:
+          description: Reviewer checklist (admin-reviewed, non-quiz tasks); responses always include it ([] when none)
+          type: array
+          maxItems: 8
+          items: { type: string, minLength: 3, maxLength: 120 }
         practice:
           description: DSA tasks only. Example tests the student runs in their own browser; responses always include it (null when absent).
           oneOf: [{ $ref: "#/components/schemas/Practice" }, { type: "null" }]
@@ -1455,13 +1465,17 @@ components:
         note: { type: string, maxLength: 4000 }
     Submission:
       type: object
-      required: [attempt, url, note, submitted_at, checks]
+      required: [attempt, url, note, submitted_at, checks, rubric, reviewed_at]
       properties:
         attempt: { type: integer, minimum: 1 }
         url: { type: [string, "null"] }
         note: { type: string }
         submitted_at: { type: string, format: date-time }
         checks: { type: array, description: "Reviewer warnings (staff only; always empty for students)", items: { $ref: "#/components/schemas/HandInCheck" } }
+        rubric:
+          description: The reviewer's ticks for this hand-in, one per rubric criterion; null until reviewed with a rubric
+          oneOf: [{ type: array, items: { type: boolean } }, { type: "null" }]
+        reviewed_at: { oneOf: [{ type: string, format: date-time }, { type: "null" }] }
     HandInCheckCode: { type: string, enum: [foreign_repo, reused_link] }
     HandInCheck:
       type: object

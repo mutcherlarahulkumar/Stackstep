@@ -1,6 +1,6 @@
 "use client";
 
-import { Code2, Link2, Plus, Trash2 } from "lucide-react";
+import { Code2, Link2, ListChecks, Plus, Trash2 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Field, FieldDescription, FieldError, FieldLabel } from "@/components/ui/field";
@@ -318,5 +318,50 @@ export function PracticeEditor({
       </div>
       {errors.practice ? <FieldError>{errors.practice}</FieldError> : null}
     </fieldset>
+  );
+}
+
+/** What the reviewer checks. Students see the list before handing in, and the ticks after. */
+export function RubricEditor({ value, onChange, errors, idPrefix }: { value: string[]; onChange: (next: string[]) => void; errors: Errors; idPrefix: string }) {
+  return (
+    <Field data-invalid={!!errors.rubric}>
+      <div className="flex items-baseline justify-between">
+        <FieldLabel>Review rubric</FieldLabel>
+        <span className="text-muted-foreground text-xs tabular-nums">
+          {value.length} / {ContentBounds.rubricItems}
+        </span>
+      </div>
+      <FieldDescription>Optional: what you&apos;ll check. The student sees it up front, and which ones were met after review.</FieldDescription>
+      <ol className="flex flex-col gap-2">
+        {value.map((item, i) => {
+          const err = errors[`rubric[${i}]`];
+          return (
+            <li key={i} className="flex flex-col gap-1">
+              <div className="flex items-center gap-2">
+                <span className="text-muted-foreground w-5 text-right text-xs tabular-nums">{i + 1}.</span>
+                <Input
+                  id={`${idPrefix}-${i}`}
+                  aria-label={`Criterion ${i + 1}`}
+                  value={item}
+                  placeholder="e.g. Tests cover the empty case"
+                  aria-invalid={!!err}
+                  onChange={(e) => onChange(value.map((v, j) => (j === i ? e.target.value : v)))}
+                />
+                <Button type="button" variant="ghost" size="icon" aria-label={`Remove criterion ${i + 1}`} onClick={() => onChange(value.filter((_, j) => j !== i))}>
+                  <Trash2 aria-hidden />
+                </Button>
+              </div>
+              {err ? <FieldError className="pl-7">{err}</FieldError> : null}
+            </li>
+          );
+        })}
+      </ol>
+      {errors.rubric ? <FieldError>{errors.rubric}</FieldError> : null}
+      {value.length < ContentBounds.rubricItems ? (
+        <Button type="button" variant="outline" size="sm" className="self-start" onClick={() => onChange([...value, ""])} data-testid={`${idPrefix}-add`}>
+          <ListChecks data-icon="inline-start" aria-hidden /> Add criterion
+        </Button>
+      ) : null}
+    </Field>
   );
 }

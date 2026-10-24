@@ -372,7 +372,7 @@ final class Quiz {
 }
 
 final class TaskContent {
-  const TaskContent({required this.resources, required this.quiz, this.practice});
+  const TaskContent({required this.resources, required this.quiz, this.practice, this.rubric = const []});
   factory TaskContent.fromJson(JsonReader j) => TaskContent(
     resources: j.list('resources', Resource.fromJson),
     quiz: switch (j.objectOrNull('quiz')) {
@@ -383,12 +383,16 @@ final class TaskContent {
       final p? => Practice.fromJson(p),
       null => null,
     },
+    rubric: j.valuesOrNull<String>('rubric') ?? const [],
   );
   final List<Resource> resources;
   final Quiz? quiz;
 
   /// DSA example tests. The app shows them; running code happens in the web app.
   final Practice? practice;
+
+  /// What the reviewer checks.
+  final List<String> rubric;
 }
 
 final class Practice {
@@ -410,17 +414,21 @@ final class Practice {
 }
 
 final class Submission {
-  const Submission({required this.attempt, required this.url, required this.note, required this.submittedAt});
+  const Submission({required this.attempt, required this.url, required this.note, required this.submittedAt, this.rubric});
   factory Submission.fromJson(JsonReader j) => Submission(
     attempt: j.integer('attempt'),
     url: j.stringOrNull('url'),
     note: j.string('note'),
     submittedAt: j.dateTime('submitted_at'),
+    rubric: j.valuesOrNull<bool>('rubric'),
   );
   final int attempt;
   final String? url;
   final String note;
   final DateTime submittedAt;
+
+  /// The reviewer's ticks, one per rubric criterion; null until reviewed with a rubric.
+  final List<bool>? rubric;
 }
 
 final class QuizStats {

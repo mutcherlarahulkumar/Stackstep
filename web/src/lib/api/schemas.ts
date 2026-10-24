@@ -121,7 +121,7 @@ export const Practice = z.object({
 });
 export type Practice = z.output<typeof Practice>;
 
-export const TaskContent = z.object({ resources: z.array(Resource).max(5), quiz: Quiz.nullable(), practice: Practice.nullable().default(null) });
+export const TaskContent = z.object({ resources: z.array(Resource).max(5), quiz: Quiz.nullable(), practice: Practice.nullable().default(null), rubric: z.array(z.string()).max(8).default([]) });
 export type TaskContent = z.output<typeof TaskContent>;
 
 export const HAND_IN_CHECK_CODES = ["foreign_repo", "reused_link"] as const;
@@ -134,6 +134,8 @@ export const Submission = z.object({
   note: z.string(),
   submitted_at: timestamp,
   checks: z.array(HandInCheck),
+  rubric: z.array(z.boolean()).nullable().default(null),
+  reviewed_at: timestamp.nullable().default(null),
 });
 export type Submission = z.output<typeof Submission>;
 

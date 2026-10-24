@@ -369,6 +369,7 @@ class _TaskSheetState extends ConsumerState<TaskSheet> {
           else
             SelectableText(task.brief, style: t.textTheme.p.copyWith(height: 1.55)),
           ResourceLinks(resources: task.content.resources),
+          if (task.content.rubric.isNotEmpty) RubricCard(criteria: task.content.rubric, ticks: task.submission?.rubric),
           if (task.submission case final sub?) SubmissionCard(submission: sub),
           if (task.isQuiz) QuizPlayer(key: ValueKey('quiz-${task.version}'), task: task, onGraded: ref.read(boardProvider.notifier).apply),
           const SizedBox(height: Space.xl),

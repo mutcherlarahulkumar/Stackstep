@@ -88,7 +88,7 @@ describe("ApiClient", () => {
         brief: "",
         scheduled_for: null,
         due_at: new Date(),
-        content: { resources: [], quiz: null, practice: null },
+        content: { resources: [], rubric: [], quiz: null, practice: null },
       }).catch((e: unknown) => e);
     expect(err).toBeInstanceOf(ApiError);
     expect((err as ApiError).code).toBe("validation_failed");

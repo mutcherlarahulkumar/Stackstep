@@ -181,6 +181,8 @@ type TransitionInput struct {
 	// Submission is the student's hand-in: required when submitting for review, optional
 	// when finishing a self-reviewed task, ignored otherwise.
 	Submission *domain.Submission
+	// Rubric is the reviewer's ticks, one per criterion, when approving or requesting changes.
+	Rubric []bool
 }
 
 // Transition moves a task along the graph if the actor is allowed to.
@@ -244,6 +246,13 @@ func (w *Workspace) Transition(ctx context.Context, u domain.User, taskID uuid.U
 		if t.Type == domain.TaskQuiz && actor == domain.ActorStudent && in.To == domain.StatusDone {
 			return apperr.New(apperr.CodeInvalidTransition, "Quizzes are finished by submitting your answers.")
 		}
+		if actor == domain.ActorStaff {
+			if msg := domain.ValidateRubricResult(t.Content.Rubric, in.Rubric, in.To); msg != "" {
+				return apperr.Validation(map[string]string{"rubric": msg})
+			}
+		} else if len(in.Rubric) > 0 {
+			return apperr.Validation(map[string]string{"rubric": "Only reviewers fill in the rubric."})
+		}
 		var sub *domain.Submission
 		if actor == domain.ActorStudent && (in.To == domain.StatusInReview || in.To == domain.StatusDone) {
 			var subErrs map[string]string
@@ -259,6 +268,15 @@ func (w *Workspace) Transition(ctx context.Context, u domain.User, taskID uuid.U
 				return fmt.Errorf("insert submission: %w", err)
 			}
 		}
+		if actor == domain.ActorStaff && t.Status == domain.StatusInReview && (in.To == domain.StatusDone || in.To == domain.StatusChangesRequested) {
+			var ticks []bool
+			if len(t.Content.Rubric) > 0 {
+				ticks = in.Rubric
+			}
+			if err := store.RecordReview(ctx, q, t.ID, u.ID, ticks, now); err != nil {
+				return fmt.Errorf("record review: %w", err)
+			}
+		}
 		if err := awardFinished(ctx, q, out, now); err != nil {
 			return err
 		}
@@ -270,7 +288,11 @@ func (w *Workspace) Transition(ctx context.Context, u domain.User, taskID uuid.U
 				return err
 			}
 		}
-		if msg := lead.AnnounceTransition(out, in.To, note); actor == domain.ActorStaff && msg != "" {
+		msg := lead.AnnounceTransition(out, in.To, note)
+		if msg != "" && len(t.Content.Rubric) > 0 && len(in.Rubric) > 0 {
+			msg += "\n\nRubric: " + domain.RubricSummary(in.Rubric) + ". Open the task to see which."
+		}
+		if actor == domain.ActorStaff && msg != "" {
 			id := out.ID
 			by := u.ID
 			if _, _, err := store.InsertMessage(ctx, q, store.NewMessage{

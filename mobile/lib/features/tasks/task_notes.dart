@@ -222,3 +222,59 @@ class PracticeCard extends StatelessWidget {
     );
   }
 }
+
+/// The reviewer's checklist: what they'll look at, then which ones were met.
+class RubricCard extends StatelessWidget {
+  const RubricCard({required this.criteria, required this.ticks, super.key});
+  final List<String> criteria;
+  final List<bool>? ticks;
+
+  @override
+  Widget build(BuildContext context) {
+    final t = ShadTheme.of(context);
+    final ticks = this.ticks;
+    final met = ticks?.where((b) => b).length ?? 0;
+    return Padding(
+      padding: const EdgeInsets.only(top: Space.xl),
+      child: Column(
+        key: const Key('rubric'),
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(LucideIcons.listChecks, size: 16, color: t.colorScheme.mutedForeground),
+              const SizedBox(width: Space.sm),
+              Semantics(
+                header: true,
+                child: Text(
+                  ticks == null ? 'What your reviewer checks' : 'Review: $met of ${criteria.length} met',
+                  style: t.textTheme.small.copyWith(fontWeight: FontWeight.w600),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: Space.sm),
+          for (var i = 0; i < criteria.length; i++)
+            Padding(
+              padding: const EdgeInsets.only(top: Space.xs),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  switch (ticks != null && i < ticks.length ? ticks[i] : null) {
+                    true => const Icon(LucideIcons.check, size: 16, color: Brand.success, semanticLabel: 'Met'),
+                    false => Icon(LucideIcons.x, size: 16, color: t.colorScheme.destructive, semanticLabel: 'Not yet'),
+                    null => Padding(
+                      padding: const EdgeInsets.all(5),
+                      child: CircleAvatar(radius: 3, backgroundColor: t.colorScheme.mutedForeground.withValues(alpha: 0.5)),
+                    ),
+                  },
+                  const SizedBox(width: Space.sm),
+                  Expanded(child: Text(criteria[i], style: t.textTheme.p)),
+                ],
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+}

@@ -8,6 +8,7 @@ import { toast } from "sonner";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Field, FieldDescription, FieldError, FieldLabel } from "@/components/ui/field";
@@ -113,7 +114,8 @@ export function StudentDetail({ student }: { student: Student }) {
   const tasks = useQuery({ queryKey: key, queryFn: () => api.enrollmentTasks(student.enrollment.id) });
 
   const move = useMutation({
-    mutationFn: ({ task, to, note }: { task: Task; to: TaskStatus; note: string }) => api.transition(task.id, to, task.version, note),
+    mutationFn: ({ task, to, note, rubric }: { task: Task; to: TaskStatus; note: string; rubric?: boolean[] | null }) =>
+      api.transition(task.id, to, task.version, note, null, rubric ?? null),
     onSuccess: (_t, v) => {
       toast.success(v.to === "done" ? "Approved" : v.to === "changes_requested" ? "Changes requested" : "Task cancelled");
       setReviewing(null);
@@ -225,7 +227,7 @@ export function StudentDetail({ student }: { student: Student }) {
                   <TableCell>
                     <div className="flex justify-end gap-1.5">
                       {staffMoves(t.status).map((to) => (
-                        <ReviewButton key={to} to={to} onClick={() => (to === "done" ? move.mutate({ task: t, to, note: "" }) : setReviewing({ task: t, to }))} busy={move.isPending && move.variables.task.id === t.id} />
+                        <ReviewButton key={to} to={to} onClick={() => (to === "done" && t.content.rubric.length === 0 ? move.mutate({ task: t, to, note: "" }) : setReviewing({ task: t, to }))} busy={move.isPending && move.variables.task.id === t.id} />
                       ))}
                     </div>
                   </TableCell>
@@ -273,8 +275,8 @@ export function StudentDetail({ student }: { student: Student }) {
         target={reviewing}
         busy={move.isPending}
         onCancel={() => setReviewing(null)}
-        onConfirm={(note) => {
-          if (reviewing) move.mutate({ task: reviewing.task, to: reviewing.to, note });
+        onConfirm={(note, rubric) => {
+          if (reviewing) move.mutate({ task: reviewing.task, to: reviewing.to, note, rubric });
         }}
       />
     </div>
@@ -299,6 +301,11 @@ export function HandIn({ submission }: { submission: NonNullable<Task["submissio
         <a href={submission.url} target="_blank" rel="noopener noreferrer" className="text-primary truncate font-medium underline-offset-4 hover:underline">
           {submission.url.replace(/^https?:\/\//, "")}
         </a>
+      ) : null}
+      {submission.rubric ? (
+        <span className="text-muted-foreground" data-testid="rubric-summary">
+          Rubric: {submission.rubric.filter(Boolean).length} of {submission.rubric.length} met
+        </span>
       ) : null}
       {submission.note ? (
         <details className="text-muted-foreground">
@@ -433,6 +440,7 @@ function ReviewButton({ to, onClick, busy }: { to: TaskStatus; onClick: () => vo
   }
 }
 
+/** Request changes, cancel, or approve a task that has a rubric: note plus the reviewer's ticks. */
 export function NoteDialog({
   target,
   busy,
@@ -442,43 +450,70 @@ export function NoteDialog({
   target: { task: Task; to: TaskStatus } | null;
   busy: boolean;
   onCancel: () => void;
-  onConfirm: (note: string) => void;
+  onConfirm: (note: string, rubric: boolean[] | null) => void;
 }) {
+  return target ? <ReviewForm key={`${target.task.id}-${target.to}`} target={target} busy={busy} onCancel={onCancel} onConfirm={onConfirm} /> : null;
+}
+
+function ReviewForm({
+  target,
+  busy,
+  onCancel,
+  onConfirm,
+}: {
+  target: { task: Task; to: TaskStatus };
+  busy: boolean;
+  onCancel: () => void;
+  onConfirm: (note: string, rubric: boolean[] | null) => void;
+}) {
+  const criteria = target.task.content.rubric;
+  const reviewing = target.to === "done" || target.to === "changes_requested";
+  const withRubric = reviewing && criteria.length > 0;
   const [note, setNote] = useState("");
+  const [ticks, setTicks] = useState<boolean[]>(() => criteria.map(() => target.to === "done"));
   const [error, setError] = useState<string | null>(null);
-  const changes = target?.to === "changes_requested";
+  const changes = target.to === "changes_requested";
+  const approve = target.to === "done";
+  const met = ticks.filter(Boolean).length;
   return (
-    <Dialog
-      open={target !== null}
-      onOpenChange={(o) => {
-        if (!o) {
-          setNote("");
-          setError(null);
-          onCancel();
-        }
-      }}
-    >
+    <Dialog open onOpenChange={(o) => (o ? null : onCancel())}>
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>{changes ? "Request changes" : "Cancel this task?"}</DialogTitle>
+          <DialogTitle>{approve ? `Approve “${target.task.title}”?` : changes ? "Request changes" : "Cancel this task?"}</DialogTitle>
           <DialogDescription>
-            {changes
-              ? "Your note goes to the student in chat. Be specific about what to change."
-              : `“${target?.task.title ?? ""}” leaves the student's board. This can't be undone.`}
+            {approve
+              ? "Tick what was met. The student sees the checklist and your note."
+              : changes
+                ? "Your note goes to the student in chat. Be specific about what to change."
+                : `“${target.task.title}” leaves the student's board. This can't be undone.`}
           </DialogDescription>
         </DialogHeader>
         <form
           id="note-form"
+          className="flex flex-col gap-4"
           onSubmit={(e) => {
             e.preventDefault();
-            const err = target ? validateNote(note, target.to) : null;
+            const err = validateNote(note, target.to);
             setError(err);
-            if (!err) onConfirm(note.trim());
+            if (!err) onConfirm(note.trim(), withRubric ? ticks : null);
           }}
         >
+          {withRubric ? (
+            <fieldset className="flex flex-col gap-2 rounded-lg border p-3" data-testid="rubric-review">
+              <legend className="px-1 text-sm font-medium">
+                Rubric · {met} of {criteria.length} met
+              </legend>
+              {criteria.map((c, i) => (
+                <label key={i} className="flex items-start gap-2.5 text-sm">
+                  <Checkbox className="mt-0.5" checked={ticks[i] ?? false} onCheckedChange={(v) => setTicks((t) => t.map((x, j) => (j === i ? v === true : x)))} aria-label={c} />
+                  <span>{c}</span>
+                </label>
+              ))}
+            </fieldset>
+          ) : null}
           <Field data-invalid={!!error}>
-            <FieldLabel htmlFor="review-note">{changes ? "What needs to change" : "Reason (optional)"}</FieldLabel>
-            <Textarea id="review-note" rows={4} value={note} onChange={(e) => setNote(e.target.value)} aria-invalid={!!error} />
+            <FieldLabel htmlFor="review-note">{changes ? "What needs to change" : approve ? "Note (optional)" : "Reason (optional)"}</FieldLabel>
+            <Textarea id="review-note" rows={approve ? 3 : 4} value={note} onChange={(e) => setNote(e.target.value)} aria-invalid={!!error} />
             {error ? <FieldError>{error}</FieldError> : <span className="text-muted-foreground text-xs tabular-nums">{runeLength(note.trim())} / {Bounds.noteMax}</span>}
           </Field>
         </form>
@@ -486,9 +521,9 @@ export function NoteDialog({
           <Button variant="outline" onClick={onCancel}>
             Back
           </Button>
-          <Button type="submit" form="note-form" variant={changes ? "default" : "destructive"} disabled={busy}>
+          <Button type="submit" form="note-form" variant={target.to === "cancelled" ? "destructive" : "default"} disabled={busy} data-testid="review-confirm">
             {busy ? <Spinner data-icon="inline-start" /> : null}
-            {changes ? "Send to student" : "Cancel task"}
+            {approve ? "Approve" : changes ? "Send to student" : "Cancel task"}
           </Button>
         </DialogFooter>
       </DialogContent>

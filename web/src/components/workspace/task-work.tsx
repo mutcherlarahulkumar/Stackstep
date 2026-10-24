@@ -1,6 +1,6 @@
 "use client";
 
-import { Check, Code2, ExternalLink, FileCheck2, Send, X } from "lucide-react";
+import { Check, Code2, ExternalLink, FileCheck2, ListChecks, Send, X } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
 
@@ -299,6 +299,38 @@ export function QuizPlayer({ task, onGraded, disabled }: { task: Task; onGraded:
           {unanswered > 0 ? `Answer ${unanswered} more` : "Check my answers"}
         </Button>
       ) : null}
+    </section>
+  );
+}
+
+/** The reviewer's checklist: what they'll look at, then which ones were met. */
+export function RubricView({ criteria, submission }: { criteria: string[]; submission: Submission | null }) {
+  if (criteria.length === 0) return null;
+  const ticks = submission?.rubric ?? null;
+  const met = ticks ? ticks.filter(Boolean).length : 0;
+  return (
+    <section aria-labelledby="rubric-title" className="mt-6" data-testid="rubric">
+      <h3 id="rubric-title" className="mb-2 flex items-center gap-2 text-sm font-medium">
+        <ListChecks className="text-muted-foreground size-4" aria-hidden />
+        {ticks ? `Review: ${met} of ${criteria.length} met` : "What your reviewer checks"}
+      </h3>
+      <ul className="flex flex-col gap-1.5">
+        {criteria.map((c, i) => {
+          const t = ticks?.[i];
+          return (
+            <li key={i} className="flex items-start gap-2 text-sm">
+              {t === undefined ? (
+                <span className="bg-muted-foreground/40 mt-2 size-1.5 shrink-0 rounded-full" aria-hidden />
+              ) : t ? (
+                <Check className="text-success mt-0.5 size-4 shrink-0" aria-label="Met" />
+              ) : (
+                <X className="text-destructive mt-0.5 size-4 shrink-0" aria-label="Not yet" />
+              )}
+              <span className={cn(t === false && "text-muted-foreground")}>{c}</span>
+            </li>
+          );
+        })}
+      </ul>
     </section>
   );
 }

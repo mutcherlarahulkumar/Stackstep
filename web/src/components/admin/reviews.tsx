@@ -51,7 +51,8 @@ function Reviews() {
   const q = useQuery({ queryKey: key, queryFn: () => api.reviews(persona === ALL ? null : persona), refetchInterval: 60_000 });
 
   const move = useMutation({
-    mutationFn: ({ task, to, note }: { item: ReviewItem; task: Task; to: TaskStatus; note: string }) => api.transition(task.id, to, task.version, note),
+    mutationFn: ({ task, to, note, rubric }: { item: ReviewItem; task: Task; to: TaskStatus; note: string; rubric?: boolean[] | null }) =>
+      api.transition(task.id, to, task.version, note, null, rubric ?? null),
     onSuccess: (_t, v) => {
       toast.success(v.to === "done" ? `Approved “${v.task.title}” for ${firstName(v.item.student.name)}` : `Changes requested from ${firstName(v.item.student.name)}`);
       setNoting(null);
@@ -132,7 +133,7 @@ function Reviews() {
                       <div className="flex shrink-0 gap-2 sm:flex-col">
                         <Button
                           size="sm"
-                          onClick={() => move.mutate({ item, task: item.task, to: "done", note: "" })}
+                          onClick={() => (item.task.content.rubric.length > 0 ? setNoting({ task: item.task, to: "done" }) : move.mutate({ item, task: item.task, to: "done", note: "" }))}
                           disabled={pending === item.task.id}
                           data-testid="review-approve"
                         >
@@ -154,8 +155,8 @@ function Reviews() {
         target={noting}
         busy={move.isPending}
         onCancel={() => setNoting(null)}
-        onConfirm={(note) => {
-          if (noting && noteItem) move.mutate({ item: noteItem, task: noting.task, to: noting.to, note });
+        onConfirm={(note, rubric) => {
+          if (noting && noteItem) move.mutate({ item: noteItem, task: noting.task, to: noting.to, note, rubric });
         }}
       />
     </div>

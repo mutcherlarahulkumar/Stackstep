@@ -73,6 +73,30 @@ void main() {
       expect(TaskContent.fromJson(const JsonReader({'resources': <Object?>[], 'quiz': null, 'practice': null})).practice, isNull);
     });
 
+    test('rubric criteria and the reviewer ticks decode (RB4)', () {
+      final c = TaskContent.fromJson(
+        const JsonReader({
+          'resources': <Object?>[],
+          'quiz': null,
+          'practice': null,
+          'rubric': ['Tests pass', 'README explains setup'],
+        }),
+      );
+      expect(c.rubric, ['Tests pass', 'README explains setup']);
+      final s = Submission.fromJson(
+        const JsonReader({
+          'attempt': 1,
+          'url': null,
+          'note': 'n',
+          'submitted_at': '2026-10-24T10:00:00Z',
+          'checks': <Object?>[],
+          'rubric': [true, false],
+          'reviewed_at': '2026-10-24T11:00:00Z',
+        }),
+      );
+      expect(s.rubric, [true, false]);
+    });
+
     test('persona tag says who is behind a persona (PT1)', () {
       expect(personaTag(Persona.fromJson(JsonReader({...personaJson(), 'auto_reply': true}))), 'Mentor · some replies automatic');
       expect(personaTag(Persona.fromJson(JsonReader({...personaJson(), 'auto_reply': false}))), 'Played by a mentor');

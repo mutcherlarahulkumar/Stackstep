@@ -23,7 +23,7 @@ import { EmptyState, ErrorState } from "../app/state";
 import { StatusBadge, TypeBadge } from "../app/task-badges";
 import { PracticePad } from "./practice-pad";
 import { TaskNotes } from "./task-notes";
-import { HandInDialog, QuizPlayer, ResourceList, SubmissionCard } from "./task-work";
+import { HandInDialog, QuizPlayer, ResourceList, RubricView, SubmissionCard } from "./task-work";
 import { type useWorkspace } from "./use-workspace";
 import { BoardSkeleton, stagger } from "../app/loading";
 
@@ -241,6 +241,7 @@ function TaskSheet({
                 <p className="text-muted-foreground text-sm">No brief for this one. Ask {persona?.name ?? "your lead"} in chat if anything is unclear.</p>
               )}
               <ResourceList resources={task.content.resources} />
+              <RubricView criteria={task.content.rubric} submission={task.submission} />
               {task.submission ? <SubmissionCard submission={task.submission} title="Your hand-in" /> : null}
               {task.type === "quiz" ? <QuizPlayer key={task.version} task={task} onGraded={onGraded} disabled={false} /> : null}
               {task.type === "dsa" && task.content.practice ? <PracticePad taskId={task.id} practice={task.content.practice} /> : null}

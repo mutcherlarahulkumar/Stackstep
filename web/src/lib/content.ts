@@ -1,6 +1,6 @@
 /** Client mirror of backend/internal/domain/content.go. The server stays the authority. */
 import { type ContentInput, type PracticeDraft, type SubmissionInput } from "./api/client";
-import { type TaskContent, type TaskType } from "./api/schemas";
+import { type ReviewMode, type TaskContent, type TaskType } from "./api/schemas";
 import { normalizeLine, runeLength } from "./validation";
 
 export const ContentBounds = {
@@ -20,9 +20,12 @@ export const ContentBounds = {
   practiceTests: 10,
   practiceStarterMax: 4000,
   practiceJsonMax: 2000,
+  rubricItems: 8,
+  rubricItemMin: 3,
+  rubricItemMax: 120,
 } as const;
 
-export const emptyContent = (): ContentInput => ({ resources: [], quiz: null, practice: null });
+export const emptyContent = (): ContentInput => ({ resources: [], quiz: null, practice: null, rubric: [] });
 
 export const blankPractice = (): PracticeDraft => ({ function_name: "solve", starter: "function solve(input) {\n  \n}\n", tests: [{ args: "[]", expected: "null" }] });
 
@@ -49,6 +52,7 @@ export function contentForEdit(c: TaskContent): ContentInput {
   return {
     resources: c.resources.map((r) => ({ ...r })),
     quiz: c.quiz ? { pass_percent: c.quiz.pass_percent, questions: c.quiz.questions.map((q) => ({ prompt: q.prompt, options: [...q.options], answer: q.answer ?? -1 })) } : null,
+    rubric: [...c.rubric],
     practice: c.practice
       ? {
           function_name: c.practice.function_name,
@@ -88,7 +92,7 @@ export function needsLink(t: TaskType): boolean {
 }
 
 /** Errors keyed like the server: "resources[0].url", "quiz.questions[1].options". */
-export function validateContent(c: ContentInput, type: TaskType): Record<string, string> {
+export function validateContent(c: ContentInput, type: TaskType, review: ReviewMode = "manual"): Record<string, string> {
   const e: Record<string, string> = {};
   if (c.resources.length > ContentBounds.resources) e.resources = `Add at most ${ContentBounds.resources} links.`;
   c.resources.forEach((r, i) => {
@@ -118,6 +122,20 @@ export function validateContent(c: ContentInput, type: TaskType): Record<string,
       if (qq.answer < 0 || qq.answer >= opts.length) e[`${k}.answer`] = "Mark the right option.";
     });
   }
+  if (c.rubric.length > 0) {
+    if (type === "quiz") e.rubric = "Quizzes grade themselves, so they don't have a rubric.";
+    else if (review !== "manual") e.rubric = "Rubrics are for tasks an admin reviews.";
+    else if (c.rubric.length > ContentBounds.rubricItems) e.rubric = `Add at most ${ContentBounds.rubricItems} criteria.`;
+    const seen = new Set<string>();
+    c.rubric.forEach((raw, i) => {
+      const s = normalizeLine(raw);
+      const n = runeLength(s);
+      if (n < ContentBounds.rubricItemMin) e[`rubric[${i}]`] = "Write the criterion (at least 3 characters).";
+      else if (n > ContentBounds.rubricItemMax) e[`rubric[${i}]`] = `Keep each criterion under ${ContentBounds.rubricItemMax} characters.`;
+      else if (seen.has(s.toLowerCase())) e[`rubric[${i}]`] = "Each criterion must be different.";
+      seen.add(s.toLowerCase());
+    });
+  }
   const p = c.practice;
   if (p && type !== "dsa") e.practice = "Only DSA tasks have a practice pad.";
   if (p && type === "dsa") {
@@ -145,6 +163,7 @@ export function cleanContent(c: ContentInput): ContentInput {
       ? { pass_percent: c.quiz.pass_percent, questions: c.quiz.questions.map((q) => ({ prompt: q.prompt.trim(), options: q.options.map(normalizeLine), answer: q.answer })) }
       : null,
     practice: c.practice ? { ...c.practice, function_name: c.practice.function_name.trim() } : null,
+    rubric: c.rubric.map(normalizeLine),
   };
 }
 

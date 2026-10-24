@@ -137,6 +137,8 @@ type SubmissionRecord struct {
 	SubmittedAt      time.Time
 	FirstSubmittedAt time.Time
 	Checks           []HandInCheck // reviewer warnings; filled for staff views only
+	Rubric           []bool        // the reviewer's ticks for this hand-in, nil until reviewed with a rubric
+	ReviewedAt       *time.Time
 }
 
 // QuizStats summarizes a student's attempts at a quiz task.

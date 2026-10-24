@@ -48,6 +48,15 @@ func InsertSubmission(ctx context.Context, q Q, taskID, by uuid.UUID, s domain.S
 	return err
 }
 
+// RecordReview stamps the latest hand-in with the reviewer and, when the task has a rubric,
+// their ticks. A task reviewed without a hand-in (none yet) records nothing.
+func RecordReview(ctx context.Context, q Q, taskID, by uuid.UUID, rubric []bool, now time.Time) error {
+	_, err := q.Exec(ctx, `
+		UPDATE task_submissions SET rubric = $3, reviewed_at = $4, reviewed_by = $2
+		WHERE task_id = $1 AND attempt = (SELECT max(attempt) FROM task_submissions WHERE task_id = $1)`, taskID, by, rubric, now)
+	return err
+}
+
 // QuizAttempts returns how many times a quiz task was attempted.
 func QuizAttempts(ctx context.Context, q Q, taskID uuid.UUID) (int, error) {
 	var n int
@@ -79,7 +88,7 @@ func EnrichTasks(ctx context.Context, q Q, tasks []domain.Task) error {
 	}
 	rows, err := q.Query(ctx, `
 		SELECT DISTINCT ON (s.task_id) s.task_id, s.attempt, s.url, s.note, s.created_at,
-		       min(s.created_at) OVER (PARTITION BY s.task_id)
+		       min(s.created_at) OVER (PARTITION BY s.task_id), s.rubric, s.reviewed_at
 		FROM task_submissions s WHERE s.task_id = ANY($1)
 		ORDER BY s.task_id, s.attempt DESC`, ids)
 	if err != nil {
@@ -89,7 +98,7 @@ func EnrichTasks(ctx context.Context, q Q, tasks []domain.Task) error {
 		var id uuid.UUID
 		var r domain.SubmissionRecord
 		var url *string
-		if err := rows.Scan(&id, &r.Attempt, &url, &r.Note, &r.SubmittedAt, &r.FirstSubmittedAt); err != nil {
+		if err := rows.Scan(&id, &r.Attempt, &url, &r.Note, &r.SubmittedAt, &r.FirstSubmittedAt, &r.Rubric, &r.ReviewedAt); err != nil {
 			rows.Close()
 			return err
 		}

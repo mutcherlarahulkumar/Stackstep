@@ -34,6 +34,8 @@ type TaskContent struct {
 	Resources []Resource `json:"resources"`
 	Quiz      *Quiz      `json:"quiz"`
 	Practice  *Practice  `json:"practice,omitempty"`
+	// Rubric is the reviewer's checklist (admin-reviewed tasks only).
+	Rubric []string `json:"rubric,omitempty"`
 }
 
 // Bounds for task content (mirrored in clients).
@@ -115,6 +117,11 @@ func ValidateContent(c TaskContent, typ TaskType, review ReviewMode, prefix stri
 		}
 		out.Practice = &p
 	}
+	rubric, rErrs := validateRubric(c.Rubric, typ, review, prefix+"rubric")
+	for k, v := range rErrs {
+		errs[k] = v
+	}
+	out.Rubric = rubric
 	return out, errs
 }
 

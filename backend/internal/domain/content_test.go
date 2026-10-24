@@ -158,3 +158,43 @@ func TestValidatePractice(t *testing.T) {
 		})
 	}
 }
+
+func TestRubric(t *testing.T) {
+	// RB1: normalized and kept on admin-reviewed tasks.
+	out, errs := ValidateContent(TaskContent{Rubric: []string{"  Tests   pass ", "README explains setup"}}, TaskFeature, ReviewManual, "")
+	if len(errs) != 0 || len(out.Rubric) != 2 || out.Rubric[0] != "Tests pass" {
+		t.Fatalf("out = %v, errs = %v", out.Rubric, errs)
+	}
+	cases := map[string]struct {
+		items  []string
+		typ    TaskType
+		review ReviewMode
+		field  string
+	}{
+		"quiz":        {[]string{"Right"}, TaskQuiz, ReviewSelf, "rubric"},
+		"self-check":  {[]string{"Done well"}, TaskFeature, ReviewSelf, "rubric"},
+		"too many":    {[]string{"aaa", "bbb", "ccc", "ddd", "eee", "fff", "ggg", "hhh", "iii"}, TaskFeature, ReviewManual, "rubric"},
+		"too short":   {[]string{"ok"}, TaskFeature, ReviewManual, "rubric[0]"},
+		"duplicate":   {[]string{"Tests pass", "tests pass"}, TaskFeature, ReviewManual, "rubric[1]"},
+		"too long":    {[]string{strings.Repeat("a", 121)}, TaskFeature, ReviewManual, "rubric[0]"},
+		"control chr": {[]string{"bad\x07item"}, TaskFeature, ReviewManual, "rubric[0]"},
+	}
+	for name, c := range cases {
+		t.Run(name, func(t *testing.T) {
+			_, errs := ValidateContent(TaskContent{Rubric: c.items}, c.typ, c.review, "")
+			if errs[c.field] == "" {
+				t.Fatalf("want %s error, got %v", c.field, errs)
+			}
+		})
+	}
+	// RB2: review results must match the rubric when approving or requesting changes.
+	r := []string{"a", "b"}
+	if ValidateRubricResult(r, nil, StatusDone) == "" || ValidateRubricResult(r, []bool{true}, StatusChangesRequested) == "" ||
+		ValidateRubricResult(nil, []bool{true}, StatusDone) == "" || ValidateRubricResult(r, []bool{true, false}, StatusDone) != "" ||
+		ValidateRubricResult(r, nil, StatusCancelled) != "" {
+		t.Fatal("rubric result rules")
+	}
+	if RubricSummary([]bool{true, false, true}) != "2 of 3 criteria met" {
+		t.Fatal("summary")
+	}
+}
