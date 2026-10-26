@@ -1,5 +1,5 @@
 # syntax=docker/dockerfile:1.7
-FROM node:24.22.1-alpine3.24 AS base
+FROM node:26.12.1-alpine3.24 AS base
 ENV NEXT_TELEMETRY_DISABLED=1
 RUN corepack enable
 
@@ -14,7 +14,7 @@ COPY --from=deps /app/node_modules ./node_modules
 COPY . .
 RUN pnpm build
 
-FROM node:24.22.1-alpine3.24 AS run
+FROM node:26.12.1-alpine3.24 AS run
 WORKDIR /app
 ENV NODE_ENV=production NEXT_TELEMETRY_DISABLED=1 PORT=3000 HOSTNAME=0.0.0.0
 RUN addgroup -S app && adduser -S app -G app
