@@ -95,8 +95,13 @@ void main() {
     await tester.pumpAndSettle();
     await tester.scrollUntilVisible(find.text('Title is required.'), -300, scrollable: form);
     expect(find.text('Title is required.'), findsOneWidget);
+    // Persona, review, link and start time sit under "More options".
+    expect(find.byKey(const Key('persona-$managerId')), findsNothing);
+    await tester.scrollUntilVisible(find.byKey(const Key('assign-more')), 300, scrollable: form);
+    await tester.tap(find.byKey(const Key('assign-more')));
+    await tester.pumpAndSettle();
     // The persona picker defaults to the team lead and offers the managers.
-    await tester.scrollUntilVisible(find.byKey(const Key('persona-$managerId')), -300, scrollable: form);
+    await tester.scrollUntilVisible(find.byKey(const Key('persona-$managerId')), 300, scrollable: form);
     expect(find.byKey(const Key('persona-$managerId')), findsOneWidget);
     expect(find.byKey(const Key('review-self')), findsOneWidget);
 

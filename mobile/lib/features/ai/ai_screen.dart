@@ -36,7 +36,7 @@ class AIAvatar extends StatelessWidget {
   );
 }
 
-/// Points and credits, shown in the student's app bar.
+/// Points and credits, shown with the AI helper that spends them.
 class WalletChips extends ConsumerWidget {
   const WalletChips({super.key});
 
@@ -250,6 +250,8 @@ class _AIQuestionScreenState extends ConsumerState<AIQuestionScreen> {
   Map<String, String> _errors = {};
   String? _formError;
   bool _busy = false;
+  // The error and code boxes stay folded until wanted, or until the server flags one.
+  bool _extras = false;
   // One id per draft, so a retry after a dropped connection is never charged twice.
   String _clientId = const Uuid().v4();
   Timer? _tick;
@@ -340,10 +342,9 @@ class _AIQuestionScreenState extends ConsumerState<AIQuestionScreen> {
         child: ListView(
           padding: const EdgeInsets.all(Space.lg),
           children: [
-            const ShadAlert(
-              icon: Icon(LucideIcons.lightbulb),
-              title: Text('Explain it in one go'),
-              description: Text('The helper only knows what you write here. You get hints and a next step, not a finished solution.'),
+            Text(
+              'The helper only knows what you write here. You get hints and a next step, not the finished solution.',
+              style: t.textTheme.muted,
             ),
             if (_formError case final err?) ...[const SizedBox(height: Space.lg), ErrorAlert(title: "Couldn't ask", message: err)],
             const SizedBox(height: Space.lg),
@@ -387,22 +388,34 @@ class _AIQuestionScreenState extends ConsumerState<AIQuestionScreen> {
               ),
             ),
             const SizedBox(height: Space.lg),
-            AppField(
-              label: 'What happens instead? (optional)',
-              error: _errors['error'],
-              child: ShadTextarea(controller: _error, minHeight: 60, placeholder: const Text('The exact error, or expected vs actual.')),
-            ),
-            const SizedBox(height: Space.lg),
-            AppField(
-              label: 'Relevant code (optional)',
-              error: _errors['code'],
-              child: ShadTextarea(
-                controller: _code,
-                minHeight: 100,
-                style: const TextStyle(fontFamily: 'monospace', fontSize: 13),
-                placeholder: const Text('Only the part that matters. Never paste API keys.'),
+            if (_extras || _errors['error'] != null || _errors['code'] != null) ...[
+              AppField(
+                label: 'What happens instead? (optional)',
+                error: _errors['error'],
+                child: ShadTextarea(controller: _error, minHeight: 60, placeholder: const Text('The exact error, or expected vs actual.')),
               ),
-            ),
+              const SizedBox(height: Space.lg),
+              AppField(
+                label: 'Relevant code (optional)',
+                error: _errors['code'],
+                child: ShadTextarea(
+                  controller: _code,
+                  minHeight: 100,
+                  style: const TextStyle(fontFamily: 'monospace', fontSize: 13),
+                  placeholder: const Text('Only the part that matters. Never paste API keys.'),
+                ),
+              ),
+            ] else
+              Align(
+                alignment: Alignment.centerLeft,
+                child: ShadButton.ghost(
+                  key: const Key('ai-extras'),
+                  size: ShadButtonSize.sm,
+                  leading: const Icon(LucideIcons.plus, size: 16),
+                  onPressed: () => setState(() => _extras = true),
+                  child: const Text('Add the error or code (optional)'),
+                ),
+              ),
             if (blocked != null) ...[
               const SizedBox(height: Space.lg),
               Text(blocked, style: t.textTheme.small.copyWith(color: t.colorScheme.destructive)),

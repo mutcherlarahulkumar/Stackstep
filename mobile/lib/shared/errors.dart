@@ -11,7 +11,7 @@ String messageFor(Object error) {
     ErrorCode.forbidden => "You don't have access to this.",
     ErrorCode.notFound => 'This was removed or never existed.',
     ErrorCode.validationFailed => error.fields.values.firstOrNull ?? 'Check the highlighted fields.',
-    ErrorCode.invalidTransition => "This task can't move there right now.",
+    ErrorCode.invalidTransition => "That change isn't possible right now. Pull down to refresh and try again.",
     ErrorCode.versionConflict => 'Someone else changed this. Refresh and try again.',
     ErrorCode.enrollmentNotActive => 'This internship is paused or finished.',
     ErrorCode.noActiveEnrollment => "You don't have an active internship.",

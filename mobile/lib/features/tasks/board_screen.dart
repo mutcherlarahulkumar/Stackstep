@@ -31,8 +31,6 @@ class BoardScreen extends ConsumerStatefulWidget {
 }
 
 class _BoardScreenState extends ConsumerState<BoardScreen> {
-  BoardColumn _column = BoardColumn.today;
-
   @override
   void didUpdateWidget(BoardScreen old) {
     super.didUpdateWidget(old);
@@ -49,7 +47,6 @@ class _BoardScreenState extends ConsumerState<BoardScreen> {
       showToast(context, "That task isn't on your board anymore.");
       return;
     }
-    setState(() => _column = BoardColumn.of(task.status));
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) unawaited(openTaskSheet(context, task));
     });
@@ -63,7 +60,7 @@ class _BoardScreenState extends ConsumerState<BoardScreen> {
     final board = ref.watch(boardProvider);
     return FadeSwitch(
       child: switch (board) {
-        AsyncData(:final value) => _Board(groups: groupBoard(value), column: _column, onColumn: (c) => setState(() => _column = c)),
+        AsyncData(:final value) => _Board(groups: groupBoard(value)),
         AsyncError(:final error) => ErrorState(message: messageFor(error), onRetry: () => ref.invalidate(boardProvider)),
         _ => const SkeletonList(),
       },
@@ -71,110 +68,79 @@ class _BoardScreenState extends ConsumerState<BoardScreen> {
   }
 }
 
+/// One list of what to do now (feedback to act on first), what's waiting on a reviewer, and a
+/// folded list of finished work.
 class _Board extends ConsumerWidget {
-  const _Board({required this.groups, required this.column, required this.onColumn});
+  const _Board({required this.groups});
 
   final Map<BoardColumn, List<Task>> groups;
-  final BoardColumn column;
-  final ValueChanged<BoardColumn> onColumn;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final tasks = groups[column]!;
-    return Column(
-      children: [
-        SizedBox(
-          height: 52,
-          child: ListView(
-            scrollDirection: Axis.horizontal,
-            padding: const EdgeInsets.fromLTRB(Space.lg, Space.sm, Space.lg, 0),
+    final t = ShadTheme.of(context);
+    final todo = [...groups[BoardColumn.changes]!, ...groups[BoardColumn.today]!];
+    final review = groups[BoardColumn.inReview]!;
+    final done = groups[BoardColumn.done]!;
+    Widget title(String text, int count) => Padding(
+      padding: const EdgeInsets.only(bottom: Space.sm),
+      child: Semantics(
+        header: true,
+        child: Text.rich(
+          TextSpan(
+            text: text,
             children: [
-              for (final c in BoardColumn.values)
-                Padding(
-                  padding: const EdgeInsets.only(right: Space.sm),
-                  child: _ColumnChip(column: c, count: groups[c]!.length, selected: c == column, onTap: () => onColumn(c)),
-                ),
+              TextSpan(
+                text: '  $count',
+                style: t.textTheme.muted.copyWith(fontWeight: FontWeight.w400),
+              ),
             ],
           ),
+          style: t.textTheme.small.copyWith(fontWeight: FontWeight.w600),
         ),
-        Expanded(
-          child: RefreshIndicator(
-            onRefresh: () => ref.read(boardProvider.notifier).refresh(),
-            child: tasks.isEmpty
-                ? ListView(
-                    children: [SizedBox(height: 420, child: _EmptyColumn(column: column))],
-                  )
-                : ListView.separated(
-                    padding: const EdgeInsets.all(Space.lg),
-                    itemCount: tasks.length,
-                    separatorBuilder: (_, _) => const SizedBox(height: Space.md),
-                    itemBuilder: (context, i) => TaskCard(task: tasks[i], onTap: () => openTaskSheet(context, tasks[i])),
-                  ),
-          ),
-        ),
-      ],
+      ),
     );
-  }
-}
-
-class _ColumnChip extends StatelessWidget {
-  const _ColumnChip({required this.column, required this.count, required this.selected, required this.onTap});
-
-  final BoardColumn column;
-  final int count;
-  final bool selected;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    final label = Row(
-      mainAxisSize: MainAxisSize.min,
+    Widget cards(List<Task> list) => Column(
       children: [
-        Text(column.label),
-        const SizedBox(width: 6),
-        Text(
-          '$count',
-          style: const TextStyle(fontFeatures: [FontFeature.tabularFigures()], fontWeight: FontWeight.w400),
-        ),
+        for (final task in list)
+          Padding(
+            padding: const EdgeInsets.only(bottom: Space.md),
+            child: TaskCard(task: task, onTap: () => openTaskSheet(context, task)),
+          ),
       ],
     );
-    return Semantics(
-      selected: selected,
-      label: '${column.label}, $count tasks',
-      child: selected
-          ? ShadButton(size: ShadButtonSize.sm, onPressed: onTap, child: label)
-          : ShadButton.outline(size: ShadButtonSize.sm, onPressed: onTap, child: label),
+    return RefreshIndicator(
+      onRefresh: () => ref.read(boardProvider.notifier).refresh(),
+      child: ListView(
+        padding: const EdgeInsets.all(Space.lg),
+        children: [
+          title('To do', todo.length),
+          if (todo.isEmpty)
+            const SizedBox(
+              height: 300,
+              child: EmptyState(
+                icon: LucideIcons.coffee,
+                title: 'Nothing to do right now',
+                body: 'Your lead drops new tickets in chat. Pull down to refresh, or ask what to pick up next.',
+              ),
+            )
+          else
+            cards(todo),
+          if (review.isNotEmpty) ...[const SizedBox(height: Space.md), title('Waiting for review', review.length), cards(review)],
+          if (done.isNotEmpty)
+            Theme(
+              data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
+              child: ExpansionTile(
+                key: const Key('board-done'),
+                tilePadding: EdgeInsets.zero,
+                childrenPadding: EdgeInsets.zero,
+                title: Text('Done  ${done.length}', style: t.textTheme.small.copyWith(fontWeight: FontWeight.w600)),
+                children: [cards(done)],
+              ),
+            ),
+        ],
+      ),
     );
   }
-}
-
-class _EmptyColumn extends StatelessWidget {
-  const _EmptyColumn({required this.column});
-  final BoardColumn column;
-
-  @override
-  Widget build(BuildContext context) => switch (column) {
-    BoardColumn.today => const EmptyState(
-      icon: LucideIcons.coffee,
-      title: 'Nothing due today',
-      body: 'Your lead drops new tickets in chat. Pull down to refresh, or ask what to pick up next.',
-    ),
-    BoardColumn.inReview => const EmptyState(
-      icon: LucideIcons.gitPullRequest,
-      title: 'Nothing in review',
-      body: 'When you open a PR, move its card here so your lead knows to look.',
-    ),
-    BoardColumn.changes => const EmptyState(
-      icon: LucideIcons.circleCheck,
-      title: 'No changes requested',
-      body: 'Review feedback lands here. Clean so far.',
-    ),
-    BoardColumn.done => const EmptyState(
-      icon: LucideIcons.trophy,
-      title: 'Nothing finished yet',
-      body: 'Approved work collects here. Your first one is close.',
-    ),
-  };
 }
 
 /// The persona who posted a task, from the student's chats (null until they load).

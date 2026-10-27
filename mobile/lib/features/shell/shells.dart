@@ -8,7 +8,6 @@ import 'package:stackstep/core/theme.dart';
 import 'package:stackstep/features/account/onboarding_sheet.dart';
 import 'package:stackstep/features/admin/assign_screen.dart';
 import 'package:stackstep/features/admin/broadcast_screen.dart';
-import 'package:stackstep/features/ai/ai_screen.dart';
 import 'package:stackstep/features/chat/inbox_controller.dart';
 import 'package:stackstep/features/chat/inbox_screen.dart';
 import 'package:stackstep/features/progress/progress_screen.dart';
@@ -119,19 +118,9 @@ class _StudentShellState extends ConsumerState<StudentShell> {
           ],
         ),
         actions: [
-          IconButton(
-            key: const Key('open-progress'),
-            tooltip: 'Your progress and certificate',
-            icon: const Icon(LucideIcons.award),
-            onPressed: () => Navigator.of(context).push(MaterialPageRoute<void>(builder: (_) => const ProgressScreen())),
-          ),
-          const WalletChips(),
+          const ProgressPill(),
           _AccountMenu(user: widget.me.user),
         ],
-        bottom: PreferredSize(
-          preferredSize: const Size.fromHeight(3),
-          child: ShadProgress(value: e.program.days == 0 ? 0 : (e.dayNumber / e.program.days).clamp(0, 1).toDouble(), minHeight: 3),
-        ),
       ),
       body: IndexedStack(
         index: _tab,
