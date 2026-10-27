@@ -15,11 +15,14 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Spinner } from "@/components/ui/spinner";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Textarea } from "@/components/ui/textarea";
+import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { type EnrollSettings } from "@/lib/api/client";
 import { type Cohort, type ImportResult, type Me } from "@/lib/api/schemas";
 import { MAX_IMPORT_ROWS, normalizeLogin, parseRoster, TIMEZONES, todayISO, validLogin, type ImportRow } from "@/lib/people";
+import { itemErrorMessage } from "@/lib/api/errors";
 import { useSession } from "@/lib/session";
 
+import { choiceItem } from "../app/choice";
 import { DatePicker } from "../app/date-picker";
 import { FileDrop } from "../app/file-drop";
 import { ListSkeleton } from "../app/state";
@@ -208,10 +211,32 @@ export function EnrollPanel({ me }: { me: Me }) {
       </Alert>
     );
   }
+  return <EnrollModes me={me} cohorts={list} />;
+}
+
+/** One student at a time by default; a whole class from a CSV on request. */
+function EnrollModes({ me, cohorts }: { me: Me; cohorts: readonly Cohort[] }) {
+  const [mode, setMode] = useState<"one" | "csv">("one");
   return (
-    <div className="grid gap-6 xl:grid-cols-2">
-      <EnrollOne me={me} cohorts={list} />
-      <ImportRoster me={me} cohorts={list} />
+    <div className="flex max-w-2xl flex-col gap-4">
+      <ToggleGroup
+        type="single"
+        variant="outline"
+        value={mode}
+        onValueChange={(v) => {
+          if (v === "one" || v === "csv") setMode(v);
+        }}
+        aria-label="How to enroll"
+        className="justify-start"
+      >
+        <ToggleGroupItem value="one" className={choiceItem} data-testid="enroll-mode-one">
+          One student
+        </ToggleGroupItem>
+        <ToggleGroupItem value="csv" className={choiceItem} data-testid="enroll-mode-csv">
+          A class from a CSV
+        </ToggleGroupItem>
+      </ToggleGroup>
+      {mode === "one" ? <EnrollOne me={me} cohorts={cohorts} /> : <ImportRoster me={me} cohorts={cohorts} />}
     </div>
   );
 }
@@ -482,7 +507,7 @@ function ImportResults({ result }: { result: ImportResult }) {
               <TableCell className="font-mono text-xs">@{r.github_login}</TableCell>
               <TableCell>
                 {r.error ? (
-                  <span className="text-destructive text-sm">{Object.values(r.error.fields ?? {})[0] ?? r.error.message}</span>
+                  <span className="text-destructive text-sm">{Object.values(r.error.fields ?? {})[0] ?? itemErrorMessage(r.error)}</span>
                 ) : (
                   <span className="inline-flex items-center gap-1.5 text-sm">
                     <CircleCheck className="text-success size-4" aria-hidden /> Enrolled

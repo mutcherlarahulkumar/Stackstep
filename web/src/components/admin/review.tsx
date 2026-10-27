@@ -18,7 +18,7 @@ import { Spinner } from "@/components/ui/spinner";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Textarea } from "@/components/ui/textarea";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
-import { ApiError, messageFor } from "@/lib/api/errors";
+import { ApiError, itemErrorMessage, messageFor } from "@/lib/api/errors";
 import { type Certificate, type Persona, type Student, type Task, type TaskStatus } from "@/lib/api/schemas";
 import { formatCode, verifyPath } from "@/lib/certificate";
 import { dateTimeLabel, dueLabel, firstName } from "@/lib/format";
@@ -100,7 +100,7 @@ const ORDER: Record<TaskStatus, number> = { in_review: 0, changes_requested: 1, 
 /** Whether AI review drafts are on (the review queue reports it). */
 export function useAIDrafts(): boolean {
   const { api } = useSession();
-  const q = useQuery({ queryKey: ["reviews", "flags"], queryFn: () => api.reviews(null), staleTime: 5 * 60_000 });
+  const q = useQuery({ queryKey: ["reviews", "all"], queryFn: () => api.reviews(null), staleTime: 5 * 60_000 });
   return q.data?.ai_drafts ?? false;
 }
 
@@ -196,7 +196,9 @@ export function StudentDetail({ student }: { student: Student }) {
                 <TableHead>Task</TableHead>
                 <TableHead>Status</TableHead>
                 <TableHead>Due</TableHead>
-                <TableHead className="text-right">Actions</TableHead>
+                <TableHead className="text-right">
+                  <span className="sr-only">Actions</span>
+                </TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -357,7 +359,7 @@ function AssignFlowDialog({
     mutationFn: (id: string) => api.assignFlow(student.enrollment.id, id),
     onSuccess: (r) => {
       if (r.error) {
-        setError(r.error.message);
+        setError(itemErrorMessage(r.error));
         return;
       }
       toast.success(`Scheduled ${r.generated} ${r.generated === 1 ? "task" : "tasks"}`, {
@@ -432,8 +434,8 @@ function ReviewButton({ to, onClick, busy }: { to: TaskStatus; onClick: () => vo
       );
     case "cancelled":
       return (
-        <Button size="sm" variant="ghost" onClick={onClick} disabled={busy} aria-label="Cancel task">
-          <Ban aria-hidden />
+        <Button size="sm" variant="ghost" className="text-muted-foreground" onClick={onClick} disabled={busy}>
+          <Ban data-icon="inline-start" aria-hidden /> Cancel task
         </Button>
       );
     case "todo":

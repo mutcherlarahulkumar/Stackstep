@@ -16,7 +16,7 @@ test("placement overview: cohort numbers, filters, CSV export and nudging inacti
     timezone: "UTC",
   });
   await signIn(page, "admin-demo");
-  await page.getByRole("link", { name: "Overview" }).click();
+  await page.getByRole("link", { name: "Insights" }).click();
   await expect(page.getByRole("heading", { name: "Placement overview" })).toBeVisible();
   const summary = page.getByTestId("overview-summary");
   await expect(summary).toContainText("Students");

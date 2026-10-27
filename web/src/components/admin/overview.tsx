@@ -2,13 +2,12 @@
 
 import { useQuery } from "@tanstack/react-query";
 import { ArrowDown, ArrowUp, BadgeCheck, BellRing, CreditCard, Download, FileImage, GitPullRequest, Search, Users, type LucideIcon } from "lucide-react";
-import { useDeferredValue, useState, type ReactNode } from "react";
+import { useDeferredValue, useState } from "react";
 import { toast } from "sonner";
 
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Card, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { InputGroup, InputGroupAddon, InputGroupInput } from "@/components/ui/input-group";
 import { Progress } from "@/components/ui/progress";
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "@/components/ui/sheet";
@@ -25,7 +24,7 @@ import { cn } from "@/lib/utils";
 import { Bounds } from "@/lib/validation";
 
 import { PAGE, PageHeader } from "../app/page-header";
-import { choiceItem } from "../app/choice";
+import { InsightsTabs } from "./insights-tabs";
 import { TableSkeleton } from "../app/loading";
 import { EmptyState, ErrorState } from "../app/state";
 import { AdminShell } from "./admin-shell";
@@ -68,6 +67,7 @@ function OverviewPage() {
   return (
     <div className="min-h-0 flex-1 overflow-y-auto">
       <div className={cn(PAGE, "gap-6")}>
+        <InsightsTabs active="overview" />
         <PageHeader title="Placement overview" description="Every student you manage, with progress, activity and certificates.">
           <div className="flex flex-wrap items-center gap-2">
             <InputGroup className="w-64">
@@ -99,30 +99,12 @@ function OverviewPage() {
           <ErrorState message={messageFor(data.error)} onRetry={() => void data.refetch()} />
         ) : o ? (
           <>
-            <Summary o={o} />
             {o.truncated ? (
               <Alert>
                 <AlertDescription>Showing the first 1,000 students. Search to narrow the list; the CSV has the same rows.</AlertDescription>
               </Alert>
             ) : null}
-            <ToggleGroup
-              type="single"
-              variant="outline"
-              size="sm"
-              value={filter}
-              onValueChange={(v) => {
-                if (isOverviewFilter(v)) setFilter(v);
-              }}
-              aria-label="Show"
-              className="flex-wrap"
-            >
-              {OVERVIEW_FILTERS.map((f) => (
-                <ToggleGroupItem key={f} value={f} className={choiceItem} data-testid={`filter-${f}`}>
-                  {FILTER_LABEL[f]}
-                  <span className="text-muted-foreground tabular-nums">{o.items.filter((r) => matchesFilter(r, f)).length}</span>
-                </ToggleGroupItem>
-              ))}
-            </ToggleGroup>
+            <FilterTiles o={o} value={filter} onChange={setFilter} />
             {o.items.length === 0 ? (
               <EmptyState icon={Users} title={q ? "No students match" : "No students yet"}>
                 {q ? "Try a different name or GitHub login." : "Students appear here once they're enrolled."}
@@ -166,26 +148,45 @@ function OverviewPage() {
   );
 }
 
-function Summary({ o }: { o: Overview }) {
+/** The numbers that matter, each one a filter for the table below. */
+function FilterTiles({ o, value, onChange }: { o: Overview; value: OverviewFilter; onChange: (f: OverviewFilter) => void }) {
   const s = o.summary;
+  const count = (f: OverviewFilter) => o.items.filter((r) => matchesFilter(r, f)).length;
+  const hint: Record<OverviewFilter, string> = {
+    all: `${s.active} active · ${s.avg_completion}% average completion`,
+    inactive: `Quiet ${o.inactive_after_hours}h or more`,
+    overdue: `${s.overdue_tasks} ${s.overdue_tasks === 1 ? "task" : "tasks"} past due`,
+    ready: "At the certificate bar",
+    certified: "Valid certificates",
+  };
   return (
-    <dl className="grid grid-cols-2 gap-3 md:grid-cols-5" data-testid="overview-summary">
-      <Stat label="Students" value={s.students} hint={`${s.active} active`} />
-      <Stat label="Average completion" value={`${s.avg_completion}%`} hint="Done ÷ released tasks" />
-      <Stat label="Inactive" value={s.inactive} hint={`Quiet ${o.inactive_after_hours}h or more`} warn={s.inactive > 0} />
-      <Stat label="Overdue tasks" value={s.overdue_tasks} hint="Open past their due time" warn={s.overdue_tasks > 0} />
-      <Stat label="Certificates" value={s.certificates} hint="Valid, issued by hand" />
-    </dl>
-  );
-}
-
-function Stat({ label, value, hint, warn = false }: { label: string; value: ReactNode; hint: string; warn?: boolean }) {
-  return (
-    <div className="bg-card rounded-xl border px-4 py-3">
-      <dt className="text-muted-foreground text-xs">{label}</dt>
-      <dd className={cn("text-2xl font-semibold tabular-nums", warn && "text-destructive")}>{value}</dd>
-      <dd className="text-muted-foreground text-xs">{hint}</dd>
-    </div>
+    <ToggleGroup
+      type="single"
+      value={value}
+      onValueChange={(v) => {
+        if (isOverviewFilter(v)) onChange(v);
+      }}
+      aria-label="Show"
+      className="grid w-full auto-rows-fr grid-cols-2 gap-3 md:grid-cols-5"
+      data-testid="overview-summary"
+    >
+      {OVERVIEW_FILTERS.map((f) => {
+        const n = count(f);
+        const warn = (f === "inactive" || f === "overdue") && n > 0;
+        return (
+          <ToggleGroupItem
+            key={f}
+            value={f}
+            data-testid={`filter-${f}`}
+            className="bg-card data-[state=on]:border-primary data-[state=on]:bg-primary/5 h-full flex-col items-start justify-start gap-0 rounded-xl border px-4 py-3 text-left whitespace-normal shadow-none"
+          >
+            <span className="text-muted-foreground text-xs font-normal">{f === "all" ? "Students" : FILTER_LABEL[f]}</span>
+            <span className={cn("text-2xl font-semibold tabular-nums", warn && "text-destructive")}>{n}</span>
+            <span className="text-muted-foreground text-xs font-normal text-pretty">{hint[f]}</span>
+          </ToggleGroupItem>
+        );
+      })}
+    </ToggleGroup>
   );
 }
 
@@ -292,25 +293,16 @@ const SOON: { icon: LucideIcon; title: string; body: string }[] = [
 
 function ComingSoon() {
   return (
-    <section aria-labelledby="coming-soon" className="flex flex-col gap-3">
-      <h2 id="coming-soon" className="text-muted-foreground text-sm font-medium">
+    <section aria-labelledby="coming-soon" className="text-muted-foreground flex flex-wrap items-center gap-2 text-xs">
+      <h2 id="coming-soon" className="font-medium">
         Coming soon
       </h2>
-      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-        {SOON.map((c) => (
-          <Card key={c.title} className="gap-0 border-dashed py-4 shadow-none">
-            <CardHeader className="px-4">
-              <CardTitle className="flex items-center gap-2 text-sm">
-                <c.icon className="text-muted-foreground size-4" aria-hidden /> {c.title}
-                <Badge variant="outline" className="ml-auto">
-                  Soon
-                </Badge>
-              </CardTitle>
-              <CardDescription className="text-xs">{c.body}</CardDescription>
-            </CardHeader>
-          </Card>
-        ))}
-      </div>
+      {SOON.map((c) => (
+        <span key={c.title} title={c.body} className="inline-flex items-center gap-1.5 rounded-full border border-dashed px-2.5 py-1">
+          <c.icon className="size-3.5" aria-hidden /> {c.title}
+          <span className="sr-only">: {c.body}</span>
+        </span>
+      ))}
     </section>
   );
 }

@@ -16,12 +16,12 @@ import { useBrowserNotifications, useUnreadTitle } from "@/lib/use-notifications
 import { AppHeader } from "../app/app-header";
 import { ConnectionBanner } from "../app/connection-banner";
 import { RequireSession } from "../app/guard";
+import { SectionBoundary } from "../app/section-boundary";
 import { PersonaAvatar } from "../app/persona-avatar";
 import { EmptyState } from "../app/state";
 import { ConversationView } from "../chat/conversation";
 import { AI_THREAD, StudentThreadList } from "../chat/thread-list";
 import { AIHelper } from "../ai/ai-helper";
-import { WalletChips } from "../ai/wallet-chips";
 import { BoardPanel } from "./board-panel";
 import { OnboardingDialog } from "./onboarding-dialog";
 import { ProgressButton } from "./progress-sheet";
@@ -97,7 +97,6 @@ function Workspace({ me, enrollment }: { me: Me; enrollment: Enrollment }) {
         </div>
         <div className="ml-auto flex items-center gap-1">
           <ProgressButton enrollment={enrollment} />
-          <WalletChips />
         </div>
       </AppHeader>
       <ConnectionBanner status={socket} />
@@ -118,6 +117,7 @@ function Workspace({ me, enrollment }: { me: Me; enrollment: Enrollment }) {
               </div>
             </nav>
             <section aria-label="Conversation" className="flex min-h-0 flex-col border-r">
+              <SectionBoundary key={aiOpen ? AI_THREAD : (desktopPersona?.id ?? "none")} label="This conversation">
               {aiOpen ? (
                 <AIHelper tasks={tasks} />
               ) : desktopPersona ? (
@@ -139,10 +139,13 @@ function Workspace({ me, enrollment }: { me: Me; enrollment: Enrollment }) {
                   )}
                 </div>
               )}
+              </SectionBoundary>
             </section>
             <section aria-label="Task board" className="flex min-h-0 flex-col">
               <PanelTitle icon={SquareKanban} title="Your board" />
-              <BoardPanel ws={ws} personas={byId} openTaskId={openTask} onOpenTask={setOpenTask} />
+              <SectionBoundary label="Your board">
+                <BoardPanel ws={ws} personas={byId} openTaskId={openTask} onOpenTask={setOpenTask} />
+              </SectionBoundary>
             </section>
           </div>
         ) : (
@@ -167,6 +170,7 @@ function Workspace({ me, enrollment }: { me: Me; enrollment: Enrollment }) {
               </TabsList>
             </div>
             <TabsContent value="chat" className="flex min-h-0 flex-1 flex-col">
+              <SectionBoundary key={phoneThread ?? "list"} label="This conversation">
               {phoneThread === AI_THREAD ? (
                 <AIHelper tasks={tasks} onBack={() => setPhoneThread(null)} />
               ) : phonePersona ? (
@@ -184,9 +188,12 @@ function Workspace({ me, enrollment }: { me: Me; enrollment: Enrollment }) {
                   <StudentThreadList selected={null} onSelect={(t) => setPhoneThread(t.persona.id)} onAI={() => setPhoneThread(AI_THREAD)} />
                 </div>
               )}
+              </SectionBoundary>
             </TabsContent>
             <TabsContent value="tasks" className="flex min-h-0 flex-1 flex-col">
-              <BoardPanel ws={ws} personas={byId} openTaskId={openTask} onOpenTask={setOpenTask} />
+              <SectionBoundary label="Your board">
+                <BoardPanel ws={ws} personas={byId} openTaskId={openTask} onOpenTask={setOpenTask} />
+              </SectionBoundary>
             </TabsContent>
           </Tabs>
         )}

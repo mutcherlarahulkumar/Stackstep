@@ -49,7 +49,11 @@ export function InternshipStatus({ student, enrollment }: { student: Student; en
       for (const k of ["students", "overview", "cohorts", "colleges", "enrollment-tasks"]) void qc.invalidateQueries({ queryKey: [k] });
       setTarget(null);
     } catch (err) {
-      toast.error(err instanceof ApiError && err.code === "invalid_transition" ? err.message : messageFor(err));
+      toast.error(
+        err instanceof ApiError && err.code === "invalid_transition"
+          ? `This internship can't go from ${STATUS_LABEL[status].toLowerCase()} to ${STATUS_LABEL[to].toLowerCase()}. To reopen it, the student can't have another open internship.`
+          : messageFor(err),
+      );
     } finally {
       setBusy(false);
     }

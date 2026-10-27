@@ -1,7 +1,7 @@
 "use client";
 
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { ArrowLeft, Clock, Coins, Eye, Lightbulb, Lock, MessageSquarePlus, Send, Sparkles } from "lucide-react";
+import { ArrowLeft, Clock, Coins, Eye, Lightbulb, Lock, MessageSquarePlus, Plus, Send, Sparkles } from "lucide-react";
 import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
@@ -147,7 +147,7 @@ function Usage({ wallet }: { wallet: Wallet }) {
   const left = Math.max(0, wallet.ai.daily_limit - wallet.ai.used_today);
   return (
     <div className="text-muted-foreground hidden flex-col items-end text-xs sm:flex" data-testid="ai-usage">
-      <span className="text-foreground inline-flex items-center gap-1 font-medium tabular-nums">
+      <span className="text-foreground inline-flex items-center gap-1 font-medium tabular-nums" data-testid="wallet-chips" aria-label={`${wallet.credits.balance} credits`}>
         <Coins className="text-primary size-3.5" aria-hidden /> {wallet.credits.balance} credits
       </span>
       <span className="tabular-nums">{left} questions left today</span>
@@ -201,6 +201,9 @@ function QuestionForm({ tasks, wallet, onAsked }: { tasks: readonly Task[]; wall
   const [errors, setErrors] = useState<Record<string, string | undefined>>({});
   const [formError, setFormError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  // The error and code boxes stay folded until wanted, or when the server flags them.
+  const [extrasOpen, setExtras] = useState(false);
+  const extras = extrasOpen || !!errors.error || !!errors.code;
   // One id per draft: a retry after a dropped connection is never charged twice.
   const clientId = useRef<string>(crypto.randomUUID());
   const nextAt = wallet.ai.next_question_at;
@@ -250,14 +253,10 @@ function QuestionForm({ tasks, wallet, onAsked }: { tasks: readonly Task[]; wall
         }}
         aria-label="Ask the AI helper"
       >
-        <Alert>
-          <Lightbulb aria-hidden />
-          <AlertTitle>Explain it in one go</AlertTitle>
-          <AlertDescription>
-            The helper only knows what you write here. Fill every box you can: goal, what you tried, the exact error and the code. You get hints and
-            a next step, not a finished solution.
-          </AlertDescription>
-        </Alert>
+        <p className="text-muted-foreground flex items-start gap-2 text-sm">
+          <Lightbulb className="mt-0.5 size-4 shrink-0" aria-hidden />
+          The helper only knows what you write here. You get hints and a next step, not the finished solution.
+        </p>
         {formError ? (
           <Alert variant="destructive">
             <AlertTitle>Couldn&apos;t ask</AlertTitle>
@@ -280,7 +279,7 @@ function QuestionForm({ tasks, wallet, onAsked }: { tasks: readonly Task[]; wall
                 ))}
               </SelectContent>
             </Select>
-            <FieldDescription>The task&apos;s brief is shared as context. Quizzes aren&apos;t available here.</FieldDescription>
+            <FieldDescription>Pick one and its brief is shared as context.</FieldDescription>
           </Field>
           <Field data-invalid={!!errors.goal}>
             <div className="flex items-baseline justify-between">
@@ -298,19 +297,27 @@ function QuestionForm({ tasks, wallet, onAsked }: { tasks: readonly Task[]; wall
             <Textarea id="ai-tried" rows={3} value={q.tried} onChange={(e) => set("tried", e.target.value)} placeholder="The docs you read, the fixes you attempted, and what each one did." aria-invalid={!!errors.tried} />
             {errors.tried ? <FieldError>{errors.tried}</FieldError> : <FieldDescription>At least a couple of sentences. This is the most useful part.</FieldDescription>}
           </Field>
-          <Field data-invalid={!!errors.error}>
-            <FieldLabel htmlFor="ai-error">What happens instead? (optional)</FieldLabel>
-            <Textarea id="ai-error" rows={2} value={q.error} onChange={(e) => set("error", e.target.value)} placeholder="Paste the exact error, or what you expected vs what you got." aria-invalid={!!errors.error} />
-            {errors.error ? <FieldError>{errors.error}</FieldError> : null}
-          </Field>
-          <Field data-invalid={!!errors.code}>
-            <div className="flex items-baseline justify-between">
-              <FieldLabel htmlFor="ai-code">Relevant code (optional)</FieldLabel>
-              <Counter value={q.code} max={AIBounds.codeMax} />
-            </div>
-            <Textarea id="ai-code" rows={6} className="font-mono text-sm" value={q.code} onChange={(e) => set("code", e.target.value)} placeholder="Only the part that matters. Never paste passwords or API keys." aria-invalid={!!errors.code} />
-            {errors.code ? <FieldError>{errors.code}</FieldError> : null}
-          </Field>
+          {extras ? (
+            <>
+              <Field data-invalid={!!errors.error}>
+                <FieldLabel htmlFor="ai-error">What happens instead? (optional)</FieldLabel>
+                <Textarea id="ai-error" rows={2} value={q.error} onChange={(e) => set("error", e.target.value)} placeholder="Paste the exact error, or what you expected vs what you got." aria-invalid={!!errors.error} />
+                {errors.error ? <FieldError>{errors.error}</FieldError> : null}
+              </Field>
+              <Field data-invalid={!!errors.code}>
+                <div className="flex items-baseline justify-between">
+                  <FieldLabel htmlFor="ai-code">Relevant code (optional)</FieldLabel>
+                  <Counter value={q.code} max={AIBounds.codeMax} />
+                </div>
+                <Textarea id="ai-code" rows={6} className="font-mono text-sm" value={q.code} onChange={(e) => set("code", e.target.value)} placeholder="Only the part that matters. Never paste passwords or API keys." aria-invalid={!!errors.code} />
+                {errors.code ? <FieldError>{errors.code}</FieldError> : null}
+              </Field>
+            </>
+          ) : (
+            <Button type="button" variant="ghost" size="sm" className="self-start" onClick={() => setExtras(true)} data-testid="ai-extras">
+              <Plus data-icon="inline-start" aria-hidden /> Add the error or code (optional)
+            </Button>
+          )}
         </FieldGroup>
         {blocked ? (
           <p className="text-destructive text-sm" role="alert">

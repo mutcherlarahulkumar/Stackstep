@@ -51,7 +51,7 @@ export function messageFor(error: unknown): string {
     case "validation_failed":
       return Object.values(error.fields)[0] ?? "Check the highlighted fields.";
     case "invalid_transition":
-      return "This task can't move there right now.";
+      return "That change isn't possible right now. Refresh and try again.";
     case "version_conflict":
       return "Someone else changed this. We refreshed it for you.";
     case "enrollment_not_active":
@@ -73,4 +73,9 @@ export function messageFor(error: unknown): string {
     case null:
       return "Something went wrong on our side. Please try again.";
   }
+}
+
+/** Copy for one failed row of a bulk action (roster import, flow assignment, broadcast). */
+export function itemErrorMessage(e: { code: string; message: string; fields?: Record<string, string> | undefined }): string {
+  return messageFor(new ApiError(0, toErrorCode(e.code), e.message, e.fields ?? {}));
 }

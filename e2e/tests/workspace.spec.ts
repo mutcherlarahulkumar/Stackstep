@@ -98,7 +98,6 @@ test("full loop: admin assigns → student works → admin reviews", async ({ br
   await expectToast(admin, "Changes requested");
 
   await expect(student.getByTestId("chat-log").first()).toContainText("Keep the filter in the URL.", { timeout: 10_000 });
-  await student.getByRole("radio", { name: /Changes requested/ }).click();
   await board.getByRole("button", { name: title }).click();
   await student.getByTestId("move-in_review").click();
   // The last link is kept; the note says what changed this time.

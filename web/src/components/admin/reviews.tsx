@@ -48,7 +48,8 @@ function Reviews() {
   const [persona, setPersona] = useState(ALL);
   const [noting, setNoting] = useState<{ task: Task; to: TaskStatus; draft?: boolean } | null>(null);
   const key = ["reviews", persona];
-  const q = useQuery({ queryKey: key, queryFn: () => api.reviews(persona === ALL ? null : persona), refetchInterval: 60_000 });
+  // Always fresh on open: the nav badge shares this cache and may be up to a minute old.
+  const q = useQuery({ queryKey: key, queryFn: () => api.reviews(persona === ALL ? null : persona), refetchInterval: 60_000, refetchOnMount: "always" });
 
   const move = useMutation({
     mutationFn: ({ task, to, note, rubric }: { item: ReviewItem; task: Task; to: TaskStatus; note: string; rubric?: boolean[] | null }) =>

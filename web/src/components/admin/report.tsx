@@ -17,6 +17,7 @@ import { cn } from "@/lib/utils";
 
 import { stagger, TableSkeleton } from "../app/loading";
 import { PAGE, PageHeader } from "../app/page-header";
+import { InsightsTabs } from "./insights-tabs";
 import { EmptyState, ErrorState } from "../app/state";
 import { StatTile } from "../app/stat-tile";
 import { AdminShell } from "./admin-shell";
@@ -36,6 +37,7 @@ function Report() {
   return (
     <div className="min-h-0 flex-1 overflow-y-auto print:overflow-visible">
       <div className={cn(PAGE, "gap-6")}>
+        <InsightsTabs active="report" />
         <PageHeader title="Weekly report" description="What each cohort did this week, who stood out and who needs a nudge. Print it or share the CSV with your placement team.">
           <div className="flex items-center gap-1 print:hidden" role="group" aria-label="Week">
             <Button variant="outline" size="icon" onClick={() => go(-7)} disabled={!r} aria-label="Previous week">

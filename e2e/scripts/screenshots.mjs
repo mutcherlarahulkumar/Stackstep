@@ -62,6 +62,7 @@ await shoot("23-ai-answer", "meera-dev", "/workspace", {
     await p.getByTestId("ai-new").click();
     await p.getByLabel("What are you trying to do?").fill("Center the hero section vertically on mobile with flexbox.");
     await p.getByLabel("What have you tried so far?").fill("I set display:flex and align-items:center on the section, but it stays at the top on small screens.");
+    await p.getByTestId("ai-extras").click();
     await p.getByLabel("Relevant code (optional)").fill(".hero { display: flex; align-items: center; }");
     await p.getByTestId("ai-ask").click();
     await p.getByTestId("ai-answer").first().waitFor();

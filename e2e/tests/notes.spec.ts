@@ -51,7 +51,6 @@ test("task notes: private by default, Markdown preview, shared notes show next t
 
   // Shared: it shows next to the hand-in, rendered as Markdown.
   await page.reload();
-  await board.getByRole("radio", { name: /^In review/ }).click();
   await board.getByRole("button", { name: title }).click();
   await notes.getByTestId("note-share").click();
   await notes.getByTestId("note-save").click();

@@ -24,7 +24,8 @@ test("weekly report: totals, cohorts, standouts, week navigation and CSV (WR1, W
   await api(request, ravi, "POST", `/v1/tasks/${t.id}/transitions`, { to: "done", expected_version: t.version + 1, note: "" });
 
   await signIn(page, "admin-demo");
-  await page.getByRole("link", { name: "Report" }).click();
+  await page.getByRole("link", { name: "Insights" }).click();
+  await page.getByRole("link", { name: "Weekly report" }).click();
   await expect(page.getByRole("heading", { level: 1, name: "Weekly report" })).toBeVisible();
   await expect(page.getByTestId("report-cohorts")).toContainText("ANITS Batch 1");
   await expect(page.getByTestId("report-cohorts")).toContainText("Independent students");

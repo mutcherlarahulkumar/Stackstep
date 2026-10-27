@@ -23,7 +23,8 @@ test("people: colleges, cohorts, enroll by login, roster import, internship stat
   const login = `e2e-${suffix}`;
   const admin = await (await browser.newContext({ viewport: { width: 1440, height: 900 } })).newPage();
   await signIn(admin, "admin-demo");
-  await admin.getByRole("link", { name: "People" }).click();
+  await admin.getByTestId("nav-setup").click();
+  await admin.getByRole("menuitem", { name: /^People/ }).click();
   await expect(admin.getByRole("heading", { name: "People" })).toBeVisible();
 
   // A college and a cohort with two seats.
@@ -60,7 +61,8 @@ test("people: colleges, cohorts, enroll by login, roster import, internship stat
   await expectToast(admin, `Enrolled @${login}`);
 
   // Roster import: bad rows are flagged before sending; the seat limit is reported per row.
-  const roster = admin.locator("form").nth(1);
+  await admin.getByTestId("enroll-mode-csv").click();
+  const roster = admin.locator("form").first();
   await roster.getByLabel("Roster").fill(`github_login,name\nroster-a-${suffix},Roster A\nnot valid,Nope\nroster-b-${suffix},Roster B`);
   await expect(admin.getByTestId("roster-count")).toHaveText("2 ready, 1 to fix");
   await expect(admin.getByTestId("roster-problems")).toContainText("Not a valid GitHub username");

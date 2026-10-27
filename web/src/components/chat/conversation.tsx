@@ -190,12 +190,14 @@ function Bubble({
               Delete
             </Button>
           </p>
-        ) : showMeta || sending || row.automated ? (
+        ) : showMeta || sending ? (
           <p className="text-muted-foreground mt-1 px-1 text-xs">
             {sending ? "Sending…" : timeLabel(row.at)}
-            {/* Honest personas: every reply no mentor wrote says so. */}
+            {/* Honest personas: replies no mentor wrote say so (once per group of messages). */}
             {row.automated ? <span data-testid="automated-label"> · Automatic reply</span> : null}
           </p>
+        ) : row.automated ? (
+          <span className="sr-only">Automatic reply</span>
         ) : null}
       </div>
     </li>
@@ -267,7 +269,7 @@ function Composer({ onSend, placeholder, quickReplies }: { onSend: (raw: string)
         </Button>
       </div>
       <div id="chat-hint" className="mt-1.5 flex min-h-4 items-center justify-between gap-2 text-xs">
-        <span className={error ? "text-destructive" : "text-muted-foreground hidden sm:inline"} role={error ? "alert" : undefined}>
+        <span className={error ? "text-destructive" : "sr-only"} role={error ? "alert" : undefined}>
           {error ?? "Enter to send · Shift+Enter for a new line"}
         </span>
         {length > Bounds.messageMax - 500 ? (
