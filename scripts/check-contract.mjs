@@ -21,6 +21,7 @@ const go = {
   CertificateStatus: read("backend/internal/domain/certificate.go"),
   CohortKind: read("backend/internal/domain/people.go"),
   HandInCheckCode: read("backend/internal/domain/review.go"),
+  ReviewDecision: read("backend/internal/domain/review.go"),
 };
 const goType = {
   Role: "Role",
@@ -36,6 +37,7 @@ const goType = {
   CertificateStatus: "CertificateStatus",
   CohortKind: "CohortKind",
   HandInCheckCode: "HandInCheckCode",
+  ReviewDecision: "ReviewDecision",
 };
 const ts = read("web/src/lib/api/schemas.ts");
 const tsConst = {
@@ -52,6 +54,7 @@ const tsConst = {
   CertificateStatus: "CERTIFICATE_STATUSES",
   CohortKind: "COHORT_KINDS",
   HandInCheckCode: "HAND_IN_CHECK_CODES",
+  ReviewDecision: "REVIEW_DECISIONS",
 };
 const dart = read("mobile/lib/api/models.dart");
 const dartEnum = { ...goType, ErrorCode: "ErrorCode" };

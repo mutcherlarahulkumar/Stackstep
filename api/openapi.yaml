@@ -1,7 +1,7 @@
 openapi: 3.1.0
 info:
   title: Stackstep API
-  version: 0.14.0
+  version: 0.15.0
   description: |
     Workspace core (feature 01). All timestamps are RFC 3339 UTC. All errors use the
     `Error` envelope; clients switch on `error.code`, never on `message`.
@@ -974,7 +974,7 @@ paths:
             application/json:
               schema:
                 type: object
-                required: [items, overdue, sla_hours]
+                required: [items, overdue, sla_hours, ai_drafts]
                 properties:
                   items:
                     type: array
@@ -988,8 +988,31 @@ paths:
                         overdue: { type: boolean, description: Waiting at least sla_hours }
                   overdue: { type: integer, minimum: 0 }
                   sla_hours: { type: integer }
+                  ai_drafts: { type: boolean, description: Whether reviewDraft is available (Groq key set and AI_REVIEW_DRAFTS on) }
         "403": { $ref: "#/components/responses/Error" }
         "422": { $ref: "#/components/responses/Error" }
+  /v1/admin/tasks/{id}/review-draft:
+    post:
+      tags: [admin]
+      operationId: reviewDraft
+      summary: An AI draft of the review for a hand-in waiting for review (suggestion only; nothing changes until the admin reviews)
+      description: |
+        Reads the task, its rubric, the hand-in and, for a public GitHub PR link, the PR and its diff.
+        Limited per staff member per day (AI_REVIEW_DRAFTS_PER_DAY). 400 invalid_state unless the task is
+        in_review with manual review; 503 not_configured when drafts are off; 503 ai_unavailable when the
+        model fails; 429 rate_limited with Retry-After.
+      parameters: [{ $ref: "#/components/parameters/Id" }]
+      responses:
+        "200":
+          description: The draft
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ReviewDraft" }
+        "400": { $ref: "#/components/responses/Error" }
+        "403": { $ref: "#/components/responses/Error" }
+        "404": { $ref: "#/components/responses/Error" }
+        "429": { $ref: "#/components/responses/Error" }
+        "503": { $ref: "#/components/responses/Error" }
   /v1/admin/colleges:
     get:
       tags: [people]
@@ -1313,6 +1336,18 @@ components:
     Client: { type: string, enum: [web, mobile] }
     Role: { type: string, enum: [student, college_admin, admin] }
     TaskType: { type: string, enum: [feature, bug_fix, dsa, doc_reading, quiz, git_chore, code_review, standup, blog] }
+    ReviewDecision: { type: string, enum: [approve, request_changes], description: What an AI review draft suggests }
+    ReviewDraft:
+      type: object
+      required: [decision, summary, note, rubric, read_pr]
+      properties:
+        decision: { $ref: "#/components/schemas/ReviewDecision" }
+        summary: { type: string, maxLength: 800, description: For the admin only }
+        note: { type: string, maxLength: 2000, description: Suggested feedback to the student (Markdown); the admin edits it }
+        rubric:
+          description: Suggested ticks, one per rubric criterion; null when the task has no rubric or the model's ticks were unusable
+          oneOf: [{ type: array, maxItems: 8, items: { type: boolean } }, { type: "null" }]
+        read_pr: { type: boolean, description: The draft looked at the pull request and its diff }
     ReviewMode: { type: string, enum: [manual, self], description: "manual: an admin approves; self: the student marks it done" }
     PersonaColor: { type: string, enum: [violet, blue, emerald, amber, rose, cyan, slate] }
     FlowVersionStatus: { type: string, enum: [draft, published, retired] }
@@ -1725,7 +1760,7 @@ components:
         wallet: { $ref: "#/components/schemas/Wallet" }
     Message:
       type: object
-      required: [id, enrollment_id, persona_id, author, body, task_id, client_id, sent_at]
+      required: [id, enrollment_id, persona_id, author, body, task_id, client_id, sent_at, automated]
       properties:
         id: { type: string, format: uuid }
         enrollment_id: { type: string, format: uuid }
@@ -1735,6 +1770,9 @@ components:
         task_id: { type: [string, "null"], format: uuid }
         client_id: { type: [string, "null"], format: uuid }
         sent_at: { type: string, format: date-time }
+        automated:
+          type: boolean
+          description: A persona message no admin wrote (AI or scripted reply, acknowledgement, announcement). Clients label it as automatic.
     Student:
       type: object
       required: [user, enrollment, open_tasks, in_review]

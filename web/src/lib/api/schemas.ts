@@ -192,6 +192,8 @@ export const Message = z.object({
   task_id: z.uuid().nullable(),
   client_id: z.uuid().nullable(),
   sent_at: timestamp,
+  /** A persona message no admin wrote (AI or scripted reply, acknowledgement, announcement). */
+  automated: z.boolean(),
 });
 export type Message = z.output<typeof Message>;
 
@@ -550,6 +552,19 @@ export const ReviewQueue = z.object({
   items: z.array(z.object({ task: Task, student: User, waiting_hours: z.int().min(0), overdue: z.boolean() })),
   overdue: z.int().min(0),
   sla_hours: z.int(),
+  ai_drafts: z.boolean(),
 });
 export type ReviewQueue = z.output<typeof ReviewQueue>;
+
+export const REVIEW_DECISIONS = ["approve", "request_changes"] as const;
+export const ReviewDecision = z.enum(REVIEW_DECISIONS);
+export type ReviewDecision = z.output<typeof ReviewDecision>;
+export const ReviewDraft = z.object({
+  decision: ReviewDecision,
+  summary: z.string().max(800),
+  note: z.string().max(2000),
+  rubric: z.array(z.boolean()).max(8).nullable(),
+  read_pr: z.boolean(),
+});
+export type ReviewDraft = z.output<typeof ReviewDraft>;
 export type ReviewItem = ReviewQueue["items"][number];

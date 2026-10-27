@@ -490,6 +490,7 @@ final class Message {
     required this.taskId,
     required this.clientId,
     required this.sentAt,
+    required this.automated,
   });
 
   factory Message.fromJson(JsonReader j) => Message(
@@ -501,6 +502,7 @@ final class Message {
     taskId: j.stringOrNull('task_id'),
     clientId: j.stringOrNull('client_id'),
     sentAt: j.dateTime('sent_at'),
+    automated: j.boolean('automated'),
   );
 
   final String id;
@@ -511,6 +513,9 @@ final class Message {
   final String? taskId;
   final String? clientId;
   final DateTime sentAt;
+
+  /// A persona message no admin wrote (AI or scripted reply, acknowledgement, announcement).
+  final bool automated;
 }
 
 final class Page<T> {
@@ -988,6 +993,15 @@ enum HandInCheckCode {
   reusedLink('reused_link');
 
   HandInCheckCode(this.wire);
+  final String wire;
+}
+
+/// What an AI review draft suggests (desktop web only; mirrored here for the contract).
+enum ReviewDecision {
+  approve('approve'),
+  requestChanges('request_changes');
+
+  ReviewDecision(this.wire);
   final String wire;
 }
 

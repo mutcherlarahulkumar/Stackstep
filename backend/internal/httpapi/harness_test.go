@@ -71,6 +71,7 @@ type env struct {
 	store *store.Store
 	cfg   config.Config
 	ai    *fakeAI
+	prs   *fakePRs
 }
 
 // Monday 10:00 IST on day 3 of the seeded internship.
@@ -110,20 +111,28 @@ func newEnv(t *testing.T, opts ...envOpt) *env {
 	signer, _ := auth.NewSigner(cfg.JWTSecret)
 	states, _ := auth.NewStateSigner(cfg.StateSecret)
 	log := slog.New(slog.NewTextHandler(io.Discard, nil))
-	ws := &app.Workspace{Store: st, Clock: clk, Lead: lead.Scripted{Delay: cfg.LeadReplyDelay}, Log: log}
 	fake := &fakeAI{}
 	if cfg.AI.GroqAPIKey == "" && cfg.AI.DailyQuestions == 0 { // defaults for tests that don't care
 		cfg.AI = config.AIConfig{GroqAPIKey: "test-key", Timeout: 5 * time.Second, DailyQuestions: 8, QuestionCooldown: 2 * time.Minute,
-			FollowUpCooldown: 5 * time.Minute, MaxFollowUps: 3, GlobalPerMinute: 1000}
+			FollowUpCooldown: 5 * time.Minute, MaxFollowUps: 3, GlobalPerMinute: 1000, ReviewDrafts: true, DraftsPerStaffDay: 60}
 	}
+	scripted := lead.Scripted{Delay: cfg.LeadReplyDelay}
+	var agent lead.Agent = scripted
+	if cfg.AI.TeamLeadEnabled() {
+		agent = lead.LLM{Provider: fake, Fallback: scripted, Delay: cfg.LeadReplyDelay, Log: log}
+	}
+	// Background work (AI replies) runs inline so tests see its result right away.
+	ws := &app.Workspace{Store: st, Clock: clk, Lead: agent, Log: log, Background: func(f func()) { f() }}
+	prs := &fakePRs{}
 	srv := New(Deps{
 		Config: cfg, Store: st, Clock: clk, Signer: signer, States: states,
 		GitHub:    &auth.GitHub{ClientID: cfg.GitHubClientID, ClientSecret: cfg.GitHubClientSecret, RedirectURL: cfg.GitHubRedirectURL, OAuthBaseURL: cfg.GitHubOAuthBaseURL, APIBaseURL: cfg.GitHubAPIBaseURL},
 		Sessions:  &app.Sessions{Store: st, Clock: clk, Signer: signer, BootstrapAdmins: cfg.BootstrapAdminLogins},
 		Workspace: ws, Helper: app.NewHelper(ws, fake, cfg.AI),
-		Hub: realtime.NewHub(), Log: log,
+		Drafter: &app.Drafter{Store: st, Clock: clk, AI: fake, PRs: prs, Config: cfg.AI, Log: log},
+		Hub:     realtime.NewHub(), Log: log,
 	})
-	return &env{t: t, srv: srv, h: srv.Handler(), clock: clk, store: st, cfg: cfg, ai: fake}
+	return &env{t: t, srv: srv, h: srv.Handler(), clock: clk, store: st, cfg: cfg, ai: fake, prs: prs}
 }
 
 type resp struct {

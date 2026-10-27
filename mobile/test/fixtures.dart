@@ -68,6 +68,7 @@ Json messageJson({
   'task_id': null,
   'client_id': clientId,
   'sent_at': sentAt,
+  'automated': false,
 };
 
 const leadId = '00000000-0000-4000-8000-000000000001';

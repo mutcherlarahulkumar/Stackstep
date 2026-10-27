@@ -69,10 +69,22 @@ type AIConfig struct {
 	FollowUpCooldown time.Duration // time to try it yourself before a follow-up
 	MaxFollowUps     int           // per conversation
 	GlobalPerMinute  int           // all students together, to stay inside the provider's limits
+
+	TeamLead          bool   // AI_TEAM_LEAD: auto-reply personas answer with the AI team lead
+	ReviewDrafts      bool   // AI_REVIEW_DRAFTS: admins can ask for an AI review draft
+	LeadPerMinute     int    // AI team lead replies per minute, all students together
+	DraftsPerStaffDay int    // AI review drafts per staff member per UTC day
+	GitHubToken       string // optional; raises GitHub's rate limit when review drafts read PR diffs
 }
 
 // Enabled reports whether the AI helper can answer.
 func (a AIConfig) Enabled() bool { return a.GroqAPIKey != "" }
+
+// TeamLeadEnabled reports whether auto-reply personas answer with the AI team lead.
+func (a AIConfig) TeamLeadEnabled() bool { return a.Enabled() && a.TeamLead }
+
+// ReviewDraftsEnabled reports whether admins can ask for AI review drafts.
+func (a AIConfig) ReviewDraftsEnabled() bool { return a.Enabled() && a.ReviewDrafts }
 
 // DevLoginEnabled is true only outside production.
 func (c Config) DevLoginEnabled() bool { return c.Env != EnvProduction }
@@ -181,6 +193,16 @@ func Load() (Config, error) {
 
 	cfg.LeadReplyDelay = parseDuration("LEAD_REPLY_DELAY", "45s", 0, 2*time.Hour)
 
+	onOff := func(key, def string) bool {
+		switch strings.ToLower(get(key, def)) {
+		case "on", "true", "1", "yes":
+			return true
+		case "off", "false", "0", "no":
+			return false
+		}
+		errs = append(errs, fmt.Errorf("%s must be on or off", key))
+		return false
+	}
 	intIn := func(key, def string, lo, hi int) int {
 		n, err := strconv.Atoi(get(key, def))
 		if err != nil || n < lo || n > hi {
@@ -198,6 +220,12 @@ func Load() (Config, error) {
 		FollowUpCooldown: parseDuration("AI_FOLLOWUP_COOLDOWN", "5m", 0, 2*time.Hour),
 		MaxFollowUps:     intIn("AI_MAX_FOLLOWUPS", "3", 0, 20),
 		GlobalPerMinute:  intIn("AI_GLOBAL_PER_MINUTE", "30", 1, 10000),
+
+		TeamLead:          onOff("AI_TEAM_LEAD", "on"),
+		ReviewDrafts:      onOff("AI_REVIEW_DRAFTS", "on"),
+		LeadPerMinute:     intIn("AI_LEAD_PER_MINUTE", "20", 1, 10000),
+		DraftsPerStaffDay: intIn("AI_REVIEW_DRAFTS_PER_DAY", "60", 1, 10000),
+		GitHubToken:       get("GITHUB_TOKEN", ""),
 	}
 	if u := parseURL("GROQ_BASE_URL", cfg.AI.GroqBaseURL); cfg.Env == EnvProduction && u.Scheme != "https" {
 		errs = append(errs, errors.New("GROQ_BASE_URL must use https in production"))

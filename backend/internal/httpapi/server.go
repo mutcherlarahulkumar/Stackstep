@@ -47,6 +47,7 @@ type Server struct {
 	sessions     *app.Sessions
 	workspace    *app.Workspace
 	helper       *app.Helper
+	drafter      *app.Drafter
 	hub          *realtime.Hub
 	log          *slog.Logger
 	signInLimit  *ipLimiter
@@ -64,6 +65,7 @@ type Deps struct {
 	Sessions  *app.Sessions
 	Workspace *app.Workspace
 	Helper    *app.Helper
+	Drafter   *app.Drafter // nil turns AI review drafts off
 	Hub       *realtime.Hub
 	Log       *slog.Logger
 }
@@ -72,7 +74,7 @@ type Deps struct {
 func New(d Deps) *Server {
 	return &Server{
 		cfg: d.Config, store: d.Store, clock: d.Clock, signer: d.Signer, states: d.States, github: d.GitHub,
-		sessions: d.Sessions, workspace: d.Workspace, helper: d.Helper, hub: d.Hub, log: d.Log,
+		sessions: d.Sessions, workspace: d.Workspace, helper: d.Helper, drafter: d.Drafter, hub: d.Hub, log: d.Log,
 		// Sign-in is the brute-force target; refresh runs on every page load, so it gets more room.
 		signInLimit:  newIPLimiter(perMinute(d.Config.AuthRatePerMinute), d.Config.AuthRatePerMinute),
 		refreshLimit: newIPLimiter(perMinute(4*d.Config.AuthRatePerMinute), 4*d.Config.AuthRatePerMinute),
@@ -137,6 +139,7 @@ func (s *Server) Handler() http.Handler {
 	admin.GET("/students", s.students)
 	admin.GET("/overview", s.overview)
 	admin.GET("/reviews", s.reviews)
+	admin.POST("/tasks/:id/review-draft", s.reviewDraft)
 	admin.GET("/colleges", s.listColleges)
 	admin.POST("/colleges", s.createCollege)
 	admin.GET("/programs", s.listPrograms)

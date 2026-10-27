@@ -19,6 +19,8 @@ type fakeAI struct {
 	mu    sync.Mutex
 	calls [][]ai.Message
 	fail  error
+	// text, when set, is the answer instead of the helper's canned one.
+	text string
 }
 
 func (f *fakeAI) Complete(_ context.Context, msgs []ai.Message) (ai.Completion, error) {
@@ -28,7 +30,16 @@ func (f *fakeAI) Complete(_ context.Context, msgs []ai.Message) (ai.Completion, 
 	if f.fail != nil {
 		return ai.Completion{}, f.fail
 	}
+	if f.text != "" {
+		return ai.Completion{Text: f.text, TokensIn: 50, TokensOut: 20}, nil
+	}
 	return ai.Completion{Text: "**What's going on**\nYou're close.\n\n**Hints**\n1. Check the loop bounds.\n\n**Try this next**\nPrint i.\n\n**Asking tip**\nClear question.", TokensIn: 120, TokensOut: 40}, nil
+}
+
+func (f *fakeAI) count() int {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	return len(f.calls)
 }
 
 func (f *fakeAI) last() []ai.Message {
