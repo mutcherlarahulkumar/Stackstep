@@ -16,7 +16,7 @@ import { ChatSkeleton } from "../app/loading";
 import { EmptyState, ErrorState } from "../app/state";
 import { useConversation, type Conversation, type Outgoing } from "./use-conversation";
 
-type Row = { key: string; at: Date; mine: boolean; body: string; taskId: string | null; outgoing: Outgoing | null };
+type Row = { key: string; at: Date; mine: boolean; body: string; taskId: string | null; automated: boolean; outgoing: Outgoing | null };
 
 function rows(target: ChatTarget, messages: Message[], outgoing: Outgoing[]): Row[] {
   // Oldest first for rendering top-to-bottom.
@@ -26,9 +26,10 @@ function rows(target: ChatTarget, messages: Message[], outgoing: Outgoing[]): Ro
     mine: isMine(target, m),
     body: m.body,
     taskId: m.task_id,
+    automated: m.automated,
     outgoing: null,
   }));
-  return [...delivered, ...outgoing.map((o) => ({ key: `out-${o.clientId}`, at: o.at, mine: true, body: o.body, taskId: null, outgoing: o }))];
+  return [...delivered, ...outgoing.map((o) => ({ key: `out-${o.clientId}`, at: o.at, mine: true, body: o.body, taskId: null, automated: false, outgoing: o }))];
 }
 
 const STUDENT_REPLIES = ["PR ready for review", "I'm stuck on this", "Good morning"];
@@ -189,8 +190,12 @@ function Bubble({
               Delete
             </Button>
           </p>
-        ) : showMeta || sending ? (
-          <p className="text-muted-foreground mt-1 px-1 text-xs">{sending ? "Sending…" : timeLabel(row.at)}</p>
+        ) : showMeta || sending || row.automated ? (
+          <p className="text-muted-foreground mt-1 px-1 text-xs">
+            {sending ? "Sending…" : timeLabel(row.at)}
+            {/* Honest personas: every reply no mentor wrote says so. */}
+            {row.automated ? <span data-testid="automated-label"> · Automatic reply</span> : null}
+          </p>
         ) : null}
       </div>
     </li>

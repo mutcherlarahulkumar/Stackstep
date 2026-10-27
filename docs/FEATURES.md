@@ -29,8 +29,12 @@ The engineering specs, with every edge case and its test, are in [`features/`](f
 - **First-run guide (students).** Four quick steps: the board, the team chat, handing in a PR,
   and points/credits/AI. Shown once, on web or app.
 - **Honest personas.** Each chat header says who's behind the character: "Played by a mentor"
-  or "Mentor · some replies automatic". Students are never misled into thinking a bot is a
-  person.
+  or "Mentor · some replies automatic", and every automatic reply says "Automatic reply" under
+  it. Students are never misled into thinking a bot is a person.
+- **AI team lead.** Teammates with automatic replies (the Team Lead by default) answer everyday
+  messages with AI: short, encouraging, a next step or a question back, never solutions or
+  promises about grades. Anything personal or sensitive is left for a mentor. If AI is off or
+  busy, the old scripted replies answer instead.
 - **Download my data.** Account menu → a JSON file of everything Stackstep holds about the
   person: profile, tasks, hand-ins, chat, AI conversations, points, credits, certificates and
   notes. In the app, this opens the web app.
@@ -75,7 +79,7 @@ phone) and the mobile app (Chats and Tasks tabs).
   certificate and the weekly report.
 - **Credits.** Students start with 20. Each AI question costs 1. Finished tasks earn more, and
   admins can add or remove credits with a reason (shown in the student's history).
-- **AI helper (the only AI feature).** Powered by Groq. Students must say what they're trying,
+- **AI helper.** Powered by Groq. Students must say what they're trying,
   what they've tried and what happens. They get **hints, not answers**. There are daily limits,
   cooldowns and a few follow-ups per question. Mentors can read every helper conversation, and
   the helper says so. Without a Groq key, it simply shows as unavailable.
@@ -92,7 +96,9 @@ phone) and the mobile app (Chats and Tasks tabs).
   (now or a picked date and time), due time, links, and optionally a **quiz**, a **rubric**
   (up to 8 criteria) or **DSA example tests**. The persona announces it in the student's chat.
 - **Reviews.** Every hand-in waiting, oldest first, filterable by persona, with a 24-hour aim.
-  Approve or request changes (with a note); tasks with a rubric open a checklist. Warnings
+  Approve or request changes (with a note); tasks with a rubric open a checklist.
+  **Draft with AI** reads the task, the rubric and the pull request's diff and fills in a
+  decision, rubric ticks and a note. You edit it and press send; nothing goes out on its own. Warnings
   flag a PR in someone else's repository, or a link already handed in by someone else.
 - **Inbox.** Every student conversation; reply as the persona. **Broadcast** sends one message
   to many students.
@@ -157,7 +163,6 @@ colleges and cohorts, and grant staff access.
 
 - **Payments (Razorpay):** paid seats and college bulk seats. Enrollment is manual for now.
 - **GitHub PR checks:** automatic checks and hidden tests on pull requests.
-- **AI review suggestions:** draft review notes for admins. Reviews are fully manual today.
 - **Push notifications on phones:** needs an external push service (Firebase / Web Push keys).
 - **Certificate artwork (Orshot):** designed certificate images. The printable certificate
   works today.

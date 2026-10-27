@@ -14,8 +14,9 @@ test.describe("student workspace", () => {
     await page.getByLabel("Message Sam Rivera").first().fill(text);
     await page.keyboard.press("Enter");
     await expect(log).toContainText(text);
-    // The lead's reply arrives over the WebSocket after LEAD_REPLY_DELAY.
-    await expect(log).toContainText("I'll review it shortly", { timeout: 15_000 });
+    // The AI team lead's reply arrives over the WebSocket after LEAD_REPLY_DELAY, labelled (AL1).
+    await expect(log).toContainText("A mentor will review it soon", { timeout: 15_000 });
+    await expect(log.getByTestId("automated-label").last()).toContainText("Automatic reply");
   });
 
   test("composer blocks blank and over-long messages", async ({ page }) => {

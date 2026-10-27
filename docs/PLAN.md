@@ -99,7 +99,7 @@ Each slice goes **backend → mobile app → web**, with E2E before it is called
 | 6 | **Placement overview, CSV export, nudges** | ✅ built — `docs/features/06-placement-overview.md` |
 | 7 | **People: enrollment by login or CSV, colleges and cohorts, internship status, staff roles** | ✅ built — `docs/features/07-people.md` |
 | — | GitHub App ingest + PR checks (webhooks, runner, hidden tests) | coming soon — needs a GitHub App |
-| — | AI review suggestions and an LLM team lead | coming soon — reviews and replies are manual for now |
+| 8 | **AI team lead and AI review drafts** (Groq; labelled automatic replies, admin-edited drafts) | ✅ built — `docs/features/14-ai-team-lead-and-review-drafts.md` |
 | — | Razorpay payments, entitlements, college seats, bulk import | coming soon — needs Razorpay keys |
 | — | Certificate artwork via Orshot | coming soon — the printable certificate works today |
 | — | DSA judge | later |

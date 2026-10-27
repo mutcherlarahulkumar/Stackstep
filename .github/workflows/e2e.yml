@@ -59,7 +59,8 @@ jobs:
       - name: Start API (with a fake Groq for the AI helper)
         run: |
           nohup node e2e/scripts/fake-groq.mjs 8099 > "$RUNNER_TEMP/groq.log" 2>&1 &
-          GROQ_API_KEY=e2e GROQ_BASE_URL=http://localhost:8099 LEAD_REPLY_DELAY=3s WEB_BASE_URL=http://localhost:3000 ALLOWED_ORIGINS=http://localhost:3000 \
+          GROQ_API_KEY=e2e GROQ_BASE_URL=http://localhost:8099 GITHUB_API_BASE_URL=http://localhost:8099 LEAD_REPLY_DELAY=3s \
+          WEB_BASE_URL=http://localhost:3000 ALLOWED_ORIGINS=http://localhost:3000 \
           AUTH_RATE_PER_MINUTE=1000 nohup "$RUNNER_TEMP/api" > "$RUNNER_TEMP/api.log" 2>&1 &
           for i in $(seq 1 60); do curl -sf localhost:8080/readyz && break; sleep 1; done
           curl -sf localhost:8080/readyz

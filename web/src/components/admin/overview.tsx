@@ -1,7 +1,7 @@
 "use client";
 
 import { useQuery } from "@tanstack/react-query";
-import { ArrowDown, ArrowUp, BadgeCheck, BellRing, CreditCard, Download, FileImage, GitPullRequest, Search, Sparkles, Users, type LucideIcon } from "lucide-react";
+import { ArrowDown, ArrowUp, BadgeCheck, BellRing, CreditCard, Download, FileImage, GitPullRequest, Search, Users, type LucideIcon } from "lucide-react";
 import { useDeferredValue, useState, type ReactNode } from "react";
 import { toast } from "sonner";
 
@@ -286,7 +286,6 @@ function CohortTable({ rows, sort, onSort, onOpen, now }: { rows: OverviewRow[];
 const SOON: { icon: LucideIcon; title: string; body: string }[] = [
   { icon: CreditCard, title: "Payments (Razorpay)", body: "Paid seats, college bulk seats and invoices. Enrollment is manual for now." },
   { icon: GitPullRequest, title: "GitHub PR checks", body: "Automatic checks and hidden tests on every pull request. Review links by hand for now." },
-  { icon: Sparkles, title: "AI review suggestions", body: "Draft review notes for admins to edit. Reviews are fully manual for now." },
   { icon: BellRing, title: "Push notifications on phones", body: "Needs a push service (Firebase / Web Push keys). Browser notifications work today while a tab is open." },
   { icon: FileImage, title: "Certificate artwork (Orshot)", body: "Designed certificate images and share cards. The printable certificate works today." },
 ];

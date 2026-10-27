@@ -254,6 +254,11 @@ export class ApiClient {
     return this.send("GET", "/v1/admin/reviews", S.ReviewQueue, { query: { persona_id: personaId } });
   }
 
+  /** An AI draft of a review (suggestion only; nothing changes until the admin reviews). */
+  reviewDraft(taskId: string) {
+    return this.send("POST", `/v1/admin/tasks/${seg(taskId)}/review-draft`, S.ReviewDraft);
+  }
+
   // ---- People ----
 
   async colleges() {

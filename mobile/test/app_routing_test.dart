@@ -9,6 +9,7 @@ import 'package:stackstep/api/api_client.dart';
 import 'package:stackstep/api/realtime.dart';
 import 'package:stackstep/app.dart';
 import 'package:stackstep/core/providers.dart';
+import 'package:stackstep/shared/legal.dart';
 
 import 'fixtures.dart';
 
@@ -138,7 +139,16 @@ void main() {
           ],
         }),
         '/v1/me/threads/$managerId/messages' => json({
-          'items': [messageJson(body: 'Today: two-pointer warmup.', personaId: managerId)],
+          'items': [
+            messageJson(
+              id: 'm-2',
+              body: 'Start with the brute force.',
+              personaId: managerId,
+              automated: true,
+              sentAt: '2026-11-04T04:35:00Z',
+            ),
+            messageJson(body: 'Today: two-pointer warmup.', personaId: managerId),
+          ],
           'next_cursor': null,
         }),
         '/v1/me/threads/$managerId/read' => http.Response('', 204),
@@ -157,6 +167,8 @@ void main() {
     await tester.tap(find.byKey(const Key('thread-$managerId')));
     await tester.pumpAndSettle();
     expect(find.text('Today: two-pointer warmup.'), findsOneWidget);
+    // Honest personas (AL1): automatic replies are labelled; a mentor's message is not.
+    expect(find.textContaining('Automatic reply'), findsOneWidget);
     expect(find.byKey(const Key('chat-input')), findsOneWidget);
     await tester.pageBack();
     await tester.pumpAndSettle();
@@ -213,7 +225,7 @@ void main() {
           'account': accountJson(consentRequired: true, onboarded: false),
         }),
         '/v1/me/consent' => () {
-          expect(jsonDecode(req.body), {'version': 1});
+          expect(jsonDecode(req.body), {'version': termsVersion});
           consented = true;
           return json(accountJson(onboarded: false));
         }(),

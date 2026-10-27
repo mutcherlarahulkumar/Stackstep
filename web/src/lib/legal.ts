@@ -1,7 +1,7 @@
 /** Privacy notice and terms, as data so the pages, the consent step and the app agree. */
 
 /** Must match backend `domain.TermsVersion`; bump both when the text changes materially. */
-export const TERMS_VERSION = 1;
+export const TERMS_VERSION = 2;
 export const LEGAL_UPDATED = "23 October 2026";
 
 export type LegalSection = { heading: string; points: readonly string[] };
@@ -10,8 +10,8 @@ export type LegalSection = { heading: string; points: readonly string[] };
 export const CONSENT_SUMMARY: readonly string[] = [
   "We keep your GitHub login, name, email and avatar, and everything you do here: tasks, hand-ins, chat and AI helper conversations.",
   "Your mentors and your college's placement cell can read your progress, chat and AI helper conversations.",
-  "Teammates in chat are characters played by mentors. Some also send automatic replies, and each chat says so.",
-  "Questions to the AI helper are sent to Groq to generate answers. Don't paste passwords or personal details.",
+  "Teammates in chat are characters played by mentors. Some also reply automatically, sometimes with AI, and every automatic reply is labelled.",
+  "AI helper questions, messages to teammates who reply automatically, and hand-ins a mentor asks AI to draft a review for are sent to Groq. Don't paste passwords or personal details.",
   "You can download all of your data from the account menu at any time.",
 ];
 
@@ -35,8 +35,8 @@ export const PRIVACY: readonly LegalSection[] = [
   {
     heading: "Teammates and the AI helper",
     points: [
-      "The people in your chat are characters that make the internship feel real. Mentors play them and answer you; some also send scripted, automatic replies such as standups and \u201cgot it\u201d notes. Each chat header says which.",
-      "The AI helper is the only AI feature. Your questions and the task brief are sent to Groq, an AI provider, to produce an answer. Don't paste passwords, keys or personal details into it.",
+      "The people in your chat are characters that make the internship feel real. Mentors play them and answer you. Some also reply automatically: scripted notes such as standups and \u201cgot it\u201d, and an AI team lead that answers everyday questions when no mentor has. Each chat header says which teammates do, and every automatic reply is labelled \u201cAutomatic reply\u201d.",
+      "Stackstep uses Groq, an AI provider, in three places: the AI helper (your question and the task brief), automatic teammate replies (your message, your open tasks and the recent conversation), and review drafts a mentor may ask for (the task, your hand-in note and your public pull request). A mentor always makes review decisions. Don't paste passwords, keys or personal details into chat or the helper.",
     ],
   },
   {

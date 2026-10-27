@@ -46,7 +46,7 @@ Also: a review queue with hand-in authenticity warnings, and hand-ins posted in 
 persona's chat with an acknowledgement.
 
 Coming soon (labelled in the UI, nothing faked): Razorpay payments, GitHub PR checks,
-AI review suggestions, push notifications on phones, Orshot certificate artwork.
+push notifications on phones, Orshot certificate artwork.
 
 ## Who uses what
 

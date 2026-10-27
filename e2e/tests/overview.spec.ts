@@ -65,11 +65,13 @@ test("placement overview: cohort numbers, filters, CSV export and nudging inacti
   await expectToast(page, "Sent to 1 student");
 });
 
-test("coming soon: payments, PR checks, AI review and certificate artwork are labelled, not faked", async ({ page }) => {
+test("coming soon: payments, PR checks, phone push and certificate artwork are labelled, not faked", async ({ page }) => {
   await signIn(page, "admin-demo");
   await page.goto("/admin/overview");
   const soon = page.getByRole("region", { name: "Coming soon" });
-  for (const name of ["Payments (Razorpay)", "GitHub PR checks", "AI review suggestions", "Certificate artwork (Orshot)"]) {
+  for (const name of ["Payments (Razorpay)", "GitHub PR checks", "Push notifications on phones", "Certificate artwork (Orshot)"]) {
     await expect(soon.getByText(name)).toBeVisible();
   }
+  // AI review drafts shipped (feature 14): no longer listed as coming soon.
+  await expect(soon.getByText("AI review suggestions")).toHaveCount(0);
 });
