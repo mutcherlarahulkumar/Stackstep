@@ -53,8 +53,15 @@ test("certificates: issued by hand, verified publicly without signing in, revoke
   await expect(visitor.getByTestId("certificate-valid")).toBeVisible();
   await expect(visitor.getByRole("heading", { name: "Meera", exact: false })).toBeVisible();
   await visitor.getByRole("link", { name: "View certificate" }).click();
-  await expect(visitor.getByTestId("certificate-document")).toContainText("Certificate of completion");
-  await expect(visitor.getByTestId("certificate-document")).toContainText(shown);
+  // C10: the designed certificate reads like an internship certificate, with no task counts.
+  const doc = visitor.getByTestId("certificate-document");
+  await expect(doc).toContainText("OF INTERNSHIP COMPLETION");
+  await expect(doc).toContainText("This is to certify that");
+  await expect(doc).toContainText(shown);
+  await expect(doc).not.toContainText(/tasks|points/i);
+  const download = visitor.waitForEvent("download");
+  await visitor.getByTestId("download-png").click();
+  expect((await download).suggestedFilename()).toBe(`stackstep-certificate-${shown}.png`);
 
   // The student gets the code in their progress panel.
   await student.reload();
@@ -77,6 +84,11 @@ test("certificates: issued by hand, verified publicly without signing in, revoke
 
   await visitor.goto(`/verify/${shown}`);
   await expect(visitor.getByTestId("certificate-revoked")).toContainText("Issued to the wrong student by mistake");
+  // CE13: the certificate itself is stamped and can't be downloaded or printed.
+  await visitor.goto(`/certificate/${shown.replace(/-/g, "")}`);
+  await expect(visitor.getByTestId("certificate-document")).toContainText("REVOKED");
+  await expect(visitor.getByTestId("download-png")).toHaveCount(0);
+  await expect(visitor.getByRole("button", { name: /Print/ })).toHaveCount(0);
 
   // Unknown codes say so.
   await visitor.goto("/verify/ABCDEFGHJK23");

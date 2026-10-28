@@ -113,11 +113,12 @@ callback.
 | `ALLOWED_ORIGINS` | `<WEB_URL>` | Exact origin: `https://`, no trailing slash. Comma-separate extra domains (e.g. a custom domain) |
 | `PROXY_SHARED_SECRET` | from step 0 | Same value as on Vercel. Rate limits then count each student instead of the proxy |
 | `BOOTSTRAP_ADMIN_GITHUB_LOGINS` | your GitHub username | Optional; this account becomes admin on first sign-in. Or use the workflow in step 6 |
-| `GROQ_API_KEY` | `gsk_...` | Optional. Without it the AI helper shows "not available"; nothing else changes |
+| `GROQ_API_KEY` | `gsk_...` | Optional. Turns on the AI helper, the AI team lead and AI review drafts. Without it the helper shows "not available", the team lead uses scripted replies and reviews are manual |
 
    Optional tuning (sensible defaults, leave them out unless needed): `GROQ_MODEL`,
    `AI_DAILY_QUESTIONS` (8), `AI_QUESTION_COOLDOWN` (2m), `AI_FOLLOWUP_COOLDOWN` (5m),
-   `AI_MAX_FOLLOWUPS` (3), `AI_GLOBAL_PER_MINUTE` (30), `LEAD_REPLY_DELAY` (45s),
+   `AI_MAX_FOLLOWUPS` (3), `AI_GLOBAL_PER_MINUTE` (30), `AI_TEAM_LEAD` (on), `AI_LEAD_PER_MINUTE` (20),
+   `AI_REVIEW_DRAFTS` (on), `AI_REVIEW_DRAFTS_PER_DAY` (60), `GITHUB_TOKEN` (empty), `LEAD_REPLY_DELAY` (45s),
    `AUTH_RATE_PER_MINUTE` (30), `MOBILE_REDIRECT_URL` (`stackstep://auth`). Every setting is
    listed in [`SETUP.md`](SETUP.md).
 
@@ -303,7 +304,8 @@ which is already registered in the Android and iOS projects.
    refresh**. If it only shows after a refresh, see Troubleshooting.
 6. Hand it in as the student → **Reviews** shows it → approve.
 7. Install the APK, sign in with GitHub, and check the same chat and board.
-8. If you set `GROQ_API_KEY`: ask the AI helper a question as the student.
+8. If you set `GROQ_API_KEY`: ask the AI helper a question as the student, send the Team Lead
+   a message (the reply says "Automatic reply"), and as admin open Reviews → **Draft with AI**.
 
 ---
 

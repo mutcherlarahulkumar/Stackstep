@@ -447,7 +447,13 @@ function StaffPanel({ me }: { me: Me }) {
       void qc.invalidateQueries({ queryKey: ["colleges"] });
       setRevoking(null);
     } catch (e) {
-      toast.error(e instanceof ApiError && e.code === "invalid_transition" ? e.message : messageFor(e));
+      toast.error(
+        e instanceof ApiError && e.code === "invalid_transition"
+          ? m.user.id === me.user.id
+            ? "You can't remove your own admin access."
+            : "There must always be at least one platform admin."
+          : messageFor(e),
+      );
     } finally {
       setBusy(false);
     }

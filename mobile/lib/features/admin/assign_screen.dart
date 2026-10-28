@@ -147,6 +147,10 @@ class _AssignTaskScreenState extends ConsumerState<AssignTaskScreen> {
   /// Null until the admin picks one; the server then uses the default team lead.
   String? _personaId;
   ReviewMode _reviewMode = ReviewMode.manual;
+  // Persona, review, link and start time fold away; an error in one of them unfolds them.
+  bool _more = false;
+  bool get _moreOpen =>
+      _more || _errors.keys.any((k) => k == 'persona_id' || k == 'review_mode' || k == 'scheduled_for' || k.startsWith('resources'));
   bool _startLater = false;
   DateTime? _startAt;
   _DuePreset _preset = _DuePreset.todayEvening;
@@ -329,6 +333,19 @@ class _AssignTaskScreenState extends ConsumerState<AssignTaskScreen> {
               const SizedBox(height: Space.lg),
             ],
             AppField(
+              label: 'Title',
+              error: _errors['title'],
+              trailingLabel: CharCounter(length: runeLength(normalizeLine(_title.text)), max: Bounds.titleMax),
+              child: ShadInput(
+                key: const Key('task-title'),
+                controller: _title,
+                placeholder: const Text('e.g. Add filtering to the task list'),
+                textCapitalization: TextCapitalization.sentences,
+                textInputAction: TextInputAction.next,
+              ),
+            ),
+            const SizedBox(height: Space.lg),
+            AppField(
               label: 'Type',
               error: _errors['type'],
               child: Wrap(
@@ -351,71 +368,6 @@ class _AssignTaskScreenState extends ConsumerState<AssignTaskScreen> {
             ),
             const SizedBox(height: Space.lg),
             AppField(
-              label: 'Posted by',
-              description: 'The student sees the task announced in this person’s chat.',
-              error: _errors['persona_id'],
-              child: switch (personas) {
-                AsyncData(:final value) => Wrap(
-                  spacing: Space.sm,
-                  runSpacing: Space.sm,
-                  children: [
-                    for (final p in value)
-                      Semantics(
-                        selected: p.id == _selectedPersona(value),
-                        child: ((p.id == _selectedPersona(value)) ? ShadButton.new : ShadButton.outline)(
-                          key: Key('persona-${p.id}'),
-                          size: ShadButtonSize.sm,
-                          onPressed: () => setState(() {
-                            _personaId = p.id;
-                            _errors = {..._errors}..remove('persona_id');
-                          }),
-                          leading: PersonaAvatar(p, size: 18),
-                          child: Text(p.name.split(' ').first),
-                        ),
-                      ),
-                  ],
-                ),
-                AsyncError() => Text('Couldn’t load personas. The team lead will post it.', style: t.textTheme.muted),
-                _ => const SizedBox(height: 32, child: LinearProgressIndicator(minHeight: 2)),
-              },
-            ),
-            const SizedBox(height: Space.lg),
-            AppField(
-              label: 'Review',
-              description: _reviewMode == ReviewMode.manual
-                  ? 'The student submits it and you approve or request changes.'
-                  : 'The student marks it done themselves. Good for reading and practice.',
-              child: Wrap(
-                spacing: Space.sm,
-                children: [
-                  for (final (m, label) in [(ReviewMode.manual, 'Admin reviews'), (ReviewMode.self, 'Student marks done')])
-                    Semantics(
-                      selected: _reviewMode == m,
-                      child: (_reviewMode == m ? ShadButton.new : ShadButton.outline)(
-                        key: Key('review-${m.wire}'),
-                        size: ShadButtonSize.sm,
-                        onPressed: () => setState(() => _reviewMode = m),
-                        child: Text(label),
-                      ),
-                    ),
-                ],
-              ),
-            ),
-            const SizedBox(height: Space.lg),
-            AppField(
-              label: 'Title',
-              error: _errors['title'],
-              trailingLabel: CharCounter(length: runeLength(normalizeLine(_title.text)), max: Bounds.titleMax),
-              child: ShadInput(
-                key: const Key('task-title'),
-                controller: _title,
-                placeholder: const Text('e.g. Add filtering to the task list'),
-                textCapitalization: TextCapitalization.sentences,
-                textInputAction: TextInputAction.next,
-              ),
-            ),
-            const SizedBox(height: Space.lg),
-            AppField(
               label: 'Brief',
               description: 'What done looks like, the branch name, and links to docs.',
               error: _errors['brief'],
@@ -423,65 +375,6 @@ class _AssignTaskScreenState extends ConsumerState<AssignTaskScreen> {
                   ? CharCounter(length: runeLength(_brief.text.trim()), max: Bounds.briefMax)
                   : null,
               child: ShadTextarea(key: const Key('task-brief'), controller: _brief, placeholder: const Text('Optional'), minHeight: 100),
-            ),
-            const SizedBox(height: Space.lg),
-            AppField(
-              label: 'Link',
-              description: 'Optional: docs or a starter repo. Quizzes and more links are on desktop.',
-              error: _errors['resources[0].url'] ?? _errors['resources[0].title'],
-              child: Column(
-                children: [
-                  ShadInput(
-                    key: const Key('task-link-name'),
-                    controller: _linkName,
-                    placeholder: const Text('Name, e.g. MDN: Flexbox'),
-                    textInputAction: TextInputAction.next,
-                  ),
-                  const SizedBox(height: Space.sm),
-                  ShadInput(
-                    key: const Key('task-link-url'),
-                    controller: _linkUrl,
-                    placeholder: const Text('https://'),
-                    keyboardType: TextInputType.url,
-                    autocorrect: false,
-                  ),
-                ],
-              ),
-            ),
-            const SizedBox(height: Space.lg),
-            AppField(
-              label: 'Shows up',
-              error: _errors['scheduled_for'],
-              description: _startLater ? null : 'Right away, with an announcement in chat.',
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Wrap(
-                    spacing: Space.sm,
-                    children: [
-                      (!_startLater ? ShadButton.new : ShadButton.outline)(
-                        size: ShadButtonSize.sm,
-                        onPressed: () => setState(() => _startLater = false),
-                        child: const Text('Now'),
-                      ),
-                      (_startLater ? ShadButton.new : ShadButton.outline)(
-                        size: ShadButtonSize.sm,
-                        onPressed: () async {
-                          final picked = await _pickDateTime(_startAt ?? now.add(const Duration(hours: 1)));
-                          if (picked != null) {
-                            setState(() {
-                              _startLater = true;
-                              _startAt = picked;
-                              _errors = {..._errors}..remove('scheduled_for');
-                            });
-                          }
-                        },
-                        child: Text(_startLater && _startAt != null ? dateTimeLabel(_startAt!) : 'Later…'),
-                      ),
-                    ],
-                  ),
-                ],
-              ),
             ),
             const SizedBox(height: Space.lg),
             AppField(
@@ -523,6 +416,128 @@ class _AssignTaskScreenState extends ConsumerState<AssignTaskScreen> {
                 ],
               ),
             ),
+            const SizedBox(height: Space.lg),
+            if (_moreOpen) ...[
+              AppField(
+                label: 'Posted by',
+                description: 'The student sees the task announced in this person’s chat.',
+                error: _errors['persona_id'],
+                child: switch (personas) {
+                  AsyncData(:final value) => Wrap(
+                    spacing: Space.sm,
+                    runSpacing: Space.sm,
+                    children: [
+                      for (final p in value)
+                        Semantics(
+                          selected: p.id == _selectedPersona(value),
+                          child: ((p.id == _selectedPersona(value)) ? ShadButton.new : ShadButton.outline)(
+                            key: Key('persona-${p.id}'),
+                            size: ShadButtonSize.sm,
+                            onPressed: () => setState(() {
+                              _personaId = p.id;
+                              _errors = {..._errors}..remove('persona_id');
+                            }),
+                            leading: PersonaAvatar(p, size: 18),
+                            child: Text(p.name.split(' ').first),
+                          ),
+                        ),
+                    ],
+                  ),
+                  AsyncError() => Text('Couldn’t load personas. The team lead will post it.', style: t.textTheme.muted),
+                  _ => const SizedBox(height: 32, child: LinearProgressIndicator(minHeight: 2)),
+                },
+              ),
+              const SizedBox(height: Space.lg),
+              AppField(
+                label: 'Review',
+                description: _reviewMode == ReviewMode.manual
+                    ? 'The student submits it and you approve or request changes.'
+                    : 'The student marks it done themselves. Good for reading and practice.',
+                child: Wrap(
+                  spacing: Space.sm,
+                  children: [
+                    for (final (m, label) in [(ReviewMode.manual, 'Admin reviews'), (ReviewMode.self, 'Student marks done')])
+                      Semantics(
+                        selected: _reviewMode == m,
+                        child: (_reviewMode == m ? ShadButton.new : ShadButton.outline)(
+                          key: Key('review-${m.wire}'),
+                          size: ShadButtonSize.sm,
+                          onPressed: () => setState(() => _reviewMode = m),
+                          child: Text(label),
+                        ),
+                      ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: Space.lg),
+              AppField(
+                label: 'Link',
+                description: 'Optional: docs or a starter repo. Quizzes and more links are on desktop.',
+                error: _errors['resources[0].url'] ?? _errors['resources[0].title'],
+                child: Column(
+                  children: [
+                    ShadInput(
+                      key: const Key('task-link-name'),
+                      controller: _linkName,
+                      placeholder: const Text('Name, e.g. MDN: Flexbox'),
+                      textInputAction: TextInputAction.next,
+                    ),
+                    const SizedBox(height: Space.sm),
+                    ShadInput(
+                      key: const Key('task-link-url'),
+                      controller: _linkUrl,
+                      placeholder: const Text('https://'),
+                      keyboardType: TextInputType.url,
+                      autocorrect: false,
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: Space.lg),
+              AppField(
+                label: 'Shows up',
+                error: _errors['scheduled_for'],
+                description: _startLater ? null : 'Right away, with an announcement in chat.',
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Wrap(
+                      spacing: Space.sm,
+                      children: [
+                        (!_startLater ? ShadButton.new : ShadButton.outline)(
+                          size: ShadButtonSize.sm,
+                          onPressed: () => setState(() => _startLater = false),
+                          child: const Text('Now'),
+                        ),
+                        (_startLater ? ShadButton.new : ShadButton.outline)(
+                          size: ShadButtonSize.sm,
+                          onPressed: () async {
+                            final picked = await _pickDateTime(_startAt ?? now.add(const Duration(hours: 1)));
+                            if (picked != null) {
+                              setState(() {
+                                _startLater = true;
+                                _startAt = picked;
+                                _errors = {..._errors}..remove('scheduled_for');
+                              });
+                            }
+                          },
+                          child: Text(_startLater && _startAt != null ? dateTimeLabel(_startAt!) : 'Later…'),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+            ] else
+              Align(
+                alignment: Alignment.centerLeft,
+                child: ShadButton.outline(
+                  key: const Key('assign-more'),
+                  leading: const Icon(LucideIcons.slidersHorizontal, size: 16),
+                  onPressed: () => setState(() => _more = true),
+                  child: const Text('More options'),
+                ),
+              ),
             const SizedBox(height: Space.xxl),
             ShadButton(
               key: const Key('assign-submit'),

@@ -1,5 +1,5 @@
-// Package ai talks to the language model behind the students' AI helper. Only the student
-// helper uses it; nothing on the admin side (reviews, grading, tasks) depends on AI.
+// Package ai talks to the language model behind the students' AI helper, the AI team lead and
+// admins' review drafts. Reviews are still decided by an admin; a draft is only a suggestion.
 package ai
 
 import (
@@ -57,10 +57,25 @@ type Groq struct {
 }
 
 type chatRequest struct {
-	Model       string    `json:"model"`
-	Messages    []Message `json:"messages"`
-	MaxTokens   int       `json:"max_tokens"`
-	Temperature float64   `json:"temperature"`
+	Model          string          `json:"model"`
+	Messages       []Message       `json:"messages"`
+	MaxTokens      int             `json:"max_tokens"`
+	Temperature    float64         `json:"temperature"`
+	ResponseFormat *responseFormat `json:"response_format,omitempty"`
+}
+
+type responseFormat struct {
+	Type string `json:"type"`
+}
+
+// JSONProvider can ask the model for a single JSON object.
+type JSONProvider interface {
+	CompleteJSON(ctx context.Context, msgs []Message) (Completion, error)
+}
+
+// CompleteJSON asks for a JSON object answer (Groq's JSON mode). The caller still validates it.
+func (g *Groq) CompleteJSON(ctx context.Context, msgs []Message) (Completion, error) {
+	return g.complete(ctx, msgs, &responseFormat{Type: "json_object"})
 }
 
 type chatResponse struct {
@@ -78,10 +93,14 @@ type chatResponse struct {
 
 // Complete sends the conversation and returns the first choice.
 func (g *Groq) Complete(ctx context.Context, msgs []Message) (Completion, error) {
+	return g.complete(ctx, msgs, nil)
+}
+
+func (g *Groq) complete(ctx context.Context, msgs []Message, format *responseFormat) (Completion, error) {
 	if g == nil || g.APIKey == "" {
 		return Completion{}, ErrNotConfigured
 	}
-	body, err := json.Marshal(chatRequest{Model: g.Model, Messages: msgs, MaxTokens: g.MaxTokens, Temperature: 0.3})
+	body, err := json.Marshal(chatRequest{Model: g.Model, Messages: msgs, MaxTokens: g.MaxTokens, Temperature: 0.3, ResponseFormat: format})
 	if err != nil {
 		return Completion{}, err
 	}

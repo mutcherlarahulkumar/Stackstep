@@ -37,7 +37,7 @@ skipped). No automatic or AI-written nudges.
 
 ## Coming soon (shown, not faked)
 
-Payments (Razorpay), GitHub PR checks, AI review suggestions and certificate artwork (Orshot)
+Payments (Razorpay), GitHub PR checks and push notifications on phones
 appear as labelled cards. Nothing behind them is simulated.
 
 ## Edge cases

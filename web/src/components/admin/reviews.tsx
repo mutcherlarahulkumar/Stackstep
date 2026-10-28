@@ -1,7 +1,7 @@
 "use client";
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Check, ClipboardCheck, Clock, MessageSquareWarning } from "lucide-react";
+import { Check, ClipboardCheck, Clock, MessageSquareWarning, Sparkles } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
 
@@ -46,9 +46,10 @@ function Reviews() {
   const personas = useAllPersonas();
   const byId = personaMap(personas.data);
   const [persona, setPersona] = useState(ALL);
-  const [noting, setNoting] = useState<{ task: Task; to: TaskStatus } | null>(null);
+  const [noting, setNoting] = useState<{ task: Task; to: TaskStatus; draft?: boolean } | null>(null);
   const key = ["reviews", persona];
-  const q = useQuery({ queryKey: key, queryFn: () => api.reviews(persona === ALL ? null : persona), refetchInterval: 60_000 });
+  // Always fresh on open: the nav badge shares this cache and may be up to a minute old.
+  const q = useQuery({ queryKey: key, queryFn: () => api.reviews(persona === ALL ? null : persona), refetchInterval: 60_000, refetchOnMount: "always" });
 
   const move = useMutation({
     mutationFn: ({ task, to, note, rubric }: { item: ReviewItem; task: Task; to: TaskStatus; note: string; rubric?: boolean[] | null }) =>
@@ -142,6 +143,11 @@ function Reviews() {
                         <Button size="sm" variant="outline" onClick={() => setNoting({ task: item.task, to: "changes_requested" })} data-testid="review-changes">
                           <MessageSquareWarning data-icon="inline-start" aria-hidden /> Request changes
                         </Button>
+                        {q.data.ai_drafts ? (
+                          <Button size="sm" variant="ghost" onClick={() => setNoting({ task: item.task, to: "changes_requested", draft: true })} data-testid="review-draft">
+                            <Sparkles data-icon="inline-start" aria-hidden /> Draft with AI
+                          </Button>
+                        ) : null}
                       </div>
                     </CardContent>
                   </Card>
@@ -154,9 +160,11 @@ function Reviews() {
       <NoteDialog
         target={noting}
         busy={move.isPending}
+        aiDrafts={q.data?.ai_drafts ?? false}
+        autoDraft={noting?.draft ?? false}
         onCancel={() => setNoting(null)}
-        onConfirm={(note, rubric) => {
-          if (noting && noteItem) move.mutate({ item: noteItem, task: noting.task, to: noting.to, note, rubric });
+        onConfirm={(to, note, rubric) => {
+          if (noting && noteItem) move.mutate({ item: noteItem, task: noting.task, to, note, rubric });
         }}
       />
     </div>

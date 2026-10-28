@@ -11,6 +11,7 @@ test("rubric: admin writes it, the student sees it, the reviewer ticks it, the s
   await admin.getByTestId("student-meera-dev").click();
   await admin.getByTestId("open-assign").click();
   await admin.getByLabel("Title").fill(title);
+  await admin.getByTestId("assign-more").click();
   await admin.getByTestId("assign-rubric-add").click();
   await admin.getByLabel("Criterion 1", { exact: true }).fill("ok");
   await admin.getByTestId("assign-rubric-add").click();
@@ -52,7 +53,7 @@ test("rubric: admin writes it, the student sees it, the reviewer ticks it, the s
 
   // The student sees which were met, and the chat says so.
   await student.reload();
-  await board.getByRole("radio", { name: /^Done/ }).click();
+  await board.getByTestId("board-done").locator("summary").click();
   await board.getByRole("button", { name: title }).click();
   await expect(student.getByTestId("rubric")).toContainText("Review: 1 of 2 met");
   await expect(student.getByTestId("rubric").getByLabel("Not yet")).toHaveCount(1);

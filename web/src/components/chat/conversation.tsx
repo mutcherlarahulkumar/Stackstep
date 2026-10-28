@@ -16,7 +16,7 @@ import { ChatSkeleton } from "../app/loading";
 import { EmptyState, ErrorState } from "../app/state";
 import { useConversation, type Conversation, type Outgoing } from "./use-conversation";
 
-type Row = { key: string; at: Date; mine: boolean; body: string; taskId: string | null; outgoing: Outgoing | null };
+type Row = { key: string; at: Date; mine: boolean; body: string; taskId: string | null; automated: boolean; outgoing: Outgoing | null };
 
 function rows(target: ChatTarget, messages: Message[], outgoing: Outgoing[]): Row[] {
   // Oldest first for rendering top-to-bottom.
@@ -26,9 +26,10 @@ function rows(target: ChatTarget, messages: Message[], outgoing: Outgoing[]): Ro
     mine: isMine(target, m),
     body: m.body,
     taskId: m.task_id,
+    automated: m.automated,
     outgoing: null,
   }));
-  return [...delivered, ...outgoing.map((o) => ({ key: `out-${o.clientId}`, at: o.at, mine: true, body: o.body, taskId: null, outgoing: o }))];
+  return [...delivered, ...outgoing.map((o) => ({ key: `out-${o.clientId}`, at: o.at, mine: true, body: o.body, taskId: null, automated: false, outgoing: o }))];
 }
 
 const STUDENT_REPLIES = ["PR ready for review", "I'm stuck on this", "Good morning"];
@@ -190,7 +191,13 @@ function Bubble({
             </Button>
           </p>
         ) : showMeta || sending ? (
-          <p className="text-muted-foreground mt-1 px-1 text-xs">{sending ? "Sending…" : timeLabel(row.at)}</p>
+          <p className="text-muted-foreground mt-1 px-1 text-xs">
+            {sending ? "Sending…" : timeLabel(row.at)}
+            {/* Honest personas: replies no mentor wrote say so (once per group of messages). */}
+            {row.automated ? <span data-testid="automated-label"> · Automatic reply</span> : null}
+          </p>
+        ) : row.automated ? (
+          <span className="sr-only">Automatic reply</span>
         ) : null}
       </div>
     </li>
@@ -262,7 +269,7 @@ function Composer({ onSend, placeholder, quickReplies }: { onSend: (raw: string)
         </Button>
       </div>
       <div id="chat-hint" className="mt-1.5 flex min-h-4 items-center justify-between gap-2 text-xs">
-        <span className={error ? "text-destructive" : "text-muted-foreground hidden sm:inline"} role={error ? "alert" : undefined}>
+        <span className={error ? "text-destructive" : "sr-only"} role={error ? "alert" : undefined}>
           {error ?? "Enter to send · Shift+Enter for a new line"}
         </span>
         {length > Bounds.messageMax - 500 ? (

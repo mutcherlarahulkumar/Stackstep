@@ -286,10 +286,11 @@ type messageDTO struct {
 	TaskID       *uuid.UUID    `json:"task_id"`
 	ClientID     *uuid.UUID    `json:"client_id"`
 	SentAt       time.Time     `json:"sent_at"`
+	Automated    bool          `json:"automated"`
 }
 
 func toMessage(m domain.Message) messageDTO {
-	return messageDTO{ID: m.ID, EnrollmentID: m.EnrollmentID, PersonaID: m.PersonaID, Author: m.Author, Body: m.Body, TaskID: m.TaskID, ClientID: m.ClientID, SentAt: m.SentAt.UTC()}
+	return messageDTO{ID: m.ID, EnrollmentID: m.EnrollmentID, PersonaID: m.PersonaID, Author: m.Author, Body: m.Body, TaskID: m.TaskID, ClientID: m.ClientID, SentAt: m.SentAt.UTC(), Automated: m.Automated}
 }
 
 type meDTO struct {

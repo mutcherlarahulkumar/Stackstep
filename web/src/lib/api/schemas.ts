@@ -192,6 +192,8 @@ export const Message = z.object({
   task_id: z.uuid().nullable(),
   client_id: z.uuid().nullable(),
   sent_at: timestamp,
+  /** A persona message no admin wrote (AI or scripted reply, acknowledgement, announcement). */
+  automated: z.boolean(),
 });
 export type Message = z.output<typeof Message>;
 
@@ -529,6 +531,8 @@ export const Cohort = z.object({
   start_date: date,
   seats_total: z.int().min(1),
   seats_used: z.int().min(0),
+  fee_inr: z.int().min(1).nullable(),
+  applications_open: z.boolean(),
 });
 export type Cohort = z.output<typeof Cohort>;
 export const CohortList = z.object({ items: z.array(Cohort) });
@@ -550,6 +554,115 @@ export const ReviewQueue = z.object({
   items: z.array(z.object({ task: Task, student: User, waiting_hours: z.int().min(0), overdue: z.boolean() })),
   overdue: z.int().min(0),
   sla_hours: z.int(),
+  ai_drafts: z.boolean(),
 });
 export type ReviewQueue = z.output<typeof ReviewQueue>;
+
+export const REVIEW_DECISIONS = ["approve", "request_changes"] as const;
+export const ReviewDecision = z.enum(REVIEW_DECISIONS);
+export type ReviewDecision = z.output<typeof ReviewDecision>;
+export const ReviewDraft = z.object({
+  decision: ReviewDecision,
+  summary: z.string().max(800),
+  note: z.string().max(2000),
+  rubric: z.array(z.boolean()).max(8).nullable(),
+  read_pr: z.boolean(),
+});
+export type ReviewDraft = z.output<typeof ReviewDraft>;
 export type ReviewItem = ReviewQueue["items"][number];
+
+// ---- Applications and UPI payments (feature 15) ----
+
+export const APPLICATION_STATUSES = ["draft", "submitted", "flagged", "approved", "rejected"] as const;
+export const ApplicationStatus = z.enum(APPLICATION_STATUSES);
+export type ApplicationStatus = z.output<typeof ApplicationStatus>;
+export const APPLICATION_FLAGS = [
+  "partial_payment",
+  "cohort_mismatch",
+  "cohort_full",
+  "unclear_proof",
+  "payment_not_found",
+  "duplicate_proof",
+  "details_incorrect",
+  "other",
+] as const;
+export const ApplicationFlag = z.enum(APPLICATION_FLAGS);
+export type ApplicationFlag = z.output<typeof ApplicationFlag>;
+export const APPLICANT_ACTIONS = ["pay", "change_cohort", "edit_details", "resubmit"] as const;
+export const ApplicantAction = z.enum(APPLICANT_ACTIONS);
+export type ApplicantAction = z.output<typeof ApplicantAction>;
+export const APPLICATION_AUTHORS = ["applicant", "staff", "system"] as const;
+export const ApplicationAuthor = z.enum(APPLICATION_AUTHORS);
+export const APPLICATION_DECISIONS = ["approve", "flag", "reject"] as const;
+export const ApplicationDecision = z.enum(APPLICATION_DECISIONS);
+export type ApplicationDecision = z.output<typeof ApplicationDecision>;
+
+export const ApplicantDetails = z.object({
+  full_name: z.string(),
+  phone: z.string(),
+  date_of_birth: date,
+  college: z.string(),
+  course: z.string(),
+  branch: z.string(),
+  grad_year: z.int(),
+});
+export type ApplicantDetails = z.output<typeof ApplicantDetails>;
+
+export const Application = z.object({
+  id: z.uuid(),
+  status: ApplicationStatus,
+  cohort_id: z.uuid(),
+  details: ApplicantDetails,
+  fee_inr: z.int().min(0),
+  paid_inr: z.int().min(0),
+  due_inr: z.int().min(0),
+  flag: ApplicationFlag.nullable(),
+  flag_note: z.string(),
+  actions: z.array(ApplicantAction),
+  decided_at: timestamp.nullable(),
+  enrollment_id: z.uuid().nullable(),
+  version: z.int().min(1),
+  created_at: timestamp,
+  updated_at: timestamp,
+});
+export type Application = z.output<typeof Application>;
+
+export const PaymentProof = z.object({ id: z.uuid(), utr: z.string(), amount_inr: z.int().min(1), uploaded_at: timestamp, duplicate: z.boolean() });
+export type PaymentProof = z.output<typeof PaymentProof>;
+export const ApplicationMessage = z.object({ id: z.uuid(), author: ApplicationAuthor, body: z.string(), client_id: z.uuid().nullable(), created_at: timestamp });
+export type ApplicationMessage = z.output<typeof ApplicationMessage>;
+export const PaymentInfo = z.object({
+  upi_id: z.string(),
+  payee_name: z.string(),
+  note: z.string(),
+  has_qr: z.boolean(),
+  no_refund_policy: z.string(),
+  updated_at: timestamp,
+});
+export type PaymentInfo = z.output<typeof PaymentInfo>;
+
+export const ApplicantView = z.object({
+  application: Application.nullable(),
+  cohort: Cohort.nullable(),
+  proofs: z.array(PaymentProof),
+  messages: z.array(ApplicationMessage),
+  cohorts: z.array(Cohort),
+  payment: PaymentInfo,
+  enrolled: z.boolean(),
+});
+export type ApplicantView = z.output<typeof ApplicantView>;
+export const StaffApplication = ApplicantView.extend({ applicant: User });
+export type StaffApplication = z.output<typeof StaffApplication>;
+export const ApplicationRow = z.object({
+  application: Application,
+  applicant: User,
+  cohort_name: z.string(),
+  college_name: z.string().nullable(),
+  proofs: z.int().min(0),
+  unread: z.boolean(),
+});
+export type ApplicationRow = z.output<typeof ApplicationRow>;
+export const ApplicationQueue = z.object({ items: z.array(ApplicationRow), waiting: z.int().min(0) });
+export type ApplicationQueue = z.output<typeof ApplicationQueue>;
+export const ImageData = z.object({ content_type: z.enum(["image/png", "image/jpeg", "image/webp"]), data_base64: z.string() });
+export type ImageData = z.output<typeof ImageData>;

@@ -1,6 +1,6 @@
 "use client";
 
-import { ArrowLeft, Bot, CalendarX2, MessageCircle, RefreshCw, SquareKanban, UserRound } from "lucide-react";
+import { ArrowLeft, Bot, MessageCircle, SquareKanban, UserRound } from "lucide-react";
 import { useState } from "react";
 
 import { Button } from "@/components/ui/button";
@@ -9,19 +9,19 @@ import { type Enrollment, type Me, type Persona } from "@/lib/api/schemas";
 import { personaTag, totalUnread } from "@/lib/inbox";
 import { useStudentThreads } from "@/lib/inbox-queries";
 import { RealtimeProvider, useSocketStatus } from "@/lib/realtime-context";
-import { useSession } from "@/lib/session";
 import { useIsDesktop } from "@/lib/use-desktop";
 import { useBrowserNotifications, useUnreadTitle } from "@/lib/use-notifications";
 
 import { AppHeader } from "../app/app-header";
 import { ConnectionBanner } from "../app/connection-banner";
 import { RequireSession } from "../app/guard";
+import { SectionBoundary } from "../app/section-boundary";
 import { PersonaAvatar } from "../app/persona-avatar";
 import { EmptyState } from "../app/state";
 import { ConversationView } from "../chat/conversation";
 import { AI_THREAD, StudentThreadList } from "../chat/thread-list";
 import { AIHelper } from "../ai/ai-helper";
-import { WalletChips } from "../ai/wallet-chips";
+import { ApplyScreen } from "../apply/apply-screen";
 import { BoardPanel } from "./board-panel";
 import { OnboardingDialog } from "./onboarding-dialog";
 import { ProgressButton } from "./progress-sheet";
@@ -36,7 +36,7 @@ export function WorkspaceScreen() {
             <Workspace me={me} enrollment={me.enrollment} />
           </RealtimeProvider>
         ) : (
-          <NoEnrollment me={me} />
+          <ApplyScreen me={me} />
         )
       }
     </RequireSession>
@@ -97,7 +97,6 @@ function Workspace({ me, enrollment }: { me: Me; enrollment: Enrollment }) {
         </div>
         <div className="ml-auto flex items-center gap-1">
           <ProgressButton enrollment={enrollment} />
-          <WalletChips />
         </div>
       </AppHeader>
       <ConnectionBanner status={socket} />
@@ -118,6 +117,7 @@ function Workspace({ me, enrollment }: { me: Me; enrollment: Enrollment }) {
               </div>
             </nav>
             <section aria-label="Conversation" className="flex min-h-0 flex-col border-r">
+              <SectionBoundary key={aiOpen ? AI_THREAD : (desktopPersona?.id ?? "none")} label="This conversation">
               {aiOpen ? (
                 <AIHelper tasks={tasks} />
               ) : desktopPersona ? (
@@ -139,10 +139,13 @@ function Workspace({ me, enrollment }: { me: Me; enrollment: Enrollment }) {
                   )}
                 </div>
               )}
+              </SectionBoundary>
             </section>
             <section aria-label="Task board" className="flex min-h-0 flex-col">
               <PanelTitle icon={SquareKanban} title="Your board" />
-              <BoardPanel ws={ws} personas={byId} openTaskId={openTask} onOpenTask={setOpenTask} />
+              <SectionBoundary label="Your board">
+                <BoardPanel ws={ws} personas={byId} openTaskId={openTask} onOpenTask={setOpenTask} />
+              </SectionBoundary>
             </section>
           </div>
         ) : (
@@ -167,6 +170,7 @@ function Workspace({ me, enrollment }: { me: Me; enrollment: Enrollment }) {
               </TabsList>
             </div>
             <TabsContent value="chat" className="flex min-h-0 flex-1 flex-col">
+              <SectionBoundary key={phoneThread ?? "list"} label="This conversation">
               {phoneThread === AI_THREAD ? (
                 <AIHelper tasks={tasks} onBack={() => setPhoneThread(null)} />
               ) : phonePersona ? (
@@ -184,9 +188,12 @@ function Workspace({ me, enrollment }: { me: Me; enrollment: Enrollment }) {
                   <StudentThreadList selected={null} onSelect={(t) => setPhoneThread(t.persona.id)} onAI={() => setPhoneThread(AI_THREAD)} />
                 </div>
               )}
+              </SectionBoundary>
             </TabsContent>
             <TabsContent value="tasks" className="flex min-h-0 flex-1 flex-col">
-              <BoardPanel ws={ws} personas={byId} openTaskId={openTask} onOpenTask={setOpenTask} />
+              <SectionBoundary label="Your board">
+                <BoardPanel ws={ws} personas={byId} openTaskId={openTask} onOpenTask={setOpenTask} />
+              </SectionBoundary>
             </TabsContent>
           </Tabs>
         )}
@@ -225,28 +232,5 @@ function PanelTitle({ icon: Icon, title }: { icon: typeof MessageCircle; title: 
       <Icon className="text-muted-foreground size-4" aria-hidden />
       {title}
     </h2>
-  );
-}
-
-function NoEnrollment({ me }: { me: Me }) {
-  const { reloadMe } = useSession();
-  return (
-    <div className="flex min-h-dvh flex-col">
-      <AppHeader user={me.user} />
-      <main id="main" className="flex flex-1 items-center justify-center p-6">
-        <EmptyState
-          icon={CalendarX2}
-          title="No active internship"
-          action={
-            <Button variant="outline" onClick={() => void reloadMe()}>
-              <RefreshCw data-icon="inline-start" aria-hidden /> Check again
-            </Button>
-          }
-        >
-          You&apos;re signed in as @{me.user.github_login}, but you aren&apos;t enrolled in a program right now. If your college enrolled you, ask your
-          placement cell to check the email on your GitHub account.
-        </EmptyState>
-      </main>
-    </div>
   );
 }

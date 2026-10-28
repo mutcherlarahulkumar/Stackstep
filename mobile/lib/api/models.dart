@@ -490,6 +490,7 @@ final class Message {
     required this.taskId,
     required this.clientId,
     required this.sentAt,
+    required this.automated,
   });
 
   factory Message.fromJson(JsonReader j) => Message(
@@ -501,6 +502,7 @@ final class Message {
     taskId: j.stringOrNull('task_id'),
     clientId: j.stringOrNull('client_id'),
     sentAt: j.dateTime('sent_at'),
+    automated: j.boolean('automated'),
   );
 
   final String id;
@@ -511,6 +513,9 @@ final class Message {
   final String? taskId;
   final String? clientId;
   final DateTime sentAt;
+
+  /// A persona message no admin wrote (AI or scripted reply, acknowledgement, announcement).
+  final bool automated;
 }
 
 final class Page<T> {
@@ -991,6 +996,15 @@ enum HandInCheckCode {
   final String wire;
 }
 
+/// What an AI review draft suggests (desktop web only; mirrored here for the contract).
+enum ReviewDecision {
+  approve('approve'),
+  requestChanges('request_changes');
+
+  ReviewDecision(this.wire);
+  final String wire;
+}
+
 /// A student's private Markdown notes on a task; shared ones are shown to reviewers.
 final class TaskNote {
   const TaskNote({required this.body, required this.shared, required this.updatedAt});
@@ -1025,4 +1039,111 @@ final class WeekRecap {
     if (onTime == done) return '$done ${done == 1 ? 'task' : 'tasks'} finished, all on time. Keep it going.';
     return '$done ${done == 1 ? 'task' : 'tasks'} finished, $onTime on time. Start the next one early to stay ahead.';
   }
+}
+
+// ---- Applications and UPI payments (feature 15) ----
+
+/// Where a student's application to a cohort stands.
+enum ApplicationStatus {
+  draft('draft'),
+  submitted('submitted'),
+  flagged('flagged'),
+  approved('approved'),
+  rejected('rejected');
+
+  ApplicationStatus(this.wire);
+  final String wire;
+}
+
+/// The issue an admin raised on an application.
+enum ApplicationFlag {
+  partialPayment('partial_payment'),
+  cohortMismatch('cohort_mismatch'),
+  cohortFull('cohort_full'),
+  unclearProof('unclear_proof'),
+  paymentNotFound('payment_not_found'),
+  duplicateProof('duplicate_proof'),
+  detailsIncorrect('details_incorrect'),
+  other('other');
+
+  ApplicationFlag(this.wire);
+  final String wire;
+}
+
+/// What an applicant can do next.
+enum ApplicantAction {
+  pay('pay'),
+  changeCohort('change_cohort'),
+  editDetails('edit_details'),
+  resubmit('resubmit');
+
+  ApplicantAction(this.wire);
+  final String wire;
+}
+
+/// Who wrote an application message.
+enum ApplicationAuthor {
+  applicant('applicant'),
+  staff('staff'),
+  system('system');
+
+  ApplicationAuthor(this.wire);
+  final String wire;
+}
+
+/// A reviewer's decision (desktop web only; mirrored here for the contract).
+enum ApplicationDecision {
+  approve('approve'),
+  flag('flag'),
+  reject('reject');
+
+  ApplicationDecision(this.wire);
+  final String wire;
+}
+
+/// What the app needs from GET /v1/me/application: where a student's application stands.
+/// Applying and paying happen on the web.
+final class ApplicationSummary {
+  const ApplicationSummary({
+    required this.status,
+    required this.flag,
+    required this.flagNote,
+    required this.feeInr,
+    required this.paidInr,
+    required this.dueInr,
+    required this.cohortName,
+    required this.openCohorts,
+    required this.enrolled,
+  });
+
+  factory ApplicationSummary.fromJson(JsonReader j) {
+    final a = j.objectOrNull('application');
+    final flag = a?.stringOrNull('flag') == null ? null : a?.enumValue('flag', ApplicationFlag.values, (f) => f.wire);
+    final enrolled = j.boolean('enrolled');
+    final status = a?.enumValue('status', ApplicationStatus.values, (s) => s.wire);
+    // An approved application whose internship has ended doesn't count: they can apply again.
+    final live = status == ApplicationStatus.approved && !enrolled ? null : status;
+    return ApplicationSummary(
+      status: live,
+      flag: live == null ? null : flag,
+      flagNote: live == null ? '' : (a?.string('flag_note') ?? ''),
+      feeInr: a?.integer('fee_inr') ?? 0,
+      paidInr: a?.integer('paid_inr') ?? 0,
+      dueInr: a?.integer('due_inr') ?? 0,
+      cohortName: live == null ? null : j.objectOrNull('cohort')?.string('name'),
+      openCohorts: j.list('cohorts', (c) => c.string('id')).length,
+      enrolled: enrolled,
+    );
+  }
+
+  /// Null when there's no application in progress.
+  final ApplicationStatus? status;
+  final ApplicationFlag? flag;
+  final String flagNote;
+  final int feeInr;
+  final int paidInr;
+  final int dueInr;
+  final String? cohortName;
+  final int openCohorts;
+  final bool enrolled;
 }

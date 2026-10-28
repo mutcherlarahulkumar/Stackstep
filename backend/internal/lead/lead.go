@@ -1,5 +1,5 @@
-// Package lead is the AI team lead. Agent is the seam where an LLM-backed lead plugs in
-// (feature 4); Scripted is the deterministic lead used until then and in tests.
+// Package lead is the team lead persona's automatic replies. LLM answers with a language model
+// (feature 8); Scripted is the deterministic lead it falls back to, and the lead without AI.
 package lead
 
 import (
@@ -14,11 +14,20 @@ import (
 
 // Input is everything the lead may see when replying. It never includes other students' data.
 type Input struct {
-	StudentName string
-	Message     string
-	DayNumber   int
-	ProgramDays int
-	OpenTasks   []domain.Task // visible, non-terminal tasks, earliest due first
+	StudentName  string
+	PersonaName  string
+	PersonaTitle string
+	Message      string
+	DayNumber    int
+	ProgramDays  int
+	OpenTasks    []domain.Task // visible, non-terminal tasks, earliest due first
+	History      []Turn        // earlier messages in this conversation, oldest first
+}
+
+// Turn is one earlier message in the conversation.
+type Turn struct {
+	FromLead bool
+	Body     string
 }
 
 // Reply is what the lead will say, and after how long.

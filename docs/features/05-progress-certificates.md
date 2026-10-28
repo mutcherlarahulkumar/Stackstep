@@ -20,7 +20,14 @@ suggested certificate bar (**70%**) is met.
 - **The team lead congratulates the student** in chat with the code.
 - **Public verification.** `GET /v1/certificates/{code}` needs no sign-in, is rate limited
   like sign-in, and answers `valid` or `revoked`. The web app serves `/verify/{code}` and a
-  printable `/certificate/{code}`. Rendered artwork via Orshot is **coming soon**.
+  designed `/certificate/{code}`.
+- **Certificate artwork.** A4 landscape in the usual internship-certificate form: "Certificate
+  of Internship Completion", "This is to certify that", the name, the program and dates, a line
+  on conduct, the issue date, an authorised-signatory line, a seal, the certificate ID and a QR
+  code to the verification page. It never lists tasks or points (those stay on `/verify`).
+  Drawn as one self-contained SVG with system fonts, so **Print or save PDF**, **Download PNG**
+  (2×) and **Download SVG** all match the page. Revoked certificates show REVOKED across it and
+  offer no downloads.
 
 ## Edge cases
 
@@ -37,6 +44,8 @@ suggested certificate bar (**70%**) is met.
 | CE9 | Issue below the bar | dialog warns, admin may still issue | E2E `certificates.spec.ts` |
 | CE10 | Revoked certificate page | verify shows *revoked* with reason; printable page shows a REVOKED stamp and printing is disabled | E2E `certificates.spec.ts` |
 | CE11 | Unknown code; offline | "No certificate with this code" / retryable error state | E2E `certificates.spec.ts` |
+| CE12 | Certificate wording | internship-certificate form; names the program, track and dates; never mentions tasks or points | web `certificate.test.ts`, E2E `certificates.spec.ts` |
+| CE13 | Download PNG / SVG, print | PNG at 2× named `stackstep-certificate-XXXX-XXXX-XXXX.png`; SVG and A4 landscape print match the page; none offered when revoked | E2E `certificates.spec.ts` |
 
 ## Surfaces
 

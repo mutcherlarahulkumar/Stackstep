@@ -6,7 +6,6 @@ import { toast } from "sonner";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Kbd } from "@/components/ui/kbd";
 import { Spinner } from "@/components/ui/spinner";
 import { Textarea } from "@/components/ui/textarea";
 import { type Practice } from "@/lib/api/schemas";
@@ -82,11 +81,12 @@ export function PracticePad({ taskId, practice }: { taskId: string; practice: Pr
         className="bg-muted/30 min-h-60 font-mono text-[0.82rem] leading-relaxed"
         data-testid="practice-code"
       />
-      <p id="practice-keys" className="text-muted-foreground flex flex-wrap items-center gap-1.5 text-xs">
-        <Kbd>Tab</Kbd> indents · <Kbd>Esc</Kbd> then <Kbd>Tab</Kbd> leaves the editor · <Kbd>Ctrl</Kbd>+<Kbd>Enter</Kbd> runs
+      {/* Keyboard help for screen readers (the editor's description); sighted users see it on the Run button. */}
+      <p id="practice-keys" className="sr-only">
+        Tab indents. Press Escape then Tab to leave the editor. Control plus Enter runs the examples.
       </p>
       <div className="flex flex-wrap items-center gap-2">
-        <Button size="sm" onClick={() => void run()} disabled={running} data-testid="practice-run">
+        <Button size="sm" onClick={() => void run()} disabled={running} data-testid="practice-run" title="Ctrl + Enter">
           {running ? <Spinner data-icon="inline-start" /> : <Play data-icon="inline-start" aria-hidden />}
           Run examples
         </Button>

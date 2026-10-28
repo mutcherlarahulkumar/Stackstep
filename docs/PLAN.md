@@ -99,9 +99,11 @@ Each slice goes **backend → mobile app → web**, with E2E before it is called
 | 6 | **Placement overview, CSV export, nudges** | ✅ built — `docs/features/06-placement-overview.md` |
 | 7 | **People: enrollment by login or CSV, colleges and cohorts, internship status, staff roles** | ✅ built — `docs/features/07-people.md` |
 | — | GitHub App ingest + PR checks (webhooks, runner, hidden tests) | coming soon — needs a GitHub App |
-| — | AI review suggestions and an LLM team lead | coming soon — reviews and replies are manual for now |
-| — | Razorpay payments, entitlements, college seats, bulk import | coming soon — needs Razorpay keys |
-| — | Certificate artwork via Orshot | coming soon — the printable certificate works today |
+| 8 | **AI team lead and AI review drafts** (Groq; labelled automatic replies, admin-edited drafts) | ✅ built — `docs/features/14-ai-team-lead-and-review-drafts.md` |
+| 9 | **Applications and UPI payments** (multi-step form, QR + screenshot proof, admin flags and chat, no refunds) | ✅ built — `docs/features/15-applications-payments.md` |
+| 10 | **Public home page** (session-aware navbar, Verify in the bar, animated feature tour) | ✅ built — `docs/features/16-home.md` |
+| — | Razorpay checkout (automatic payment matching) | coming soon — UPI screenshots are checked by hand until then |
+| — | Certificate artwork | ✅ built — designed A4 certificate (PNG, SVG, PDF) in `05-progress-certificates.md` |
 | — | DSA judge | later |
 
 Setup and every environment variable: `docs/SETUP.md`.

@@ -3,10 +3,10 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Ban, BadgeCheck, Check, ClipboardList, Coins, Ellipsis, FileBadge, FileX, MessageSquareWarning, Plus, Route, Sparkles, TriangleAlert } from "lucide-react";
 import Link from "next/link";
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 
-import { Badge } from "@/components/ui/badge";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
@@ -17,7 +17,8 @@ import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "
 import { Spinner } from "@/components/ui/spinner";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Textarea } from "@/components/ui/textarea";
-import { ApiError, messageFor } from "@/lib/api/errors";
+import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
+import { ApiError, itemErrorMessage, messageFor } from "@/lib/api/errors";
 import { type Certificate, type Persona, type Student, type Task, type TaskStatus } from "@/lib/api/schemas";
 import { formatCode, verifyPath } from "@/lib/certificate";
 import { dateTimeLabel, dueLabel, firstName } from "@/lib/format";
@@ -78,13 +79,6 @@ function MoreActions({ student }: { student: Student }) {
               </span>
             </DropdownMenuItem>
           )}
-          <DropdownMenuSeparator />
-          <DropdownMenuItem disabled>
-            <Sparkles aria-hidden /> AI review suggestions
-            <Badge variant="outline" className="ml-auto">
-              Coming soon
-            </Badge>
-          </DropdownMenuItem>
         </DropdownMenuContent>
       </DropdownMenu>
       <AdjustCredits open={adjust} student={student} onClose={() => setAdjust(false)} />
@@ -103,7 +97,15 @@ function MoreActions({ student }: { student: Student }) {
 
 const ORDER: Record<TaskStatus, number> = { in_review: 0, changes_requested: 1, in_progress: 2, todo: 3, done: 4, cancelled: 5 };
 
+/** Whether AI review drafts are on (the review queue reports it). */
+export function useAIDrafts(): boolean {
+  const { api } = useSession();
+  const q = useQuery({ queryKey: ["reviews", "all"], queryFn: () => api.reviews(null), staleTime: 5 * 60_000 });
+  return q.data?.ai_drafts ?? false;
+}
+
 export function StudentDetail({ student }: { student: Student }) {
+  const aiDrafts = useAIDrafts();
   const { api } = useSession();
   const qc = useQueryClient();
   const [assignOpen, setAssignOpen] = useState(false);
@@ -194,7 +196,9 @@ export function StudentDetail({ student }: { student: Student }) {
                 <TableHead>Task</TableHead>
                 <TableHead>Status</TableHead>
                 <TableHead>Due</TableHead>
-                <TableHead className="text-right">Actions</TableHead>
+                <TableHead className="text-right">
+                  <span className="sr-only">Actions</span>
+                </TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -274,9 +278,10 @@ export function StudentDetail({ student }: { student: Student }) {
       <NoteDialog
         target={reviewing}
         busy={move.isPending}
+        aiDrafts={aiDrafts}
         onCancel={() => setReviewing(null)}
-        onConfirm={(note, rubric) => {
-          if (reviewing) move.mutate({ task: reviewing.task, to: reviewing.to, note, rubric });
+        onConfirm={(to, note, rubric) => {
+          if (reviewing) move.mutate({ task: reviewing.task, to, note, rubric });
         }}
       />
     </div>
@@ -354,7 +359,7 @@ function AssignFlowDialog({
     mutationFn: (id: string) => api.assignFlow(student.enrollment.id, id),
     onSuccess: (r) => {
       if (r.error) {
-        setError(r.error.message);
+        setError(itemErrorMessage(r.error));
         return;
       }
       toast.success(`Scheduled ${r.generated} ${r.generated === 1 ? "task" : "tasks"}`, {
@@ -429,8 +434,8 @@ function ReviewButton({ to, onClick, busy }: { to: TaskStatus; onClick: () => vo
       );
     case "cancelled":
       return (
-        <Button size="sm" variant="ghost" onClick={onClick} disabled={busy} aria-label="Cancel task">
-          <Ban aria-hidden />
+        <Button size="sm" variant="ghost" className="text-muted-foreground" onClick={onClick} disabled={busy}>
+          <Ban data-icon="inline-start" aria-hidden /> Cancel task
         </Button>
       );
     case "todo":
@@ -440,46 +445,96 @@ function ReviewButton({ to, onClick, busy }: { to: TaskStatus; onClick: () => vo
   }
 }
 
-/** Request changes, cancel, or approve a task that has a rubric: note plus the reviewer's ticks. */
+/** Review a hand-in (approve or request changes, with the rubric) or cancel a task. */
 export function NoteDialog({
   target,
   busy,
+  aiDrafts = false,
+  autoDraft = false,
   onCancel,
   onConfirm,
 }: {
   target: { task: Task; to: TaskStatus } | null;
   busy: boolean;
+  /** Offer "Draft with AI" (the review queue says whether drafts are on). */
+  aiDrafts?: boolean;
+  /** Start drafting as soon as the dialog opens. */
+  autoDraft?: boolean;
   onCancel: () => void;
-  onConfirm: (note: string, rubric: boolean[] | null) => void;
+  onConfirm: (to: TaskStatus, note: string, rubric: boolean[] | null) => void;
 }) {
-  return target ? <ReviewForm key={`${target.task.id}-${target.to}`} target={target} busy={busy} onCancel={onCancel} onConfirm={onConfirm} /> : null;
+  return target ? (
+    <ReviewForm key={`${target.task.id}-${target.to}`} target={target} busy={busy} aiDrafts={aiDrafts} autoDraft={autoDraft} onCancel={onCancel} onConfirm={onConfirm} />
+  ) : null;
+}
+
+/** Copy for a failed draft; the admin can always review by hand. */
+function draftError(e: unknown): string {
+  if (e instanceof ApiError) {
+    switch (e.code) {
+      case "not_configured":
+        return "AI drafts are off on this server. Review it yourself below.";
+      case "ai_unavailable":
+        return "The AI couldn't draft this one. Try again, or review it yourself.";
+      case "invalid_state":
+        return "This hand-in isn't waiting for review any more.";
+      default:
+        return messageFor(e);
+    }
+  }
+  return messageFor(e);
 }
 
 function ReviewForm({
   target,
   busy,
+  aiDrafts,
+  autoDraft,
   onCancel,
   onConfirm,
 }: {
   target: { task: Task; to: TaskStatus };
   busy: boolean;
+  aiDrafts: boolean;
+  autoDraft: boolean;
   onCancel: () => void;
-  onConfirm: (note: string, rubric: boolean[] | null) => void;
+  onConfirm: (to: TaskStatus, note: string, rubric: boolean[] | null) => void;
 }) {
+  const { api } = useSession();
   const criteria = target.task.content.rubric;
   const reviewing = target.to === "done" || target.to === "changes_requested";
+  const [to, setTo] = useState<TaskStatus>(target.to);
   const withRubric = reviewing && criteria.length > 0;
   const [note, setNote] = useState("");
   const [ticks, setTicks] = useState<boolean[]>(() => criteria.map(() => target.to === "done"));
   const [error, setError] = useState<string | null>(null);
-  const changes = target.to === "changes_requested";
-  const approve = target.to === "done";
+  const changes = to === "changes_requested";
+  const approve = to === "done";
   const met = ticks.filter(Boolean).length;
+  const canDraft = aiDrafts && reviewing && target.task.status === "in_review";
+
+  const draft = useMutation({
+    mutationFn: () => api.reviewDraft(target.task.id),
+    onSuccess: (d) => {
+      setTo(d.decision === "approve" ? "done" : "changes_requested");
+      setNote(d.note);
+      if (d.rubric && d.rubric.length === criteria.length) setTicks(d.rubric);
+      setError(null);
+    },
+  });
+  const started = useRef(false);
+  useEffect(() => {
+    if (autoDraft && canDraft && !started.current) {
+      started.current = true;
+      draft.mutate();
+    }
+  }, [autoDraft, canDraft, draft]);
+
   return (
     <Dialog open onOpenChange={(o) => (o ? null : onCancel())}>
-      <DialogContent>
+      <DialogContent className="sm:max-w-xl">
         <DialogHeader>
-          <DialogTitle>{approve ? `Approve “${target.task.title}”?` : changes ? "Request changes" : "Cancel this task?"}</DialogTitle>
+          <DialogTitle>{reviewing ? `Review “${target.task.title}”` : "Cancel this task?"}</DialogTitle>
           <DialogDescription>
             {approve
               ? "Tick what was met. The student sees the checklist and your note."
@@ -488,16 +543,63 @@ function ReviewForm({
                 : `“${target.task.title}” leaves the student's board. This can't be undone.`}
           </DialogDescription>
         </DialogHeader>
+        {canDraft ? (
+          <div className="flex flex-col gap-2" data-testid="ai-draft">
+            {draft.isPending ? (
+              <p className="text-muted-foreground flex items-center gap-2 text-sm" role="status">
+                <Spinner /> Drafting… reading the task{(target.task.submission?.url ?? "").includes("github.com") ? " and the PR" : ""}
+              </p>
+            ) : draft.isError ? (
+              <Alert variant="destructive">
+                <TriangleAlert aria-hidden />
+                <AlertDescription>{draftError(draft.error)}</AlertDescription>
+              </Alert>
+            ) : draft.data ? (
+              <Alert data-testid="ai-draft-summary">
+                <Sparkles aria-hidden />
+                <AlertTitle>AI draft · check it before you send</AlertTitle>
+                <AlertDescription>
+                  <p>{draft.data.summary}</p>
+                  <p className="text-xs">{draft.data.read_pr ? "Based on the task and the PR's diff." : "Based on the task and hand-in only (the PR couldn't be read)."}</p>
+                </AlertDescription>
+              </Alert>
+            ) : null}
+            {!draft.isPending ? (
+              <Button type="button" variant="outline" size="sm" className="self-start" onClick={() => draft.mutate()} data-testid="ai-draft-button">
+                <Sparkles data-icon="inline-start" aria-hidden /> {draft.data || draft.isError ? "Draft again" : "Draft with AI"}
+              </Button>
+            ) : null}
+          </div>
+        ) : null}
         <form
           id="note-form"
           className="flex flex-col gap-4"
           onSubmit={(e) => {
             e.preventDefault();
-            const err = validateNote(note, target.to);
+            const err = validateNote(note, to);
             setError(err);
-            if (!err) onConfirm(note.trim(), withRubric ? ticks : null);
+            if (!err) onConfirm(to, note.trim(), withRubric ? ticks : null);
           }}
         >
+          {reviewing ? (
+            <ToggleGroup
+              type="single"
+              variant="outline"
+              value={to}
+              onValueChange={(v) => {
+                if (v === "done" || v === "changes_requested") setTo(v);
+              }}
+              aria-label="Decision"
+              className="self-start"
+            >
+              <ToggleGroupItem value="done" data-testid="decision-approve">
+                <Check aria-hidden /> Approve
+              </ToggleGroupItem>
+              <ToggleGroupItem value="changes_requested" data-testid="decision-changes">
+                <MessageSquareWarning aria-hidden /> Request changes
+              </ToggleGroupItem>
+            </ToggleGroup>
+          ) : null}
           {withRubric ? (
             <fieldset className="flex flex-col gap-2 rounded-lg border p-3" data-testid="rubric-review">
               <legend className="px-1 text-sm font-medium">
@@ -513,7 +615,7 @@ function ReviewForm({
           ) : null}
           <Field data-invalid={!!error}>
             <FieldLabel htmlFor="review-note">{changes ? "What needs to change" : approve ? "Note (optional)" : "Reason (optional)"}</FieldLabel>
-            <Textarea id="review-note" rows={approve ? 3 : 4} value={note} onChange={(e) => setNote(e.target.value)} aria-invalid={!!error} />
+            <Textarea id="review-note" rows={changes || draft.data ? 6 : 3} value={note} onChange={(e) => setNote(e.target.value)} aria-invalid={!!error} />
             {error ? <FieldError>{error}</FieldError> : <span className="text-muted-foreground text-xs tabular-nums">{runeLength(note.trim())} / {Bounds.noteMax}</span>}
           </Field>
         </form>
@@ -521,7 +623,7 @@ function ReviewForm({
           <Button variant="outline" onClick={onCancel}>
             Back
           </Button>
-          <Button type="submit" form="note-form" variant={target.to === "cancelled" ? "destructive" : "default"} disabled={busy} data-testid="review-confirm">
+          <Button type="submit" form="note-form" variant={to === "cancelled" ? "destructive" : "default"} disabled={busy || draft.isPending} data-testid="review-confirm">
             {busy ? <Spinner data-icon="inline-start" /> : null}
             {approve ? "Approve" : changes ? "Send to student" : "Cancel task"}
           </Button>

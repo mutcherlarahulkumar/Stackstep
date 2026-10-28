@@ -13,7 +13,7 @@ import { InputGroup, InputGroupAddon, InputGroupInput } from "@/components/ui/in
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Spinner } from "@/components/ui/spinner";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { messageFor } from "@/lib/api/errors";
+import { itemErrorMessage, messageFor } from "@/lib/api/errors";
 import { type AssignResult, type Flow, type FlowItem, type Persona, type Student, type TaskTemplate } from "@/lib/api/schemas";
 import { useSession } from "@/lib/session";
 import { cn } from "@/lib/utils";
@@ -305,7 +305,7 @@ export function AssignStudentsDialog({ open, flow, onClose }: { open: boolean; f
                     <TableCell className="text-sm">
                       {r.error ? (
                         <span className="text-destructive flex items-center gap-1.5">
-                          <TriangleAlert className="size-4" aria-hidden /> {r.error.message}
+                          <TriangleAlert className="size-4" aria-hidden /> {itemErrorMessage(r.error)}
                         </span>
                       ) : (
                         <span className="flex items-center gap-1.5">

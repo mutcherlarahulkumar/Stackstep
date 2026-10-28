@@ -64,7 +64,16 @@ SELECT jsonb_build_object(
           FROM points_ledger pl WHERE pl.enrollment_id = enr.id), '[]'::jsonb),
       'certificates', COALESCE((SELECT jsonb_agg(jsonb_build_object('code', ce.code, 'issued_at', ce.issued_at, 'revoked_at', ce.revoked_at, 'revoke_reason', ce.revoke_reason) ORDER BY ce.issued_at)
           FROM certificates ce WHERE ce.enrollment_id = enr.id), '[]'::jsonb)
-    ) ORDER BY enr.created_at) FROM enr), '[]'::jsonb)
+    ) ORDER BY enr.created_at) FROM enr), '[]'::jsonb),
+  'applications', COALESCE((SELECT jsonb_agg(jsonb_build_object(
+      'cohort', co.name, 'status', a.status, 'full_name', a.full_name, 'phone', a.phone, 'date_of_birth', a.date_of_birth,
+      'college', a.college, 'course', a.course, 'branch', a.branch, 'grad_year', a.grad_year,
+      'fee_inr', a.fee_inr, 'paid_inr', a.paid_inr, 'flag', a.flag, 'flag_note', a.flag_note, 'decided_at', a.decided_at, 'created_at', a.created_at,
+      'payments', COALESCE((SELECT jsonb_agg(jsonb_build_object('utr', pp.utr, 'amount_inr', pp.amount_inr, 'uploaded_at', pp.uploaded_at) ORDER BY pp.seq)
+          FROM payment_proofs pp WHERE pp.application_id = a.id), '[]'::jsonb),
+      'messages', COALESCE((SELECT jsonb_agg(jsonb_build_object('from', am.author, 'body', am.body, 'at', am.created_at) ORDER BY am.seq)
+          FROM application_messages am WHERE am.application_id = a.id), '[]'::jsonb)
+    ) ORDER BY a.created_at) FROM applications a JOIN cohorts co ON co.id = a.cohort_id WHERE a.user_id = $1), '[]'::jsonb)
 ) FROM me`, userID, now).Scan(&out)
 	return out, notFound(err)
 }

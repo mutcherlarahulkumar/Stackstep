@@ -15,6 +15,30 @@ import 'package:stackstep/ui/ui.dart';
 
 final FutureProvider<Progress> progressProvider = FutureProvider.autoDispose<Progress>((ref) => ref.read(apiClientProvider).progress());
 
+/// The one progress control in the student's app bar: share of tasks done. Points, the
+/// certificate bar and the certificate are one tap away.
+class ProgressPill extends ConsumerWidget {
+  const ProgressPill({super.key});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final pct = ref.watch(progressProvider).value?.completionPercent;
+    return Semantics(
+      label: 'Your progress and certificate',
+      button: true,
+      excludeSemantics: true,
+      child: ShadButton.outline(
+        key: const Key('open-progress'),
+        size: ShadButtonSize.sm,
+        decoration: const ShadDecoration(border: ShadBorder(radius: BorderRadius.all(Radius.circular(999)))),
+        leading: const Icon(LucideIcons.award, size: 16),
+        onPressed: () => Navigator.of(context).push(MaterialPageRoute<void>(builder: (_) => const ProgressScreen())),
+        child: Text(pct == null ? 'Progress' : '$pct% done'),
+      ),
+    );
+  }
+}
+
 /// Tasks finished, the certificate bar and, once issued, the certificate link.
 class ProgressScreen extends ConsumerWidget {
   const ProgressScreen({super.key});
@@ -195,9 +219,14 @@ class _CertificateCard extends StatelessWidget {
                     children: [
                       ShadButton(
                         key: const Key('open-certificate'),
+                        leading: const Icon(LucideIcons.award, size: 16),
+                        onPressed: () => openLink(context, AppConfig.webUrl('/certificate/${Uri.encodeComponent(c.code)}')),
+                        child: const Text('View certificate'),
+                      ),
+                      ShadButton.outline(
                         leading: const Icon(LucideIcons.externalLink, size: 16),
                         onPressed: () => openLink(context, AppConfig.verifyUrl(c.code)),
-                        child: const Text('Open verification page'),
+                        child: const Text('Verification page'),
                       ),
                       ShadButton.outline(
                         leading: const Icon(LucideIcons.copy, size: 16),

@@ -13,7 +13,8 @@ test("flows: duplicate, add a task, publish and assign; the student gets it from
   const task = unique("Angular signals store");
 
   await signIn(admin, "admin-demo");
-  await admin.getByRole("link", { name: "Flows" }).click();
+  await admin.getByTestId("nav-setup").click();
+  await admin.getByRole("menuitem", { name: /^Flows/ }).click();
   await expect(admin.getByTestId("flow-row-React Frontend · 30 days")).toContainText("Published v1");
 
   // Duplicate the React flow into an Angular one; the copy opens as a draft with every task.
@@ -123,7 +124,8 @@ test("personas and library validate before saving (P1, L1)", async ({ page }) =>
   await expectToast(page, `Added ${name}`);
   await expect(page.getByTestId(`persona-row-${name}`)).toBeVisible();
 
-  await page.getByRole("link", { name: "Task library" }).click();
+  await page.getByTestId("nav-setup").click();
+  await page.getByRole("menuitem", { name: /^Task library/ }).click();
   await expect(page.getByTestId("template-row-Two Sum")).toBeVisible();
   await page.getByTestId("new-template").click();
   await page.getByTestId("template-save").click();

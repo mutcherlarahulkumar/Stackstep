@@ -1,6 +1,6 @@
 "use client";
 
-import { AlarmClock, CalendarClock, CircleCheck, Clock, Coffee, Footprints, GitPullRequest, Trophy, type LucideIcon } from "lucide-react";
+import { AlarmClock, ChevronRight, CalendarClock, Clock, Coffee, Footprints } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
 
@@ -9,15 +9,13 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Sheet, SheetContent, SheetDescription, SheetFooter, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { Spinner } from "@/components/ui/spinner";
-import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { type SubmissionInput } from "@/lib/api/client";
 import { type Persona, type Task, type TaskStatus } from "@/lib/api/schemas";
-import { COLUMN_LABEL, COLUMNS, columnOf, groupBoard, STATUS_LABEL, type Column } from "@/lib/board";
+import { groupBoard, STATUS_LABEL } from "@/lib/board";
 import { dateTimeLabel, dueLabel, isOverdue, taskTimeLabel } from "@/lib/format";
 import { cn } from "@/lib/utils";
 import { studentMoves } from "@/lib/validation";
 
-import { choiceItem } from "../app/choice";
 import { PersonaAvatar } from "../app/persona-avatar";
 import { EmptyState, ErrorState } from "../app/state";
 import { StatusBadge, TypeBadge } from "../app/task-badges";
@@ -29,12 +27,14 @@ import { BoardSkeleton, stagger } from "../app/loading";
 
 type Workspace = ReturnType<typeof useWorkspace>;
 
-const EMPTY: Record<Column, { icon: LucideIcon; title: string; body: string }> = {
-  today: { icon: Coffee, title: "Nothing due today", body: "New tickets arrive in your chats. Ask what to pick up next." },
-  in_review: { icon: GitPullRequest, title: "Nothing in review", body: "When you open a PR, move its card here so your lead knows to look." },
-  changes: { icon: CircleCheck, title: "No changes requested", body: "Review feedback lands here. Clean so far." },
-  done: { icon: Trophy, title: "Nothing finished yet", body: "Approved work collects here. Your first one is close." },
-};
+function SectionTitle({ id, count, children }: { id: string; count: number; children: string }) {
+  return (
+    <h2 id={id} className="flex items-center gap-2 text-sm font-semibold">
+      {children}
+      <span className="text-muted-foreground font-normal tabular-nums">{count}</span>
+    </h2>
+  );
+}
 
 const ACTION_LABEL = (from: TaskStatus, to: TaskStatus): string => {
   if (from === "todo" && to === "in_progress") return "Start working";
@@ -73,7 +73,6 @@ export function BoardPanel({
   openTaskId: string | null;
   onOpenTask: (id: string | null) => void;
 }) {
-  const [column, setColumn] = useState<Column>("today");
   const tasks = ws.state.tasks;
   if (tasks.status === "loading") {
     return (
@@ -86,44 +85,53 @@ export function BoardPanel({
 
   const groups = groupBoard(tasks.data);
   const open = openTaskId ? tasks.data.find((t) => t.id === openTaskId) : undefined;
-  const empty = EMPTY[column];
+  // One list of what to do now: feedback to act on first, then the rest by due time.
+  const todo = [...groups.changes, ...groups.today];
+  const card = (t: Task, i: number) => (
+    <li key={t.id} className="animate-enter-stagger" style={stagger(i)}>
+      <TaskCard task={t} persona={personas.get(t.persona_id)} onOpen={() => onOpenTask(t.id)} />
+    </li>
+  );
 
   return (
     <div className="flex min-h-0 flex-1 flex-col">
-      <div className="px-4 pt-4 sm:px-6">
-        <ToggleGroup
-          type="single"
-          variant="outline"
-          size="sm"
-          value={column}
-          onValueChange={(v) => {
-            if (v) setColumn(v as Column);
-          }}
-          aria-label="Board column"
-          className="w-full flex-wrap justify-start"
-        >
-          {COLUMNS.map((c) => (
-            <ToggleGroupItem key={c} value={c} aria-label={`${COLUMN_LABEL[c]}, ${groups[c].length} tasks`} className={cn("gap-1.5", choiceItem)}>
-              {COLUMN_LABEL[c]}
-              <span className="text-muted-foreground tabular-nums">{groups[c].length}</span>
-            </ToggleGroupItem>
-          ))}
-        </ToggleGroup>
-      </div>
-      <div className="min-h-0 flex-1 overflow-y-auto p-4 sm:px-6">
-        {groups[column].length === 0 ? (
-          <EmptyState icon={empty.icon} title={empty.title}>
-            {empty.body}
-          </EmptyState>
-        ) : (
-          <ul className="flex flex-col gap-3" aria-label={`${COLUMN_LABEL[column]} tasks`}>
-            {groups[column].map((t, i) => (
-              <li key={t.id} className="animate-enter-stagger" style={stagger(i)}>
-                <TaskCard task={t} persona={personas.get(t.persona_id)} onOpen={() => onOpenTask(t.id)} />
-              </li>
-            ))}
-          </ul>
-        )}
+      <div className="flex min-h-0 flex-1 flex-col gap-6 overflow-y-auto p-4 sm:px-6">
+        <section aria-labelledby="board-todo" className="flex flex-col gap-3">
+          <SectionTitle id="board-todo" count={todo.length}>
+            To do
+          </SectionTitle>
+          {todo.length === 0 ? (
+            <EmptyState icon={Coffee} title="Nothing to do right now">
+              New tickets arrive in your chats. Ask your team lead what to pick up next.
+            </EmptyState>
+          ) : (
+            <ul className="flex flex-col gap-3" aria-label="To do tasks">
+              {todo.map(card)}
+            </ul>
+          )}
+        </section>
+        {groups.in_review.length > 0 ? (
+          <section aria-labelledby="board-review" className="flex flex-col gap-3">
+            <SectionTitle id="board-review" count={groups.in_review.length}>
+              Waiting for review
+            </SectionTitle>
+            <ul className="flex flex-col gap-3" aria-label="Waiting for review tasks">
+              {groups.in_review.map(card)}
+            </ul>
+          </section>
+        ) : null}
+        {groups.done.length > 0 ? (
+          <details className="group flex flex-col gap-3" data-testid="board-done">
+            <summary className="text-muted-foreground hover:text-foreground flex cursor-pointer list-none items-center gap-2 text-sm font-medium select-none [&::-webkit-details-marker]:hidden">
+              <ChevronRight className="size-4 transition-transform group-open:rotate-90" aria-hidden />
+              Done
+              <span className="tabular-nums">{groups.done.length}</span>
+            </summary>
+            <ul className="mt-3 flex flex-col gap-3" aria-label="Done tasks">
+              {groups.done.map(card)}
+            </ul>
+          </details>
+        ) : null}
       </div>
       <TaskSheet
         task={open ?? null}
@@ -138,7 +146,6 @@ export function BoardPanel({
             return err;
           }
           toast.success(to === "in_review" ? "Sent for review" : to === "done" ? "Nice work. Marked as done." : `Moved to ${STATUS_LABEL[to]}`);
-          setColumn(columnOf(to));
           return null;
         }}
       />

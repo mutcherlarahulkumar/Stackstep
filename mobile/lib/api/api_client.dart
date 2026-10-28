@@ -158,6 +158,8 @@ final class ApiClient {
 
   Future<Me> me() async => Me.fromJson(asObject(await _send('GET', '/v1/me')));
 
+  Future<ApplicationSummary> myApplication() async => ApplicationSummary.fromJson(asObject(await _send('GET', '/v1/me/application')));
+
   Future<Account> acceptTerms(int version) async =>
       Account.fromJson(asObject(await _send('POST', '/v1/me/consent', body: {'version': version})));
 

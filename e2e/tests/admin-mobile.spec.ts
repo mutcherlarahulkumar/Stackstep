@@ -41,7 +41,7 @@ test.describe("admin on a phone @mobile", () => {
     await expect(page.getByLabel("Message Sam Rivera")).toBeVisible();
     await page.getByRole("button", { name: "All chats" }).click();
     await page.getByRole("tab", { name: "Tasks" }).click();
-    await expect(page.getByRole("radio", { name: /Today/ })).toBeVisible();
+    await expect(page.getByRole("heading", { name: /To do/ })).toBeVisible();
   });
 
   test("flows, library and personas ask for desktop; inbox works on the phone (U5)", async ({ page }) => {

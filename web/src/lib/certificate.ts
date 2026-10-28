@@ -29,3 +29,23 @@ export function periodEnd(c: Pick<Certificate, "end_date" | "issued_at">): strin
   const issued = c.issued_at.toISOString().slice(0, 10);
   return issued < c.end_date ? issued : c.end_date;
 }
+
+/** The track a flow teaches: "React Frontend · 30 days" → "React Frontend". */
+export function trackName(flow: string | null): string | null {
+  const t = flow?.replace(/\s*·\s*\d+\s*days?\s*$/i, "").trim();
+  return t ? t : null;
+}
+
+/**
+ * The certificate's words, in the usual internship-certificate form: who, what, when, and a
+ * line on conduct. No task counts or points; those live on the verification page.
+ */
+export function certificateWording(c: Pick<Certificate, "student_name" | "program_days" | "program_slug" | "flow_name" | "start_date" | "end_date" | "issued_at">) {
+  const first = c.student_name.trim().split(/\s+/)[0] ?? c.student_name;
+  const track = trackName(c.flow_name);
+  return {
+    body: `has successfully completed the ${programLabel(c)}${track ? ` in ${track}` : ""} at Stackstep, from ${dateOnlyLabel(c.start_date)} to ${dateOnlyLabel(periodEnd(c))}.`,
+    closing: `During the internship, ${first} showed dedication, professionalism and a keen willingness to learn. We wish them every success in the future.`,
+    issued: c.issued_at.toISOString().slice(0, 10),
+  };
+}

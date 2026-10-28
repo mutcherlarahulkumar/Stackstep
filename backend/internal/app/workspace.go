@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"log/slog"
 	"strings"
+	"sync"
 	"time"
 	"unicode/utf8"
 
@@ -25,7 +26,24 @@ type Workspace struct {
 	Clock clock.Clock
 	Lead  lead.Agent
 	Log   *slog.Logger
+	// Background runs work after a request finishes (AI replies). Nil runs it in a goroutine;
+	// tests run it inline.
+	Background func(func())
+
+	bg sync.WaitGroup
 }
+
+// later runs f after the current request, tracked so Drain can wait for it on shutdown.
+func (w *Workspace) later(f func()) {
+	if w.Background != nil {
+		w.Background(f)
+		return
+	}
+	w.bg.Go(f)
+}
+
+// Drain waits for background work (AI replies in flight) to finish.
+func (w *Workspace) Drain() { w.bg.Wait() }
 
 var (
 	errNotFound = apperr.New(apperr.CodeNotFound, "Not found.")
@@ -416,6 +434,7 @@ func (w *Workspace) SendMessage(ctx context.Context, u domain.User, personaID, c
 
 	now := w.Clock.Now()
 	var res SendResult
+	replyLater := false
 	err = w.Store.Tx(ctx, func(q store.Q) error {
 		if err := store.LockEnrollmentChat(ctx, q, e.ID); err != nil {
 			return err
@@ -455,13 +474,17 @@ func (w *Workspace) SendMessage(ctx context.Context, u domain.User, personaID, c
 		if !persona.AutoReply {
 			return nil
 		}
+		if a, ok := w.Lead.(lead.Async); ok && a.Async() {
+			replyLater = true
+			return nil
+		}
 		open, err := store.ListTasks(ctx, q, e.ID, store.TaskFilter{VisibleAt: &now})
 		if err != nil {
 			return err
 		}
 		reply, err := w.Lead.Reply(ctx, lead.Input{
-			StudentName: u.Name, Message: clean, DayNumber: e.DayNumber(now), ProgramDays: e.Program.Days,
-			OpenTasks: openOnly(open),
+			StudentName: u.Name, PersonaName: persona.Name, PersonaTitle: persona.Title, Message: clean,
+			DayNumber: e.DayNumber(now), ProgramDays: e.Program.Days, OpenTasks: openOnly(open),
 		})
 		if err != nil {
 			return fmt.Errorf("lead reply: %w", err)
@@ -476,7 +499,59 @@ func (w *Workspace) SendMessage(ctx context.Context, u domain.User, personaID, c
 		}, now)
 		return err
 	})
+	if err == nil && replyLater && res.Created {
+		msg, student := res.Message, u
+		bg := context.WithoutCancel(ctx)
+		w.later(func() { w.replyAsync(bg, e, student, persona, msg) })
+	}
 	return res, err
+}
+
+// aiReplyTimeout bounds one AI team lead reply, model call included.
+const aiReplyTimeout = 45 * time.Second
+
+// replyAsync answers a student message with an agent that calls out to the network (the AI
+// team lead), after the message is stored. The reply arrives at the persona's usual delay, or
+// as soon as it is ready when the model took longer.
+func (w *Workspace) replyAsync(ctx context.Context, e domain.Enrollment, u domain.User, persona domain.Persona, msg domain.Message) {
+	ctx, cancel := context.WithTimeout(ctx, aiReplyTimeout)
+	defer cancel()
+	now := w.Clock.Now()
+	open, err := store.ListTasks(ctx, w.Store.Pool, e.ID, store.TaskFilter{VisibleAt: &now})
+	if err != nil {
+		w.Log.ErrorContext(ctx, "ai reply: list tasks", "err", err, "enrollment", e.ID)
+		return
+	}
+	recent, err := store.ListMessages(ctx, w.Store.Pool, e.ID, persona.ID, now, nil, 11)
+	if err != nil {
+		w.Log.ErrorContext(ctx, "ai reply: list messages", "err", err, "enrollment", e.ID)
+		return
+	}
+	history := make([]lead.Turn, 0, len(recent))
+	for i := len(recent) - 1; i >= 0; i-- { // oldest first, without the message being answered
+		if m := recent[i]; m.ID != msg.ID {
+			history = append(history, lead.Turn{FromLead: m.Author == domain.AuthorPersona, Body: m.Body})
+		}
+	}
+	reply, err := w.Lead.Reply(ctx, lead.Input{
+		StudentName: u.Name, PersonaName: persona.Name, PersonaTitle: persona.Title, Message: msg.Body,
+		DayNumber: e.DayNumber(now), ProgramDays: e.Program.Days, OpenTasks: openOnly(open), History: history,
+	})
+	if err != nil {
+		w.Log.ErrorContext(ctx, "ai reply failed", "err", err, "enrollment", e.ID)
+		return
+	}
+	body := strings.TrimSpace(reply.Body)
+	if body == "" || utf8.RuneCountInString(body) > domain.MessageMaxLen {
+		w.Log.WarnContext(ctx, "auto reply dropped: empty or too long", "enrollment", e.ID)
+		return
+	}
+	if _, _, err := store.InsertMessage(ctx, w.Store.Pool, store.NewMessage{
+		EnrollmentID: e.ID, PersonaID: persona.ID, Author: domain.AuthorPersona, Body: body,
+		DeliverAt: msg.SentAt.Add(max(reply.Delay, 0)),
+	}, w.Clock.Now()); err != nil {
+		w.Log.ErrorContext(ctx, "ai reply: store", "err", err, "enrollment", e.ID)
+	}
 }
 
 func openOnly(ts []domain.Task) []domain.Task {

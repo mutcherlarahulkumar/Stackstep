@@ -14,8 +14,9 @@ test.describe("student workspace", () => {
     await page.getByLabel("Message Sam Rivera").first().fill(text);
     await page.keyboard.press("Enter");
     await expect(log).toContainText(text);
-    // The lead's reply arrives over the WebSocket after LEAD_REPLY_DELAY.
-    await expect(log).toContainText("I'll review it shortly", { timeout: 15_000 });
+    // The AI team lead's reply arrives over the WebSocket after LEAD_REPLY_DELAY, labelled (AL1).
+    await expect(log).toContainText("A mentor will review it soon", { timeout: 15_000 });
+    await expect(log.getByTestId("automated-label").last()).toContainText("Automatic reply");
   });
 
   test("composer blocks blank and over-long messages", async ({ page }) => {
@@ -36,10 +37,10 @@ test.describe("student workspace", () => {
     await expect(page).toHaveURL(/\/workspace$/);
   });
 
-  test("a student without an internship sees the empty state", async ({ page }) => {
+  test("a student without an internship gets the application, not old chats (AP1)", async ({ page }) => {
     await signIn(page, "nora-dev");
-    await expect(page.getByRole("heading", { name: "No active internship" })).toBeVisible();
-    await expect(page.getByText("@nora-dev")).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Join an internship cohort" })).toBeVisible();
+    await expect(page.getByRole("navigation", { name: "Chats" })).toHaveCount(0);
   });
 });
 
@@ -97,7 +98,6 @@ test("full loop: admin assigns → student works → admin reviews", async ({ br
   await expectToast(admin, "Changes requested");
 
   await expect(student.getByTestId("chat-log").first()).toContainText("Keep the filter in the URL.", { timeout: 10_000 });
-  await student.getByRole("radio", { name: /Changes requested/ }).click();
   await board.getByRole("button", { name: title }).click();
   await student.getByTestId("move-in_review").click();
   // The last link is kept; the note says what changed this time.
