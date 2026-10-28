@@ -55,7 +55,7 @@ export function PracticePad({ taskId, practice }: { taskId: string; practice: Pr
         <Badge variant="secondary">JavaScript · runs on this device</Badge>
       </div>
       <Textarea
-        aria-label={`Your solution: define ${practice.function_name}`}
+        aria-label={`Your solution defines ${practice.function_name}`}
         aria-describedby="practice-keys"
         rows={12}
         spellCheck={false}

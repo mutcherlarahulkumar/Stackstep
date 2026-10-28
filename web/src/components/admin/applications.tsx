@@ -1,7 +1,7 @@
 "use client";
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { BadgeCheck, CircleAlert, Flag, IndianRupee, Inbox, ShieldAlert, XCircle } from "lucide-react";
+import { BadgeCheck, CircleAlert, Flag, IndianRupee, Inbox, ReceiptIndianRupee, ShieldAlert, XCircle } from "lucide-react";
 import { useId, useState } from "react";
 import { toast } from "sonner";
 
@@ -19,10 +19,13 @@ import { ApiError } from "@/lib/api/errors";
 import { APPLICATION_FLAGS, type ApplicationDecision, type ApplicationFlag, type ApplicationRow, type ApplicationStatus, type StaffApplication } from "@/lib/api/schemas";
 import { applyErrorMessage, flagLabel, inr, statusLabel } from "@/lib/apply";
 import { dateTimeLabel, initials } from "@/lib/format";
+import { landed } from "@/lib/landed";
 import { useSession } from "@/lib/session";
 import { cn } from "@/lib/utils";
 
+import { InfoNote } from "../app/info-note";
 import { PageHeader } from "../app/page-header";
+import { SlowNote } from "../app/slow-note";
 import { EmptyState, ErrorState, ListSkeleton } from "../app/state";
 import { ApplicationChat } from "../apply/application-chat";
 import { ProofList } from "../apply/proof-list";
@@ -77,6 +80,9 @@ function Applications() {
             ))}
           </ToggleGroup>
         </PageHeader>
+        <InfoNote id="applications" title="How to check a payment" className="mt-4">
+          To check lists students who uploaded a payment screenshot. Match the amount and transaction ID with your bank or UPI app, then Approve to enroll them, Flag an issue to tell them exactly what to fix (they see it with the right options), or Close to end it. Waiting on student lists the ones you flagged. Fees are never refunded.
+        </InfoNote>
       </div>
       <div className="grid min-h-0 flex-1 grid-cols-[minmax(280px,360px)_1fr]">
         <aside className="min-h-0 overflow-y-auto border-r" aria-label="Applications">
@@ -101,7 +107,15 @@ function Applications() {
           )}
         </aside>
         <section className="min-h-0 overflow-y-auto" aria-label="Application">
-          {selected ? <Detail key={selected} id={selected} /> : null}
+          {selected ? (
+            <Detail key={selected} id={selected} />
+          ) : q.isSuccess ? (
+            <div className="flex h-full items-center justify-center p-6">
+              <EmptyState icon={ReceiptIndianRupee} title="Nothing selected">
+                Pick an application on the left to see the student&apos;s details, their payment screenshots and the chat.
+              </EmptyState>
+            </div>
+          ) : null}
         </section>
       </div>
     </div>
@@ -206,7 +220,7 @@ function Detail({ id }: { id: string }) {
       ) : null}
 
       <dl className="grid grid-cols-2 gap-4 rounded-xl border p-4 text-sm lg:grid-cols-4">
-        <Item label="Cohort" value={v.cohort?.name ?? "—"} />
+        <Item label="Cohort" value={v.cohort?.name ?? "Not set"} />
         <Item label="Fee" value={inr(a.fee_inr)} />
         <Item label="Confirmed so far" value={inr(a.paid_inr)} />
         <Item label="Student says they paid" value={inr(claimed)} strong={claimed < a.fee_inr && a.status === "submitted"} />
@@ -221,7 +235,12 @@ function Detail({ id }: { id: string }) {
         messages={v.messages}
         viewer="staff"
         otherName={d.full_name.split(/\s+/)[0] ?? d.full_name}
-        onSend={(cid, body) => api.sendStaffApplicationMessage(id, cid, body).then(refresh)}
+        onSend={async (cid, body) => {
+          // Only the chat changes: append the message to this application's cache.
+          const m = await api.sendStaffApplicationMessage(id, cid, body);
+          qc.setQueryData<StaffApplication>(["application", id], (cur) => (cur && !cur.messages.some((x) => x.id === m.id) ? { ...cur, messages: [...cur.messages, m] } : cur));
+          return m;
+        }}
       />
       {deciding ? <DecideDialog key={deciding} view={v} action={deciding} claimed={claimed} onClose={() => setDeciding(null)} onDone={refresh} /> : null}
     </div>
@@ -258,18 +277,26 @@ function DecideDialog({ view, action, claimed, onClose, onDone }: { view: StaffA
   const decide = useMutation({
     mutationFn: () => {
       if (!a) throw new Error("no application");
-      return api.decideApplication(a.id, {
-        action: mode,
-        flag: mode === "flag" ? flag : null,
-        note: note.trim(),
-        paid_inr: mode === "reject" ? null : Number(paid),
-        flow_id: mode === "approve" && flowId !== NO_FLOW ? flowId : null,
-        expected_version: a.version,
-      });
+      return landed(
+        () =>
+          api.decideApplication(a.id, {
+            action: mode,
+            flag: mode === "flag" ? flag : null,
+            note: note.trim(),
+            paid_inr: mode === "reject" ? null : Number(paid),
+            flow_id: mode === "approve" && flowId !== NO_FLOW ? flowId : null,
+            expected_version: a.version,
+          }),
+        // Decided if the application moved on while the answer was lost.
+        async () => {
+          const v = await api.application(a.id);
+          return v.application && v.application.version > a.version ? v : null;
+        },
+      );
     },
     onSuccess: (v) => {
       qc.setQueryData(["application", v.application?.id], v);
-      toast.success(mode === "approve" ? `${view.application?.details.full_name ?? "Student"} is enrolled` : mode === "flag" ? "Flagged — the student was told what to do" : "Application closed");
+      toast.success(mode === "approve" ? `${view.application?.details.full_name ?? "Student"} is enrolled` : mode === "flag" ? "Flagged. The student was told what to do" : "Application closed");
       onDone();
       onClose();
     },
@@ -351,7 +378,7 @@ function DecideDialog({ view, action, claimed, onClose, onDone }: { view: StaffA
               <Field data-invalid={!!errors.paid_inr}>
                 <FieldLabel htmlFor={`${id}-paid`}>Amount you received in total (₹)</FieldLabel>
                 <Input id={`${id}-paid`} value={paid} onChange={(e) => setPaid(e.target.value)} inputMode="numeric" aria-invalid={!!errors.paid_inr} data-testid="decide-paid" />
-                {errors.paid_inr ? <FieldError>{errors.paid_inr}</FieldError> : <FieldDescription>Check your bank or UPI app — not the screenshot.</FieldDescription>}
+                {errors.paid_inr ? <FieldError>{errors.paid_inr}</FieldError> : <FieldDescription>Check your bank or UPI app, not the screenshot.</FieldDescription>}
               </Field>
             ) : null}
             {mode === "approve" ? (
@@ -362,7 +389,7 @@ function DecideDialog({ view, action, claimed, onClose, onDone }: { view: StaffA
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value={NO_FLOW}>No flow yet — assign tasks by hand</SelectItem>
+                    <SelectItem value={NO_FLOW}>No flow yet, assign tasks by hand</SelectItem>
                     {flowChoices.map((f) => (
                       <SelectItem key={f.id} value={f.id}>
                         {f.name} · {f.days} days
@@ -386,6 +413,7 @@ function DecideDialog({ view, action, claimed, onClose, onDone }: { view: StaffA
                 <AlertDescription>The student is told fees are non-refundable under any circumstances. They can start a new application.</AlertDescription>
               </Alert>
             ) : null}
+            <SlowNote busy={decide.isPending} />
           </FieldGroup>
         </form>
         <DialogFooter>

@@ -308,7 +308,7 @@ func (w *Workspace) Transition(ctx context.Context, u domain.User, taskID uuid.U
 		}
 		msg := lead.AnnounceTransition(out, in.To, note)
 		if msg != "" && len(t.Content.Rubric) > 0 && len(in.Rubric) > 0 {
-			msg += "\n\nRubric: " + domain.RubricSummary(in.Rubric) + ". Open the task to see which."
+			msg += "\n\nRubric " + domain.RubricSummary(in.Rubric) + ". Open the task to see which."
 		}
 		if actor == domain.ActorStaff && msg != "" {
 			id := out.ID

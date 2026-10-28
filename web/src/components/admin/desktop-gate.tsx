@@ -41,7 +41,7 @@ export function DesktopGate() {
             onClick={() => {
               void navigator.clipboard
                 .writeText(`${window.location.origin}/admin`)
-                .then(() => toast.success("Link copied — open it on your computer"))
+                .then(() => toast.success("Link copied. Open it on your computer"))
                 .catch(() => toast.error("Couldn't copy. The address is " + window.location.origin + "/admin"));
             }}
           >

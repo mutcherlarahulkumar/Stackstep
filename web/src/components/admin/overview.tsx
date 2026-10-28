@@ -23,6 +23,7 @@ import { useSession } from "@/lib/session";
 import { cn } from "@/lib/utils";
 import { Bounds } from "@/lib/validation";
 
+import { InfoNote } from "../app/info-note";
 import { PAGE, PageHeader } from "../app/page-header";
 import { InsightsTabs } from "./insights-tabs";
 import { TableSkeleton } from "../app/loading";
@@ -92,6 +93,9 @@ function OverviewPage() {
             </Button>
           </div>
         </PageHeader>
+        <InfoNote id="insights-overview" title="How to read this page">
+          Each row is one student. Progress is tasks done out of the tasks released so far, and last active is the last time they did anything. Use the tiles to filter (for example everyone who is behind), Nudge to send a reminder from their team lead, and Export CSV to share the list with your placement team.
+        </InfoNote>
 
         {data.isPending ? (
           <TableSkeleton rows={6} cols={6} />
@@ -272,7 +276,7 @@ function CohortTable({ rows, sort, onSort, onOpen, now }: { rows: OverviewRow[];
                       <span className="sr-only">{r.certificate.status}</span>
                     </span>
                   ) : (
-                    <span className="text-muted-foreground text-xs">—</span>
+                    <span className="text-muted-foreground text-xs">None</span>
                   )}
                 </TableCell>
               </TableRow>

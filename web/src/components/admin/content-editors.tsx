@@ -35,7 +35,7 @@ export function ResourcesEditor({
           {value.length} / {ContentBounds.resources}
         </span>
       </div>
-      {value.length === 0 ? <FieldDescription>Optional: docs, a starter repo or an article to read.</FieldDescription> : null}
+      {value.length === 0 ? <FieldDescription>Optional. Docs, a starter repo or an article to read.</FieldDescription> : null}
       <ul className="flex flex-col gap-2">
         {value.map((r, i) => {
           const titleErr = errors[`resources[${i}].title`];
@@ -214,7 +214,7 @@ export function PracticeEditor({
     return (
       <Field>
         <FieldLabel>Practice pad</FieldLabel>
-        <FieldDescription>Optional: give example tests and the student can run a JavaScript solution in their browser before handing in.</FieldDescription>
+        <FieldDescription>Optional. Give example tests and the student can run a JavaScript solution in their browser before handing in.</FieldDescription>
         <Button type="button" variant="outline" size="sm" className="self-start" onClick={() => onChange(blankPractice())} data-testid={`${idPrefix}-add`}>
           <Code2 data-icon="inline-start" aria-hidden /> Add practice pad
         </Button>
@@ -331,7 +331,7 @@ export function RubricEditor({ value, onChange, errors, idPrefix }: { value: str
           {value.length} / {ContentBounds.rubricItems}
         </span>
       </div>
-      <FieldDescription>Optional: what you&apos;ll check. The student sees it up front, and which ones were met after review.</FieldDescription>
+      <FieldDescription>Optional. What you&apos;ll check. The student sees it up front, and which ones were met after review.</FieldDescription>
       <ol className="flex flex-col gap-2">
         {value.map((item, i) => {
           const err = errors[`rubric[${i}]`];

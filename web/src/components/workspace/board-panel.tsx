@@ -16,6 +16,7 @@ import { dateTimeLabel, dueLabel, isOverdue, taskTimeLabel } from "@/lib/format"
 import { cn } from "@/lib/utils";
 import { studentMoves } from "@/lib/validation";
 
+import { InfoNote } from "../app/info-note";
 import { PersonaAvatar } from "../app/persona-avatar";
 import { EmptyState, ErrorState } from "../app/state";
 import { StatusBadge, TypeBadge } from "../app/task-badges";
@@ -96,6 +97,10 @@ export function BoardPanel({
   return (
     <div className="flex min-h-0 flex-1 flex-col">
       <div className="flex min-h-0 flex-1 flex-col gap-6 overflow-y-auto p-4 sm:px-6">
+        <InfoNote id="student-board" title="Your tasks">
+          Your team posts tasks here day by day. Open one to read the brief, do the work in your own GitHub repository and hand in the
+          pull request link. It then waits for review, and your team lead approves it or asks for changes in chat.
+        </InfoNote>
         <section aria-labelledby="board-todo" className="flex flex-col gap-3">
           <SectionTitle id="board-todo" count={todo.length}>
             To do

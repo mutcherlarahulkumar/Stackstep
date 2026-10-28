@@ -15,6 +15,7 @@ import { messageFor } from "@/lib/api/errors";
 import { type Flow, type FlowSummary } from "@/lib/api/schemas";
 import { cn } from "@/lib/utils";
 
+import { InfoNote } from "../app/info-note";
 import { PAGE, PageHeader } from "../app/page-header";
 import { EmptyState, ErrorState, ListSkeleton } from "../app/state";
 import { AdminShell } from "./admin-shell";
@@ -68,6 +69,9 @@ function Flows({ canEdit }: { canEdit: boolean }) {
           ) : null}
         </div>
       </PageHeader>
+      <InfoNote id="flows" title="What a flow is">
+        A flow is a 30 or 60 day plan that says which task a student gets on which day. Everyone on a flow receives each task on its day automatically. Edit a draft, then publish it so you can pick it when enrolling or approving students.
+      </InfoNote>
       {q.isPending ? (
         <ListSkeleton rows={4} className="h-14" />
       ) : q.isError ? (

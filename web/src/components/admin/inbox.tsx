@@ -11,6 +11,7 @@ import { threadKey } from "@/lib/inbox";
 import { choiceItem } from "../app/choice";
 import { PersonaAvatar, PersonAvatar } from "../app/persona-avatar";
 import { EmptyState } from "../app/state";
+import { InfoNote } from "../app/info-note";
 import { ConversationView } from "../chat/conversation";
 import { StaffThreadList } from "../chat/thread-list";
 import { AdminShell } from "./admin-shell";
@@ -76,10 +77,17 @@ export function InboxScreen() {
             />
           </div>
         ) : (
-          <div className="flex flex-1 items-center justify-center p-6">
-            <EmptyState icon={Inbox} title="Pick a conversation">
-              Replies go out as the persona the student is talking to. New messages appear here live.
-            </EmptyState>
+          <div className="flex flex-1 flex-col gap-6 p-6">
+            <InfoNote id="inbox" title="The team inbox">
+              Every chat between a student and a persona lands here. You reply as that persona, so the student sees their team lead or
+              product manager answer. Message students sends one note to a whole cohort. Questions about payments are answered under
+              Applications, not here.
+            </InfoNote>
+            <div className="flex flex-1 items-center justify-center">
+              <EmptyState icon={Inbox} title="Pick a conversation">
+                Replies go out as the persona the student is talking to. New messages appear here live.
+              </EmptyState>
+            </div>
           </div>
         );
         return (

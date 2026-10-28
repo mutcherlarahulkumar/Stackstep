@@ -184,7 +184,7 @@ function SettingsFields({
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value={NONE}>No flow yet — assign tasks by hand</SelectItem>
+            <SelectItem value={NONE}>No flow yet, assign tasks by hand</SelectItem>
             {flowChoices.map((f) => (
               <SelectItem key={f.id} value={f.id}>
                 {f.name} · {f.days} days
@@ -255,7 +255,7 @@ function EnrollOne({ me, cohorts }: { me: Me; cohorts: readonly Cohort[] }) {
 
   const submit = async () => {
     const e: Record<string, string | undefined> = {};
-    if (!validLogin(login)) e.github_login = "Enter a GitHub username: letters, digits and single hyphens.";
+    if (!validLogin(login)) e.github_login = "Enter a GitHub username using letters, digits and single hyphens.";
     if (settings.cohortId === NONE && !settings.programSlug) e.program_slug = "Pick a program.";
     if (settings.cohortId === NONE && !settings.startDate) e.start_date = "Pick a start date.";
     setErrors(e);
@@ -289,7 +289,7 @@ function EnrollOne({ me, cohorts }: { me: Me; cohorts: readonly Cohort[] }) {
         <CardTitle className="flex items-center gap-2">
           <UserPlus className="size-4" aria-hidden /> Enroll a student
         </CardTitle>
-        <CardDescription>By GitHub username. They don&apos;t need to have signed in yet — access is linked the first time they do.</CardDescription>
+        <CardDescription>By GitHub username. They don&apos;t need to have signed in yet. Access is linked the first time they do.</CardDescription>
       </CardHeader>
       <CardContent>
         <form

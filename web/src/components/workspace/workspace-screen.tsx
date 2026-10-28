@@ -1,6 +1,12 @@
 "use client";
 
-import { ArrowLeft, Bot, MessageCircle, SquareKanban, UserRound } from "lucide-react";
+import {
+  ArrowLeft,
+  Bot,
+  MessageCircle,
+  SquareKanban,
+  UserRound,
+} from "lucide-react";
 import { useState } from "react";
 
 import { Button } from "@/components/ui/button";
@@ -10,7 +16,10 @@ import { personaTag, totalUnread } from "@/lib/inbox";
 import { useStudentThreads } from "@/lib/inbox-queries";
 import { RealtimeProvider, useSocketStatus } from "@/lib/realtime-context";
 import { useIsDesktop } from "@/lib/use-desktop";
-import { useBrowserNotifications, useUnreadTitle } from "@/lib/use-notifications";
+import {
+  useBrowserNotifications,
+  useUnreadTitle,
+} from "@/lib/use-notifications";
 
 import { AppHeader } from "../app/app-header";
 import { ConnectionBanner } from "../app/connection-banner";
@@ -70,7 +79,9 @@ function Workspace({ me, enrollment }: { me: Me; enrollment: Enrollment }) {
   const personas = (threads.data ?? []).map((t) => t.persona);
   const byId = new Map(personas.map((p) => [p.id, p]));
   const aiOpen = picked === AI_THREAD;
-  const desktopPersona = aiOpen ? null : ((picked ? byId.get(picked) : undefined) ?? personas[0] ?? null);
+  const desktopPersona = aiOpen
+    ? null
+    : ((picked ? byId.get(picked) : undefined) ?? personas[0] ?? null);
   const tasks = ws.state.tasks.status === "ready" ? ws.state.tasks.data : [];
   const phonePersona = phoneThread ? (byId.get(phoneThread) ?? null) : null;
   const unread = totalUnread(threads.data ?? []);
@@ -92,7 +103,12 @@ function Workspace({ me, enrollment }: { me: Me; enrollment: Enrollment }) {
           </span>
           <span className="text-muted-foreground hidden truncate text-sm whitespace-nowrap min-[420px]:inline">
             {dayCaption(enrollment)}
-            {enrollment.flow ? <span className="hidden md:inline"> · {enrollment.flow.name}</span> : null}
+            {enrollment.flow ? (
+              <span className="hidden md:inline">
+                {" "}
+                · {enrollment.flow.name}
+              </span>
+            ) : null}
           </span>
         </div>
         <div className="ml-auto flex items-center gap-1">
@@ -109,48 +125,77 @@ function Workspace({ me, enrollment }: { me: Me; enrollment: Enrollment }) {
             <nav aria-label="Chats" className="flex min-h-0 flex-col border-r">
               <PanelTitle icon={MessageCircle} title="Chats" />
               <div className="min-h-0 flex-1 overflow-y-auto p-2">
-                <StudentThreadList
-                  selected={aiOpen ? AI_THREAD : (desktopPersona?.id ?? null)}
-                  onSelect={(t) => setPicked(t.persona.id)}
-                  onAI={() => setPicked(AI_THREAD)}
-                />
+                <SectionBoundary label="Your chats">
+                  <StudentThreadList
+                    selected={aiOpen ? AI_THREAD : (desktopPersona?.id ?? null)}
+                    onSelect={(t) => setPicked(t.persona.id)}
+                    onAI={() => setPicked(AI_THREAD)}
+                  />
+                </SectionBoundary>
               </div>
             </nav>
-            <section aria-label="Conversation" className="flex min-h-0 flex-col border-r">
-              <SectionBoundary key={aiOpen ? AI_THREAD : (desktopPersona?.id ?? "none")} label="This conversation">
-              {aiOpen ? (
-                <AIHelper tasks={tasks} />
-              ) : desktopPersona ? (
-                <>
-                  <ConversationHeader persona={desktopPersona} />
-                  <ConversationView
-                    key={desktopPersona.id}
-                    target={{ personaId: desktopPersona.id, enrollmentId: null }}
-                    other={{ name: desktopPersona.name, avatar: <PersonaAvatar persona={desktopPersona} size="sm" /> }}
-                    onOpenTask={setOpenTask}
-                  />
-                </>
-              ) : (
-                <div className="flex flex-1 items-center justify-center p-6">
-                  {threads.isPending ? null : (
-                    <EmptyState icon={MessageCircle} title="Your team will reach out here">
-                      Tickets and updates from your managers show up as chats once your internship starts.
-                    </EmptyState>
-                  )}
-                </div>
-              )}
+            <section
+              aria-label="Conversation"
+              className="flex min-h-0 flex-col border-r"
+            >
+              <SectionBoundary
+                key={aiOpen ? AI_THREAD : (desktopPersona?.id ?? "none")}
+                label="This conversation"
+              >
+                {aiOpen ? (
+                  <AIHelper tasks={tasks} />
+                ) : desktopPersona ? (
+                  <>
+                    <ConversationHeader persona={desktopPersona} />
+                    <ConversationView
+                      key={desktopPersona.id}
+                      target={{
+                        personaId: desktopPersona.id,
+                        enrollmentId: null,
+                      }}
+                      other={{
+                        name: desktopPersona.name,
+                        avatar: (
+                          <PersonaAvatar persona={desktopPersona} size="sm" />
+                        ),
+                      }}
+                      onOpenTask={setOpenTask}
+                    />
+                  </>
+                ) : (
+                  <div className="flex flex-1 items-center justify-center p-6">
+                    {threads.isPending ? null : (
+                      <EmptyState
+                        icon={MessageCircle}
+                        title="Your team will reach out here"
+                      >
+                        Tickets and updates from your managers show up as chats
+                        once your internship starts.
+                      </EmptyState>
+                    )}
+                  </div>
+                )}
               </SectionBoundary>
             </section>
             <section aria-label="Task board" className="flex min-h-0 flex-col">
               <PanelTitle icon={SquareKanban} title="Your board" />
               <SectionBoundary label="Your board">
-                <BoardPanel ws={ws} personas={byId} openTaskId={openTask} onOpenTask={setOpenTask} />
+                <BoardPanel
+                  ws={ws}
+                  personas={byId}
+                  openTaskId={openTask}
+                  onOpenTask={setOpenTask}
+                />
               </SectionBoundary>
             </section>
           </div>
         ) : (
           /* Phones and tablets: one panel at a time. */
-          <Tabs value={tab} onValueChange={(v) => setTab(v === "tasks" ? "tasks" : "chat")} className="flex h-full flex-col gap-0">
+          <Tabs
+            value={tab}
+            onValueChange={(v) => setTab(v === "tasks" ? "tasks" : "chat")}
+            className="flex h-full flex-col gap-0"
+          >
             <div className="border-b px-4 py-2">
               <TabsList className="w-full">
                 <TabsTrigger value="chat">
@@ -170,29 +215,54 @@ function Workspace({ me, enrollment }: { me: Me; enrollment: Enrollment }) {
               </TabsList>
             </div>
             <TabsContent value="chat" className="flex min-h-0 flex-1 flex-col">
-              <SectionBoundary key={phoneThread ?? "list"} label="This conversation">
-              {phoneThread === AI_THREAD ? (
-                <AIHelper tasks={tasks} onBack={() => setPhoneThread(null)} />
-              ) : phonePersona ? (
-                <>
-                  <ConversationHeader persona={phonePersona} onBack={() => setPhoneThread(null)} />
-                  <ConversationView
-                    key={phonePersona.id}
-                    target={{ personaId: phonePersona.id, enrollmentId: null }}
-                    other={{ name: phonePersona.name, avatar: <PersonaAvatar persona={phonePersona} size="sm" /> }}
-                    onOpenTask={openFromChat}
-                  />
-                </>
-              ) : (
-                <div className="min-h-0 flex-1 overflow-y-auto p-2">
-                  <StudentThreadList selected={null} onSelect={(t) => setPhoneThread(t.persona.id)} onAI={() => setPhoneThread(AI_THREAD)} />
-                </div>
-              )}
+              <SectionBoundary
+                key={phoneThread ?? "list"}
+                label="This conversation"
+              >
+                {phoneThread === AI_THREAD ? (
+                  <AIHelper tasks={tasks} onBack={() => setPhoneThread(null)} />
+                ) : phonePersona ? (
+                  <>
+                    <ConversationHeader
+                      persona={phonePersona}
+                      onBack={() => setPhoneThread(null)}
+                    />
+                    <ConversationView
+                      key={phonePersona.id}
+                      target={{
+                        personaId: phonePersona.id,
+                        enrollmentId: null,
+                      }}
+                      other={{
+                        name: phonePersona.name,
+                        avatar: (
+                          <PersonaAvatar persona={phonePersona} size="sm" />
+                        ),
+                      }}
+                      onOpenTask={openFromChat}
+                    />
+                  </>
+                ) : (
+                  <div className="min-h-0 flex-1 overflow-y-auto p-2">
+                    <SectionBoundary label="Your chats">
+                      <StudentThreadList
+                        selected={null}
+                        onSelect={(t) => setPhoneThread(t.persona.id)}
+                        onAI={() => setPhoneThread(AI_THREAD)}
+                      />
+                    </SectionBoundary>
+                  </div>
+                )}
               </SectionBoundary>
             </TabsContent>
             <TabsContent value="tasks" className="flex min-h-0 flex-1 flex-col">
               <SectionBoundary label="Your board">
-                <BoardPanel ws={ws} personas={byId} openTaskId={openTask} onOpenTask={setOpenTask} />
+                <BoardPanel
+                  ws={ws}
+                  personas={byId}
+                  openTaskId={openTask}
+                  onOpenTask={setOpenTask}
+                />
               </SectionBoundary>
             </TabsContent>
           </Tabs>
@@ -202,11 +272,22 @@ function Workspace({ me, enrollment }: { me: Me; enrollment: Enrollment }) {
   );
 }
 
-function ConversationHeader({ persona, onBack }: { persona: Persona; onBack?: () => void }) {
+function ConversationHeader({
+  persona,
+  onBack,
+}: {
+  persona: Persona;
+  onBack?: () => void;
+}) {
   return (
     <div className="flex h-14 shrink-0 items-center gap-3 border-b px-3 sm:px-4">
       {onBack ? (
-        <Button variant="ghost" size="icon" onClick={onBack} aria-label="All chats">
+        <Button
+          variant="ghost"
+          size="icon"
+          onClick={onBack}
+          aria-label="All chats"
+        >
           <ArrowLeft aria-hidden />
         </Button>
       ) : null}
@@ -216,8 +297,15 @@ function ConversationHeader({ persona, onBack }: { persona: Persona; onBack?: ()
         <p className="text-muted-foreground flex min-w-0 items-center gap-1.5 text-xs">
           <span className="truncate">{persona.title}</span>
           <span aria-hidden>·</span>
-          <span className="inline-flex shrink-0 items-center gap-1" data-testid="persona-tag">
-            {persona.auto_reply ? <Bot className="size-3.5" aria-hidden /> : <UserRound className="size-3.5" aria-hidden />}
+          <span
+            className="inline-flex shrink-0 items-center gap-1"
+            data-testid="persona-tag"
+          >
+            {persona.auto_reply ? (
+              <Bot className="size-3.5" aria-hidden />
+            ) : (
+              <UserRound className="size-3.5" aria-hidden />
+            )}
             {personaTag(persona)}
           </span>
         </p>
@@ -226,7 +314,13 @@ function ConversationHeader({ persona, onBack }: { persona: Persona; onBack?: ()
   );
 }
 
-function PanelTitle({ icon: Icon, title }: { icon: typeof MessageCircle; title: string }) {
+function PanelTitle({
+  icon: Icon,
+  title,
+}: {
+  icon: typeof MessageCircle;
+  title: string;
+}) {
   return (
     <h2 className="flex h-14 shrink-0 items-center gap-2 border-b px-4 text-sm font-medium">
       <Icon className="text-muted-foreground size-4" aria-hidden />

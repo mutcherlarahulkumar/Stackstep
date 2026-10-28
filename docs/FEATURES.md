@@ -46,6 +46,9 @@ The engineering specs, with every edge case and its test, are in [`features/`](f
   The student sees what's wrong and only the options that fix it, and can chat with admissions
   at every step. Fees are non-refundable under any circumstances. The app shows the status and
   links to the web to pay. Details: `docs/features/15-applications-payments.md`.
+- **Setup pages, one job each.** People (enroll students by hand, staff), Colleges, Cohorts (seats,
+  start date, fee and whether it takes applications), Payments (UPI ID and QR), Flows, Task library,
+  Personas. Every page and tab starts with a short "what is this" note that can be put away.
 - **Home page.** `/` explains the program with an animated tour. Signed-in visitors see "Open
   workspace" (or "Open admin console" / "Continue application") and their avatar instead of
   "Sign in", and "Verify a certificate" is in the top bar for anyone.

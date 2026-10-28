@@ -120,7 +120,7 @@ export function ProgressDetails({ p }: { p: ProgressData }) {
         ) : (
           <p className="text-muted-foreground text-sm" data-testid="no-certificate">
             {p.meets_bar
-              ? "You're past the bar. Keep going — your team lead reviews your work and issues the certificate."
+              ? "You're past the bar. Keep going. Your team lead reviews your work and issues the certificate."
               : `Finish at least ${p.bar_percent}% of your tasks. Your team lead reviews your work and issues the certificate by hand.`}
           </p>
         )}

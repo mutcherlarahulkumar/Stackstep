@@ -82,7 +82,7 @@ func ValidatePerson(in PersonInput) (PersonInput, map[string]string) {
 	errs := map[string]string{}
 	out := PersonInput{GitHubLogin: NormalizeLogin(in.GitHubLogin), Name: NormalizeText(in.Name), Email: strings.TrimSpace(in.Email)}
 	if !ValidGitHubLogin(out.GitHubLogin) {
-		errs["github_login"] = "Enter a GitHub username: letters, digits and single hyphens, up to 39 characters."
+		errs["github_login"] = "Enter a GitHub username using letters, digits and single hyphens, up to 39 characters."
 	}
 	switch {
 	case utf8.RuneCountInString(out.Name) > 200:

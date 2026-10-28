@@ -74,4 +74,4 @@ export function lastActiveLabel(at: Date | null, now: Date): string {
 }
 
 export const NUDGE_DRAFT =
-  "Hi! We haven't seen you on Stackstep for a couple of days. Is anything blocking you? Reply here and we'll help you get moving again — even a small step today counts.";
+  "Hi! We haven't seen you on Stackstep for a couple of days. Is anything blocking you? Reply here and we'll help you get moving again. Even a small step today counts.";

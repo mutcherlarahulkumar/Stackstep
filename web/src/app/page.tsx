@@ -31,7 +31,7 @@ import { Button } from "@/components/ui/button";
 const STEPS: { icon: LucideIcon; title: string; body: string }[] = [
   { icon: UserRoundCheck, title: "Sign in with GitHub", body: "Your GitHub account is your workspace login and where your code lives." },
   { icon: IndianRupee, title: "Pick a cohort, pay by UPI", body: "Fill a short form, scan the QR, upload the screenshot. We confirm your seat within a day." },
-  { icon: MessagesSquare, title: "Work with your team", body: "30 or 60 days of tickets, standups and reviews from your lead — on your own schedule." },
+  { icon: MessagesSquare, title: "Work with your team", body: "30 or 60 days of tickets, standups and reviews from your lead, on your own schedule." },
   { icon: BadgeCheck, title: "Earn a verifiable certificate", body: "Finish the work and get a certificate with a public link recruiters can check." },
 ];
 
@@ -39,7 +39,7 @@ const FEATURES: { icon: LucideIcon; title: string; body: string; wide?: boolean 
   {
     icon: MessagesSquare,
     title: "A team in your chats",
-    body: "A team lead, a PM and teammates message you like a real job: standups, tickets, nudges and code reviews. Every automatic reply is clearly labelled.",
+    body: "A team lead, a PM and teammates message you like a real job, with standups, tickets, nudges and code reviews. Every automatic reply is clearly labelled.",
     wide: true,
   },
   { icon: GitPullRequest, title: "Real pull requests", body: "Every task is a branch and a PR in your own GitHub repo, built on your machine." },
@@ -54,22 +54,22 @@ const FEATURES: { icon: LucideIcon; title: string; body: string; wide?: boolean 
 ];
 
 const COLLEGE: { icon: LucideIcon; title: string; body: string }[] = [
-  { icon: ChartColumn, title: "Placement overview", body: "Who's active, stuck or ahead — per cohort, at a glance." },
+  { icon: ChartColumn, title: "Placement overview", body: "Who's active, stuck or ahead, per cohort, at a glance." },
   { icon: FileSpreadsheet, title: "Weekly report", body: "A printable report for your placement cell, every week." },
   { icon: Building2, title: "Cohorts and rosters", body: "Import students from a CSV and run batches with seat limits." },
   { icon: Bell, title: "Nudges", body: "Message a whole cohort in one go when deadlines slip." },
 ];
 
 const FAQ: { q: string; a: string }[] = [
-  { q: "Is this a real job?", a: "No. It's a practice internship: the team is simulated, the work is real. You build real projects in your own GitHub, reviewed by real mentors." },
+  { q: "Is this a real job?", a: "No. It's a practice internship. The team is simulated, the work is real. You build real projects in your own GitHub, reviewed by real mentors." },
   { q: "Who reviews my work?", a: "Mentors. They may use AI to draft a review, but a person always decides and sends it." },
   { q: "How do I pay?", a: "By UPI. After you pick a cohort we show a QR and UPI ID; pay the exact fee and upload the screenshot with the transaction ID. We confirm within a day." },
   {
     q: "What if I paid the wrong amount?",
-    a: "We'll tell you exactly what's wrong in your application: pay the balance, switch to the cohort you paid for, or upload a clearer screenshot. Money we've confirmed carries over.",
+    a: "We'll tell you exactly what's wrong in your application, and you can pay the balance, switch to the cohort you paid for, or upload a clearer screenshot. Money we've confirmed carries over.",
   },
   { q: "Are fees refundable?", a: "No. Fees are non-refundable under any circumstances, so check the cohort and amount before you pay." },
-  { q: "How do recruiters check my certificate?", a: "Every certificate has a 12-character code and a public page. Anyone can check it from “Verify a certificate” — no account needed." },
+  { q: "How do recruiters check my certificate?", a: "Every certificate has a 12-character code and a public page. Anyone can check it from “Verify a certificate”, no account needed." },
 ];
 
 const TRACKS = ["React", "Next.js", "Node.js", "TypeScript", "REST APIs", "Postgres", "Git & GitHub", "Testing", "DSA", "Flutter", "Code review", "Agile standups"];
@@ -94,7 +94,7 @@ export default function Home() {
                 </span>
               </h1>
               <p className="animate-enter text-muted-foreground mt-6 max-w-lg text-lg text-pretty [animation-delay:160ms]">
-                Work like you&apos;re on a real software team: tickets from your lead, pull requests on GitHub, reviews that quote your actual code — and a certificate anyone can verify.
+                Work like you&apos;re on a real software team, with tickets from your lead, pull requests on GitHub, reviews that quote your actual code, and a certificate anyone can verify.
               </p>
               <div className="animate-enter mt-9 flex flex-wrap gap-3 [animation-delay:240ms]">
                 <PrimaryCta />
@@ -153,7 +153,7 @@ export default function Home() {
               <h2 id="features-h" className="text-3xl font-semibold tracking-tight sm:text-4xl">
                 Everything a first job teaches, without the first job
               </h2>
-              <p className="text-muted-foreground mt-3 text-lg">The habits recruiters look for: shipping on time, taking review, explaining your work.</p>
+              <p className="text-muted-foreground mt-3 text-lg">The habits recruiters look for, like shipping on time, taking review and explaining your work.</p>
             </Reveal>
             <ul className="mt-12 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
               {FEATURES.map((f, i) => (
@@ -182,7 +182,7 @@ export default function Home() {
             <h2 id="colleges-h" className="mt-2 text-3xl font-semibold tracking-tight sm:text-4xl">
               Run internships for a whole batch
             </h2>
-            <p className="text-muted-foreground mt-3 text-lg">Give every student industry-style experience and see exactly who&apos;s doing the work — without running it yourself.</p>
+            <p className="text-muted-foreground mt-3 text-lg">Give every student industry-style experience and see exactly who&apos;s doing the work, without running it yourself.</p>
           </Reveal>
           <ul className="grid gap-4 sm:grid-cols-2">
             {COLLEGE.map((c, i) => (

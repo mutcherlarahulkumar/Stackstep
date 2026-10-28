@@ -32,7 +32,7 @@ export function HeroDemo() {
         </div>
         <div className="flex flex-col gap-2.5 p-4">
           <Bubble from="Priya · 9:30" delay={0.5}>
-            Morning! Today: add search to the product list. Ticket&apos;s on your board 🚀
+            Morning! Today we add search to the product list. Ticket&apos;s on your board 🚀
           </Bubble>
           <Bubble mine delay={1.3}>
             On it. Opening a branch now.
@@ -43,7 +43,7 @@ export function HeroDemo() {
             ))}
           </div>
           <Bubble from="Priya · 4:12" delay={2.8}>
-            Reviewed your PR — clean debounce. One nit on the empty state, then ship it.
+            Reviewed your PR. Clean debounce. One nit on the empty state, then ship it.
           </Bubble>
         </div>
       </div>
@@ -52,7 +52,7 @@ export function HeroDemo() {
         <div className="bg-card animate-pop-in ring-foreground/10 rounded-xl p-3.5 shadow-xl ring-1" style={d(3.6)}>
           <div className="flex items-center gap-2 text-xs font-medium">
             <GitPullRequest className="size-4 text-emerald-600 dark:text-emerald-400" />
-            feat: product search
+            Add product search
             <span className="ml-auto rounded-full bg-emerald-500/15 px-2 py-0.5 text-[10px] font-semibold text-emerald-700 dark:text-emerald-300">Approved</span>
           </div>
           <div className="mt-2.5 flex items-center gap-2 font-mono text-[10px]">

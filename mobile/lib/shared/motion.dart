@@ -20,7 +20,7 @@ const quips = <String>[
   'Bumping the version to 0.0.1-beta-final-final…',
   "Reading the docs so you don't have to…",
   'Shipping small, shipping often…',
-  'Code review in progress: looks good to me…',
+  'Code review in progress, looks good to me…',
   'Spinning up a fresh branch…',
   'Linting the vibes…',
   'Off-by-one? Counting again…',

@@ -309,7 +309,7 @@ export function HandIn({ submission }: { submission: NonNullable<Task["submissio
       ) : null}
       {submission.rubric ? (
         <span className="text-muted-foreground" data-testid="rubric-summary">
-          Rubric: {submission.rubric.filter(Boolean).length} of {submission.rubric.length} met
+          {submission.rubric.filter(Boolean).length} of {submission.rubric.length} rubric checks met
         </span>
       ) : null}
       {submission.note ? (

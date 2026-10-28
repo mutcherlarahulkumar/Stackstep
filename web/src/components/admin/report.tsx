@@ -16,6 +16,7 @@ import { useSession } from "@/lib/session";
 import { cn } from "@/lib/utils";
 
 import { stagger, TableSkeleton } from "../app/loading";
+import { InfoNote } from "../app/info-note";
 import { PAGE, PageHeader } from "../app/page-header";
 import { InsightsTabs } from "./insights-tabs";
 import { EmptyState, ErrorState } from "../app/state";
@@ -64,6 +65,9 @@ function Report() {
             <Download data-icon="inline-start" aria-hidden /> CSV
           </Button>
         </PageHeader>
+        <InfoNote id="insights-report" title="How to use the weekly report">
+          Pick a week with the arrows. Each cohort shows tasks finished, on time work and who stood out or needs a nudge. Print saves it as a PDF for your placement cell; CSV opens in any spreadsheet.
+        </InfoNote>
         {r ? <p className="hidden text-sm print:block">Week of {weekLabel(r.week_start, r.week_end)} · generated {r.generated_at.toLocaleString()}</p> : null}
         {q.isPending ? (
           <TableSkeleton rows={4} cols={7} />
@@ -163,7 +167,7 @@ function GroupRow({ g }: { g: ReportGroup }) {
       </TableCell>
       <TableCell className="text-right tabular-nums">{g.students}</TableCell>
       <TableCell className="text-right tabular-nums">{g.done}</TableCell>
-      <TableCell className="text-right tabular-nums">{g.done > 0 ? `${g.on_time_percent}%` : "—"}</TableCell>
+      <TableCell className="text-right tabular-nums">{g.done > 0 ? `${g.on_time_percent}%` : "None yet"}</TableCell>
       <TableCell className="text-right tabular-nums">{g.hand_ins}</TableCell>
       <TableCell className="text-right tabular-nums">{g.certificates}</TableCell>
       <TableCell className={cn("text-right tabular-nums", g.inactive > 0 && "text-warning font-medium")}>{g.inactive}</TableCell>

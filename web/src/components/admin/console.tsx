@@ -6,6 +6,7 @@ import { useState } from "react";
 import { type Student } from "@/lib/api/schemas";
 
 import { EmptyState } from "../app/state";
+import { InfoNote } from "../app/info-note";
 import { AdminShell } from "./admin-shell";
 import { StudentDetail } from "./review";
 import { StudentList } from "./students";
@@ -26,10 +27,17 @@ export function AdminConsole() {
             {selected ? (
               <StudentDetail key={selected.user.id} student={selected} />
             ) : (
-              <div className="flex flex-1 items-center justify-center">
-                <EmptyState icon={MousePointerClick} title="Pick a student">
-                  See their board, review submitted work, assign a flow or the next task.
-                </EmptyState>
+              <div className="flex flex-1 flex-col gap-6 p-6">
+                <InfoNote id="students" title="Your students">
+                  Everyone with an internship you manage is listed on the left. Pick a student to see their task board, open what they handed
+                  in, assign the next task or a whole flow, and change their internship status. Students who are still applying are under
+                  Applications.
+                </InfoNote>
+                <div className="flex flex-1 items-center justify-center">
+                  <EmptyState icon={MousePointerClick} title="Pick a student">
+                    See their board, review submitted work, assign a flow or the next task.
+                  </EmptyState>
+                </div>
               </div>
             )}
           </section>

@@ -36,7 +36,7 @@ export function SiteNav() {
   return (
     <header className="bg-background/75 supports-[backdrop-filter]:bg-background/60 sticky top-0 z-40 border-b backdrop-blur-lg">
       <div className="mx-auto flex h-16 max-w-6xl items-center gap-2 px-4 sm:px-6">
-        <Link href="/" className="mr-2 rounded-md" aria-label="Stackstep home">
+        <Link href="/" className="mr-2 flex shrink-0 items-center rounded-md" aria-label="Stackstep home">
           <Wordmark />
         </Link>
         <nav aria-label="Site" className="hidden items-center gap-1 md:flex">

@@ -62,5 +62,5 @@ test("practice pad: runs examples in the browser, stops endless loops, hands in 
   await page.getByTestId("move-in_progress").click();
   await page.getByTestId("move-in_review").click();
   await page.getByTestId("insert-practice").click();
-  await expect(page.getByLabel("Solution or note")).toHaveValue(/all 2 examples pass[\s\S]*return a \+ b;/);
+  await expect(page.getByLabel("Solution or note")).toHaveValue(/All 2 examples pass[\s\S]*return a \+ b;/);
 });

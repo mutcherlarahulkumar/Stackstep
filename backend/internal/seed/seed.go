@@ -208,14 +208,14 @@ func seedCatalog(ctx context.Context, q store.Q, admin uuid.UUID, now time.Time)
 		return err
 	}
 	tasks := []seedTask{
-		{1, domain.TaskStandup, "Introduce yourself to the team", "Post a short intro: your college, what you want to build, and one thing you want to learn.", domain.DefaultPersonaID, domain.ReviewSelf, "10:00", 240, 0, domain.TaskContent{}},
+		{1, domain.TaskStandup, "Introduce yourself to the team", "Post a short intro with your college, what you want to build, and one thing you want to learn.", domain.DefaultPersonaID, domain.ReviewSelf, "10:00", 240, 0, domain.TaskContent{}},
 		{1, domain.TaskGitChore, "Set up Git and open your first PR", "Clone the starter repo, add your name to README.md on branch `chore/intro`, and open a PR.", DeliveryManagerID, domain.ReviewManual, "11:00", 480, 0, domain.TaskContent{}},
 		{2, domain.TaskDSA, "Two Sum", "Solve Two Sum in O(n). Explain your approach in two sentences.", EngineeringManagerID, domain.ReviewManual, "10:30", 360, 0,
 			domain.TaskContent{Practice: practice("twoSum", "function twoSum(nums, target) {\n  // Return the indices of the two numbers that add up to target.\n}\n",
 				"[[2,7,11,15],9]", "[0,1]", "[[3,2,4],6]", "[1,2]", "[[3,3],6]", "[0,1]")}},
-		{2, domain.TaskFeature, "Build the portfolio hero section", "Name, title, a short bio and links. Mobile first. Branch: `feat/hero`.", DeliveryManagerID, domain.ReviewManual, "11:00", 1440, 0,
+		{2, domain.TaskFeature, "Build the portfolio hero section", "Name, title, a short bio and links. Mobile first. Use the branch `feat/hero`.", DeliveryManagerID, domain.ReviewManual, "11:00", 1440, 0,
 			domain.TaskContent{Rubric: []string{"Looks right at 360px wide", "Links open in a new tab", "Work is on feat/hero with a PR"}}},
-		{3, domain.TaskDocReading, "Read MDN: Flexbox", "Read the MDN Flexbox guide and note three properties you will use this week.", DeliveryManagerID, domain.ReviewSelf, "09:30", 240, 0,
+		{3, domain.TaskDocReading, "Read the MDN Flexbox guide", "Read the MDN Flexbox guide and note three properties you will use this week.", DeliveryManagerID, domain.ReviewSelf, "09:30", 240, 0,
 			domain.TaskContent{Resources: []domain.Resource{{Title: "MDN: Basic concepts of flexbox", URL: "https://developer.mozilla.org/en-US/docs/Web/CSS/CSS_flexible_box_layout/Basic_concepts_of_flexbox"}}}},
 		{4, domain.TaskQuiz, "Git basics quiz", "Five quick questions on the commands you used this week.", DeliveryManagerID, domain.ReviewSelf, "16:00", 240, 0,
 			domain.TaskContent{Quiz: &domain.Quiz{PassPercent: 60, Questions: []domain.QuizQuestion{
@@ -228,8 +228,8 @@ func seedCatalog(ctx context.Context, q store.Q, admin uuid.UUID, now time.Time)
 		{3, domain.TaskDSA, "Valid Anagram", "Use a frequency map. Mention the time and space complexity.", EngineeringManagerID, domain.ReviewManual, "12:00", 360, 0,
 			domain.TaskContent{Practice: practice("isAnagram", "function isAnagram(s, t) {\n  // true when t uses exactly the letters of s.\n}\n",
 				`["anagram","nagaram"]`, "true", `["rat","car"]`, "false", `["a","ab"]`, "false")}},
-		{3, domain.TaskBlog, "Write: what I learned in week one", "300–500 words on your setup, your first PR and one mistake you fixed. Publish on Hashnode or dev.to.", ContentLeadID, domain.ReviewManual, "15:00", 2880, 0, domain.TaskContent{}},
-		{4, domain.TaskFeature, "Projects grid with filters", "Show your projects as cards with tag filters. Branch: `feat/projects`.", DeliveryManagerID, domain.ReviewManual, "10:00", 1440, 0,
+		{3, domain.TaskBlog, "Write about what I learned in week one", "300–500 words on your setup, your first PR and one mistake you fixed. Publish on Hashnode or dev.to.", ContentLeadID, domain.ReviewManual, "15:00", 2880, 0, domain.TaskContent{}},
+		{4, domain.TaskFeature, "Projects grid with filters", "Show your projects as cards with tag filters. Use the branch `feat/projects`.", DeliveryManagerID, domain.ReviewManual, "10:00", 1440, 0,
 			domain.TaskContent{Rubric: []string{"Filters combine (tag and search)", "Empty state when nothing matches", "Cards are keyboard reachable"}}},
 		{4, domain.TaskDSA, "Best Time to Buy and Sell Stock", "One pass, constant space.", EngineeringManagerID, domain.ReviewManual, "12:00", 360, 0,
 			domain.TaskContent{Practice: practice("maxProfit", "function maxProfit(prices) {\n  // Best profit from one buy and one later sell, or 0.\n}\n",

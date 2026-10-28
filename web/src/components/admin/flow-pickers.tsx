@@ -286,7 +286,7 @@ export function AssignStudentsDialog({ open, flow, onClose }: { open: boolean; f
           <DialogTitle>Assign “{flow.name}”</DialogTitle>
           <DialogDescription>
             Generates every task of the published version for each student, from today on. Days already over are skipped. A student on another flow
-            switches: its tasks that haven&apos;t shown up yet are cancelled.
+            switches, and its tasks that haven&apos;t shown up yet are cancelled.
           </DialogDescription>
         </DialogHeader>
         {results ? (
