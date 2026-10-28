@@ -8,7 +8,7 @@ export type LegalSection = { heading: string; points: readonly string[] };
 
 /** The short version shown on the consent step. */
 export const CONSENT_SUMMARY: readonly string[] = [
-  "We keep your GitHub login, name, email and avatar, and everything you do here: tasks, hand-ins, chat and AI helper conversations.",
+  "We keep your GitHub login, name, email and avatar, and everything you do here, including tasks, hand-ins, chat and AI helper conversations.",
   "Your mentors and your college's placement cell can read your progress, chat and AI helper conversations.",
   "Teammates in chat are characters played by mentors. Some also reply automatically, sometimes with AI, and every automatic reply is labelled.",
   "AI helper questions, messages to teammates who reply automatically, and hand-ins a mentor asks AI to draft a review for are sent to Groq. Don't paste passwords or personal details.",
@@ -20,9 +20,9 @@ export const PRIVACY: readonly LegalSection[] = [
   {
     heading: "What we collect",
     points: [
-      "From GitHub when you sign in: your login, display name, email and avatar. We only ask GitHub for read access to your profile and email address, and we never see your GitHub password.",
-      "What you do on Stackstep: task status changes, hand-in links and notes, quiz answers, chat messages, AI helper questions and answers, points, credits and certificates.",
-      "If you apply for a cohort: your phone number, date of birth, college, course, branch and graduation year, the payment screenshots you upload with their UPI transaction IDs and amounts, and your messages with the admissions team.",
+      "From GitHub when you sign in, your login, display name, email and avatar. We only ask GitHub for read access to your profile and email address, and we never see your GitHub password.",
+      "What you do on Stackstep, such as task status changes, hand-in links and notes, quiz answers, chat messages, AI helper questions and answers, points, credits and certificates.",
+      "If you apply for a cohort, your phone number, date of birth, college, course, branch and graduation year, the payment screenshots you upload with their UPI transaction IDs and amounts, and your messages with the admissions team.",
       "Basic request logs (time, path, status, request id) to keep the service running. Logs don't include message text.",
     ],
   },
@@ -38,8 +38,8 @@ export const PRIVACY: readonly LegalSection[] = [
   {
     heading: "Teammates and the AI helper",
     points: [
-      "The people in your chat are characters that make the internship feel real. Mentors play them and answer you. Some also reply automatically: scripted notes such as standups and \u201cgot it\u201d, and an AI team lead that answers everyday questions when no mentor has. Each chat header says which teammates do, and every automatic reply is labelled \u201cAutomatic reply\u201d.",
-      "Stackstep uses Groq, an AI provider, in three places: the AI helper (your question and the task brief), automatic teammate replies (your message, your open tasks and the recent conversation), and review drafts a mentor may ask for (the task, your hand-in note and your public pull request). A mentor always makes review decisions. Don't paste passwords, keys or personal details into chat or the helper.",
+      "The people in your chat are characters that make the internship feel real. Mentors play them and answer you. Some also reply automatically, with scripted notes such as standups and \u201cgot it\u201d, and an AI team lead that answers everyday questions when no mentor has. Each chat header says which teammates do, and every automatic reply is labelled \u201cAutomatic reply\u201d.",
+      "Stackstep uses Groq, an AI provider, in three places. The AI helper (your question and the task brief), automatic teammate replies (your message, your open tasks and the recent conversation), and review drafts a mentor may ask for (the task, your hand-in note and your public pull request). A mentor always makes review decisions. Don't paste passwords, keys or personal details into chat or the helper.",
     ],
   },
   {
@@ -72,7 +72,7 @@ export const TERMS: readonly LegalSection[] = [
     points: [
       "Some cohorts charge a fee, shown before you pay. Pay the exact amount by UPI to the details on the payment step and upload the screenshot; your seat is confirmed once an admin matches the payment.",
       "Fees are non-refundable under any circumstances, including if you stop, are removed for breaking these terms, or your application is closed.",
-      "If a payment is short, unclear or for a different cohort, we'll tell you what to do: pay the balance, upload a clearer screenshot or switch cohorts. Money we've confirmed carries over when you switch.",
+      "If a payment is short, unclear or for a different cohort, we'll tell you what to do, such as paying the balance, uploading a clearer screenshot or switching cohorts. Money we've confirmed carries over when you switch.",
     ],
   },
   {

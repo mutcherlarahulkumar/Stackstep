@@ -23,6 +23,7 @@ import { useSession } from "@/lib/session";
 import { cn } from "@/lib/utils";
 import { Bounds, normalizeLine, validateLine } from "@/lib/validation";
 
+import { InfoNote } from "../app/info-note";
 import { PAGE, PageHeader } from "../app/page-header";
 import { PERSONA_BG, PersonaAvatar } from "../app/persona-avatar";
 import { EmptyState, ErrorState, ListSkeleton } from "../app/state";
@@ -52,13 +53,16 @@ function Personas({ canEdit }: { canEdit: boolean }) {
                 </Button>
               ) : null}
             </PageHeader>
+            <InfoNote id="personas" title="What personas are">
+              Personas are the team members students chat with, such as the team lead or product manager. Each task is posted by one of them. Mentors reply as the persona, and personas with automatic replies answer everyday questions on their own, always labelled as automatic.
+            </InfoNote>
             {q.isPending ? (
               <ListSkeleton rows={4} className="h-12" />
             ) : q.isError ? (
               <ErrorState message={messageFor(q.error)} onRetry={() => void q.refetch()} />
             ) : q.data.length === 0 ? (
               <EmptyState icon={UserRoundCog} title="No personas yet">
-                Add the managers who post tasks: an engineering manager for DSA, a delivery manager for features, a content lead for blogs.
+                Add the managers who post tasks, such as an engineering manager for DSA, a delivery manager for features, a content lead for blogs.
               </EmptyState>
             ) : (
               <Table>

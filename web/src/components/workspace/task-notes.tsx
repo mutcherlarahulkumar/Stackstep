@@ -85,7 +85,7 @@ function Editor({ taskId, saved }: { taskId: string; saved: TaskNote }) {
               submit();
             }
           }}
-          placeholder={"What you tried, links you found, what you'd do next…\nMarkdown works: **bold**, - lists, `code`."}
+          placeholder={"What you tried, links you found, what you'd do next…\nMarkdown works, like **bold**, - lists and `code`."}
           className="font-mono text-[0.85rem]"
           aria-invalid={tooLong || !!error}
           data-testid="note-body"
@@ -110,7 +110,7 @@ function Editor({ taskId, saved }: { taskId: string; saved: TaskNote }) {
       <div className="flex items-center justify-between gap-2">
         <span className="text-muted-foreground text-xs tabular-nums" aria-live="polite">
           {tooLong
-            ? `${length.toLocaleString()} / ${NOTE_MAX.toLocaleString()} characters — too long`
+            ? `${length.toLocaleString()} / ${NOTE_MAX.toLocaleString()} characters, too long`
             : status === "saved"
               ? saved.updated_at
                 ? `Saved ${dateTimeLabel(saved.updated_at)}${saved.shared ? " · shared" : ""}`

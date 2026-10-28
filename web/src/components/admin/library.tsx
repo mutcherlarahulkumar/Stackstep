@@ -26,6 +26,7 @@ import { useSession } from "@/lib/session";
 import { cn } from "@/lib/utils";
 import { Bounds, durationLabel } from "@/lib/validation";
 
+import { InfoNote } from "../app/info-note";
 import { PAGE, PageHeader } from "../app/page-header";
 import { PersonaAvatar } from "../app/persona-avatar";
 import { TableSkeleton } from "../app/loading";
@@ -69,6 +70,9 @@ function Library({ canEdit }: { canEdit: boolean }) {
           </Button>
         ) : null}
       </PageHeader>
+      <InfoNote id="library" title="What the task library is for">
+        Write a task once here and reuse it in any flow or assign it by hand. Flows keep their own copy, so changing a task here never changes a flow that is already published.
+      </InfoNote>
       <div className="mb-4 flex flex-wrap items-center gap-2">
         <InputGroup className="w-72">
           <InputGroupAddon>

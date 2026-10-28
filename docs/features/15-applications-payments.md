@@ -41,8 +41,8 @@ new application.
 - Decide: **Approve** (confirm the amount received, which must cover the fee; enrolls the
   student in the same transaction, optional flow), **Flag** (reason, amount received, note),
   **Reject** (reason required).
-- **Payment settings** (Setup → Payments, platform admins): UPI ID, payee, note, QR image.
-- **Cohort fees** (Setup → Payments, platform admins): fee in ₹ and "taking applications" per cohort.
+- **Payment settings** (Setup, then Payments, platform admins): UPI ID, payee, note, QR image.
+- **Cohort fees** (Setup, then Cohorts, platform admins): fee in ₹ and "taking applications" per cohort, next to its seats and start date.
 - College admins see applications to their college's cohorts only.
 
 ## Limits
@@ -67,3 +67,6 @@ type is read from the bytes, not the name.
 | AP11 | Chat; rejection; data export | both sides see messages; reason required; "non-refundable" posted; the export includes the application, payments and chat; a new application can start, old screenshots refused | backend `TestApplicationIssues` |
 | AP12 | Payment settings and admissions | platform admins only; UPI ID checked; PNG/JPG/WebP QR only; fee required to open | backend `TestApplicationIssues` |
 | AP13 | Admissions close after the student picked the cohort | details can still be fixed; nobody new can pick it | backend `TestApplicationIssues` |
+| AP14 | Slow or waking API (the answer arrives after the browser gave up) | the page checks whether the save, payment, chat message or decision landed and carries on; no false error, no refresh needed; a "still working" note after 6 s | web `landed.test.ts`, E2E `apply.spec.ts` |
+| AP15 | Large phone screenshot (up to 25 MB) | shrunk in the browser to a JPEG under 4 MB before upload | manual (needs a real browser canvas) |
+| AP16 | Sending a chat message | only the chat box updates; the page doesn't scroll or reload | E2E `apply.spec.ts` |

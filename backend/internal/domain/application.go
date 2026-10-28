@@ -233,7 +233,7 @@ func ValidateProof(image []byte, utr string, amount int) (Proof, map[string]stri
 		p.SHA256 = hex.EncodeToString(sum[:])
 	}
 	if !utrPattern.MatchString(p.UTR) {
-		errs["utr"] = "Enter the UPI transaction ID (UTR) from the payment: 6 to 35 letters and digits."
+		errs["utr"] = "Enter the UPI transaction ID (UTR) from the payment, 6 to 35 letters and digits."
 	}
 	if amount < 1 || amount > FeeMaxINR {
 		errs["amount_inr"] = "Enter the amount you paid, in rupees."

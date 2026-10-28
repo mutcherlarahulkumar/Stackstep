@@ -1,6 +1,7 @@
 "use client";
 
 import { useQueryClient } from "@tanstack/react-query";
+import { newId } from "@/lib/uuid";
 import { useCallback, useEffect, useReducer, useRef } from "react";
 
 import { messageFor } from "@/lib/api/errors";
@@ -166,7 +167,7 @@ export function useConversation(target: ChatTarget) {
     (raw: string): string | null => {
       const problem = validateMessage(raw);
       if (problem) return problem;
-      const out: Outgoing = { clientId: crypto.randomUUID(), body: raw.trim(), at: new Date(), error: null };
+      const out: Outgoing = { clientId: newId(), body: raw.trim(), at: new Date(), error: null };
       dispatch({ type: "queued", out });
       void deliver(out);
       return null;

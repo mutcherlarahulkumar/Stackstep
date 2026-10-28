@@ -219,7 +219,7 @@ class _QuizPlayerState extends ConsumerState<QuizPlayer> {
         r.passed
             ? 'Passed with ${r.score}%'
             : r.attemptsLeft > 0
-            ? '${r.score}%: not quite. ${r.attemptsLeft} ${r.attemptsLeft == 1 ? 'attempt' : 'attempts'} left.'
+            ? '${r.score}%, not quite. ${r.attemptsLeft} ${r.attemptsLeft == 1 ? 'attempt' : 'attempts'} left.'
             : 'Finished with a best score of ${res.task.quizResult?.bestScore ?? r.score}%',
       );
       setState(() => _answers = [for (final _ in quiz.questions) null]);

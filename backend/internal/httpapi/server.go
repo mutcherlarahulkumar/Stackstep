@@ -53,6 +53,7 @@ type Server struct {
 	log          *slog.Logger
 	signInLimit  *ipLimiter
 	refreshLimit *ipLimiter
+	reportLimit  *ipLimiter
 }
 
 // Deps are the server's collaborators.
@@ -80,6 +81,8 @@ func New(d Deps) *Server {
 		// Sign-in is the brute-force target; refresh runs on every page load, so it gets more room.
 		signInLimit:  newIPLimiter(perMinute(d.Config.AuthRatePerMinute), d.Config.AuthRatePerMinute),
 		refreshLimit: newIPLimiter(perMinute(4*d.Config.AuthRatePerMinute), 4*d.Config.AuthRatePerMinute),
+		// Crash reports from the web app: plenty for a real problem, not a log flood.
+		reportLimit: newIPLimiter(perMinute(20), 20),
 	}
 }
 
@@ -114,6 +117,8 @@ func (s *Server) Handler() http.Handler {
 	a.POST("/exchange", signIn, s.exchange)
 	a.POST("/refresh", session, s.refresh)
 	a.POST("/logout", session, s.logout)
+	// The web app reports its crashes here (logged, never stored); no sign-in needed.
+	v1.POST("/client-errors", s.limit(s.reportLimit), s.clientError)
 
 	authed := v1.Group("", s.authenticate)
 	authed.GET("/me", s.me)

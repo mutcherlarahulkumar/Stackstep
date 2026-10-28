@@ -186,7 +186,7 @@ class _CertificateCard extends StatelessWidget {
         child: c == null
             ? Text(
                 progress.meetsBar
-                    ? "You're past the bar. Keep going — your team lead reviews your work and issues the certificate."
+                    ? "You're past the bar. Keep going. Your team lead reviews your work and issues the certificate."
                     : 'Finish at least ${progress.barPercent}% of your tasks. Your team lead reviews your work and issues the certificate by hand.',
                 key: const Key('no-certificate'),
                 style: t.textTheme.muted,

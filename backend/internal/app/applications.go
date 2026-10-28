@@ -262,7 +262,7 @@ func (a *Admissions) UploadProof(ctx context.Context, u domain.User, in ProofInp
 		if _, err := store.SaveApplication(ctx, q, app, now); err != nil {
 			return err
 		}
-		if err := a.system(ctx, q, app.ID, fmt.Sprintf("Payment proof uploaded: %s, UTR %s. We'll confirm it soon.", domain.INR(proof.Amount), proof.UTR), now); err != nil {
+		if err := a.system(ctx, q, app.ID, fmt.Sprintf("Payment proof uploaded for %s with UTR %s. We'll confirm it soon.", domain.INR(proof.Amount), proof.UTR), now); err != nil {
 			return err
 		}
 		return store.MarkApplicationUnread(ctx, q, app.ID, true)
@@ -507,7 +507,7 @@ func (a *Admissions) Decide(ctx context.Context, u domain.User, id uuid.UUID, d 
 			if err := store.SetDecidedBy(ctx, q, app.ID, u.ID); err != nil {
 				return err
 			}
-			msg := "Your application was closed.\n\nReason: " + note + "\n\n" + domain.NoRefundPolicy
+			msg := "Your application was closed.\n\nThe reason given was " + strings.TrimSuffix(note, ".") + ".\n\n" + domain.NoRefundPolicy
 			if err := a.system(ctx, q, app.ID, msg, now); err != nil {
 				return err
 			}
@@ -581,7 +581,7 @@ func (a *Admissions) approve(ctx context.Context, q store.Q, u domain.User, app 
 		var ae *apperr.Error
 		if errors.As(err, &ae) && ae.Code == apperr.CodeValidationFailed {
 			for _, v := range ae.Fields {
-				return apperr.Validation(map[string]string{"action": "Couldn't enroll: " + strings.TrimSuffix(v, ".") + "."})
+				return apperr.Validation(map[string]string{"action": "Couldn't enroll. " + strings.TrimSuffix(v, ".") + "."})
 			}
 		}
 		return err

@@ -9,13 +9,16 @@ import { Textarea } from "@/components/ui/textarea";
 import { type ApplicationMessage } from "@/lib/api/schemas";
 import { applyErrorMessage } from "@/lib/apply";
 import { dateTimeLabel } from "@/lib/format";
+import { landed } from "@/lib/landed";
 import { cn } from "@/lib/utils";
+import { newId } from "@/lib/uuid";
 
 const MAX = 4000;
 
 /**
  * The application's chat with the admissions team. Students see "Admissions"; staff see the
- * student's name. Stackstep's own status lines sit in the middle.
+ * student's name. Stackstep's own status lines sit in the middle. Sending only updates this
+ * box: the parent appends the returned message to its cache, nothing else reloads.
  */
 export function ApplicationChat({
   messages,
@@ -27,15 +30,19 @@ export function ApplicationChat({
   messages: ApplicationMessage[];
   viewer: "applicant" | "staff";
   otherName: string;
-  onSend: (clientId: string, body: string) => Promise<unknown>;
+  onSend: (clientId: string, body: string) => Promise<ApplicationMessage>;
   className?: string;
 }) {
   const [text, setText] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const clientId = useRef<string>("");
-  const end = useRef<HTMLDivElement>(null);
-  useLayoutEffect(() => end.current?.scrollIntoView({ block: "nearest" }), [messages.length]);
+  const list = useRef<HTMLOListElement>(null);
+  // Keep the newest message in view by scrolling the list itself, never the page.
+  useLayoutEffect(() => {
+    const el = list.current;
+    if (el) el.scrollTop = el.scrollHeight;
+  }, [messages.length]);
 
   const send = async () => {
     const body = text.trim();
@@ -45,11 +52,16 @@ export function ApplicationChat({
       return;
     }
     // One id per message, kept across retries so a resend never doubles it.
-    if (!clientId.current) clientId.current = crypto.randomUUID();
+    if (!clientId.current) clientId.current = newId();
     setBusy(true);
     setError(null);
     try {
-      await onSend(clientId.current, body);
+      const id = clientId.current;
+      // The server ignores a repeated id, so resending after a dropped connection is safe.
+      await landed(
+        () => onSend(id, body),
+        () => onSend(id, body),
+      );
       clientId.current = "";
       setText("");
     } catch (e) {
@@ -71,10 +83,10 @@ export function ApplicationChat({
         <MessagesSquare className="text-muted-foreground size-4" aria-hidden />
         {viewer === "applicant" ? "Questions? Message the admissions team" : `Chat with ${otherName}`}
       </h2>
-      <ol className="flex max-h-96 min-h-32 flex-col gap-3 overflow-y-auto p-4" aria-live="polite">
+      <ol ref={list} className="flex max-h-96 min-h-32 flex-col gap-3 overflow-y-auto overscroll-contain p-4" aria-live="polite">
         {messages.length === 0 ? (
           <li className="text-muted-foreground m-auto text-center text-sm">
-            {viewer === "applicant" ? "Stuck on the payment or the form? Ask here — a person replies." : "No messages yet."}
+            {viewer === "applicant" ? "Stuck on the payment or the form? Ask here and a person replies." : "No messages yet."}
           </li>
         ) : null}
         {messages.map((m) => {
@@ -97,7 +109,6 @@ export function ApplicationChat({
             </li>
           );
         })}
-        <div ref={end} />
       </ol>
       <form
         className="flex flex-col gap-1.5 border-t p-3"

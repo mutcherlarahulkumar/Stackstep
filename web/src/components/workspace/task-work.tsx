@@ -213,7 +213,7 @@ export function QuizPlayer({ task, onGraded, disabled }: { task: Task; onGraded:
       onGraded(res.task);
       const r = res.result;
       if (r.passed) toast.success(`Passed with ${r.score}%`);
-      else if (r.attempts_left > 0) toast.warning(`${r.score}%: not quite`, { description: `${r.attempts_left} ${r.attempts_left === 1 ? "attempt" : "attempts"} left. Review the wrong ones and try again.` });
+      else if (r.attempts_left > 0) toast.warning(`${r.score}%, not quite`, { description: `${r.attempts_left} ${r.attempts_left === 1 ? "attempt" : "attempts"} left. Review the wrong ones and try again.` });
       else toast.info(`Finished with a best score of ${res.task.quiz_result?.best_score ?? r.score}%`);
       setAnswers(quiz.questions.map(() => null));
     } catch (e) {
@@ -312,7 +312,7 @@ export function RubricView({ criteria, submission }: { criteria: string[]; submi
     <section aria-labelledby="rubric-title" className="mt-6" data-testid="rubric">
       <h3 id="rubric-title" className="mb-2 flex items-center gap-2 text-sm font-medium">
         <ListChecks className="text-muted-foreground size-4" aria-hidden />
-        {ticks ? `Review: ${met} of ${criteria.length} met` : "What your reviewer checks"}
+        {ticks ? `${met} of ${criteria.length} checks met` : "What your reviewer checks"}
       </h3>
       <ul className="flex flex-col gap-1.5">
         {criteria.map((c, i) => {

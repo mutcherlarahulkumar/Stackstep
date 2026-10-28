@@ -16,6 +16,7 @@ import { firstName } from "@/lib/format";
 import { useSession } from "@/lib/session";
 import { cn } from "@/lib/utils";
 
+import { InfoNote } from "../app/info-note";
 import { PAGE, PageHeader } from "../app/page-header";
 import { stagger } from "../app/loading";
 import { EmptyState, ErrorState, ListSkeleton } from "../app/state";
@@ -74,7 +75,7 @@ function Reviews() {
   return (
     <div className="min-h-0 flex-1 overflow-y-auto">
       <div className={cn(PAGE, "gap-6")}>
-        <PageHeader title="Reviews" description={<>Every hand-in waiting on you, oldest first. Aim to review within {q.data?.sla_hours ?? 24} hours — students are waiting to move on.</>}>
+        <PageHeader title="Reviews" description={<>Every hand-in waiting on you, oldest first. Aim to review within {q.data?.sla_hours ?? 24} hours, since students are waiting to move on.</>}>
           <Select value={persona} onValueChange={setPersona}>
             <SelectTrigger className="w-56" aria-label="Filter by persona">
               <SelectValue />
@@ -91,6 +92,9 @@ function Reviews() {
             </SelectContent>
           </Select>
         </PageHeader>
+        <InfoNote id="reviews" title="How reviewing works">
+          Every task a student hands in waits here, oldest first. Open it, check the work against the rubric, then Approve or Request changes with a note the student sees in chat. Draft with AI only suggests a review; nothing is sent until you press a button.
+        </InfoNote>
 
         {q.isPending ? (
           <ListSkeleton rows={4} className="h-28" />

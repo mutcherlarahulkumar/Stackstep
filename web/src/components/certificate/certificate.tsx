@@ -169,7 +169,7 @@ function VerifiedCard({ cert }: { cert: Certificate }) {
           <AlertTitle>This certificate was revoked</AlertTitle>
           <AlertDescription>
             {cert.revoked_at ? `On ${dateTimeLabel(cert.revoked_at)}. ` : null}
-            Reason: {cert.revoke_reason ?? "not given"}
+            The reason given was {cert.revoke_reason ?? "not recorded"}
           </AlertDescription>
         </Alert>
       ) : (

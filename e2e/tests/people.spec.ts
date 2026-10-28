@@ -23,12 +23,16 @@ test("people: colleges, cohorts, enroll by login, roster import, internship stat
   const login = `e2e-${suffix}`;
   const admin = await (await browser.newContext({ viewport: { width: 1440, height: 900 } })).newPage();
   await signIn(admin, "admin-demo");
-  await admin.getByTestId("nav-setup").click();
-  await admin.getByRole("menuitem", { name: /^People/ }).click();
-  await expect(admin.getByRole("heading", { name: "People" })).toBeVisible();
-
-  // A college and a cohort with two seats.
-  await admin.getByRole("tab", { name: "Colleges & cohorts" }).click();
+  // A college on its own page.
+  await admin.getByTestId("nav-setup").filter({ visible: true }).click();
+  await admin.getByRole("menuitem", { name: /^Colleges/ }).click();
+  await expect(admin.getByRole("heading", { name: "Colleges" })).toBeVisible();
+  await expect(admin.getByRole("complementary", { name: "What a college is for" })).toBeVisible();
+  // Explainers can be put away once read and brought back.
+  await admin.getByRole("button", { name: 'Got it, hide "What a college is for"' }).click();
+  await expect(admin.getByRole("complementary", { name: "What a college is for" })).toHaveCount(0);
+  await admin.getByTestId("info-note-show").filter({ visible: true }).click();
+  await expect(admin.getByRole("complementary", { name: "What a college is for" })).toBeVisible();
   await admin.getByTestId("open-new-college").click();
   let dialog = admin.getByRole("dialog");
   await dialog.getByLabel("College name").fill(college);
@@ -36,20 +40,33 @@ test("people: colleges, cohorts, enroll by login, roster import, internship stat
   await expectToast(admin, `Added ${college}`);
   await expect(admin.getByTestId(`college-${college}`)).toBeVisible();
 
+  // A cohort with two seats, on the Cohorts page.
+  await admin.getByTestId("nav-setup").filter({ visible: true }).click();
+  await admin.getByRole("menuitem", { name: /^Cohorts/ }).click();
+  await expect(admin.getByRole("complementary", { name: "What a cohort is" })).toBeVisible();
   await admin.getByTestId("open-new-cohort").click();
   dialog = admin.getByRole("dialog");
   await dialog.getByTestId("cohort-save").click();
   await expect(dialog.getByText("Give the cohort a name")).toBeVisible();
-  await dialog.getByLabel("Name").fill(cohort);
+  await dialog.getByLabel("Name", { exact: true }).fill(cohort);
   await choose(admin, dialog, "College", college);
   await choose(admin, dialog, "Program", /frontend-30/);
   await dialog.getByLabel("Seats").fill("2");
+  // Taking applications needs a fee.
+  await dialog.getByTestId("cohort-open").click();
+  await dialog.getByTestId("cohort-save").click();
+  await expect(dialog.getByText("Set a fee to take applications.")).toBeVisible();
+  await dialog.getByTestId("cohort-open").click();
   await dialog.getByTestId("cohort-save").click();
   await expectToast(admin, `Added ${cohort}`);
   await expect(admin.getByTestId(`cohort-${cohort}`)).toContainText("0/2");
 
+  await admin.getByTestId("nav-setup").filter({ visible: true }).click();
+  await admin.getByRole("menuitem", { name: /^People/ }).click();
+  await expect(admin.getByRole("heading", { name: "People" })).toBeVisible();
+
   // Enroll a login that has never signed in, on the React flow.
-  await admin.getByRole("tab", { name: "Enroll" }).click();
+  await expect(admin.getByRole("complementary", { name: "Enroll students by hand" })).toBeVisible();
   const one = admin.locator("form").first();
   await admin.getByTestId("enroll-submit").click();
   await expect(one.getByText("Enter a GitHub username")).toBeVisible();

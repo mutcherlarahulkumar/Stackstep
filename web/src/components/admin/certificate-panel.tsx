@@ -40,7 +40,7 @@ export function CertificatePanel({ student }: { student: Student }) {
       detail={`${p.done} of ${p.released} released done${p.overdue > 0 ? ` · ${p.overdue} overdue` : ""}`}
       testId="certificate-panel"
     >
-      <Progress value={p.completion_percent} className="mt-1 h-1.5" aria-label={`Bar for a certificate: ${p.bar_percent}%`} />
+      <Progress value={p.completion_percent} className="mt-1 h-1.5" aria-label={`Certificate bar ${p.bar_percent}%`} />
       {p.certificate ? (
         <Link href={verifyPath(p.certificate.code)} target="_blank" className="text-primary mt-1 inline-flex items-center gap-1 text-xs font-medium underline-offset-4 hover:underline" data-testid="view-certificate">
           <BadgeCheck className="text-success size-3.5" aria-hidden /> {formatCode(p.certificate.code)}
@@ -106,7 +106,7 @@ function IssueDialog({ open, student, progress: p, onClose }: { open: boolean; s
         <DialogHeader>
           <DialogTitle>Issue a certificate to {student.user.name}?</DialogTitle>
           <DialogDescription>
-            It records today&apos;s numbers — {p.done} of {p.released} tasks and {p.points} points — and gets a public verification link. The team lead congratulates{" "}
+            It records today&apos;s numbers ({p.done} of {p.released} tasks and {p.points} points) and gets a public verification link. The team lead congratulates{" "}
             {name} in chat.
           </DialogDescription>
         </DialogHeader>
@@ -115,7 +115,7 @@ function IssueDialog({ open, student, progress: p, onClose }: { open: boolean; s
             <BadgeCheck className="text-success" aria-hidden />
             <AlertTitle>Past the bar</AlertTitle>
             <AlertDescription>
-              {p.completion_percent}% of released tasks are done (bar: {p.bar_percent}%).
+              {p.completion_percent}% of released tasks are done, against a bar of {p.bar_percent}%.
             </AlertDescription>
           </Alert>
         ) : (

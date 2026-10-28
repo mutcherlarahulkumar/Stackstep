@@ -192,7 +192,7 @@ class _Tips extends StatelessWidget {
           ),
           const SizedBox(height: Space.sm),
           Text(
-            'Spend some time on the problem yourself first: read the error, check the docs, try one fix. Then explain everything in one go.',
+            'Spend some time on the problem yourself first. Read the error, check the docs, try one fix. Then explain everything in one go.',
             style: t.textTheme.muted,
           ),
           const SizedBox(height: Space.sm),

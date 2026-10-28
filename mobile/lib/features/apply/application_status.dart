@@ -110,7 +110,7 @@ class ApplicationStatusBody extends ConsumerWidget {
     ),
     ApplicationStatus.submitted => EmptyState(
       icon: LucideIcons.hourglass,
-      title: 'Payment received — awaiting confirmation',
+      title: 'Payment received, awaiting confirmation',
       body:
           "We're matching your payment for ${a.cohortName ?? 'your cohort'}. This usually takes less than a day. Pull down to check again.",
       action: actions,
@@ -124,7 +124,7 @@ class ApplicationStatusBody extends ConsumerWidget {
     ),
     ApplicationStatus.approved => EmptyState(
       icon: LucideIcons.partyPopper,
-      title: 'Payment confirmed — welcome aboard!',
+      title: 'Payment confirmed. Welcome aboard!',
       body: "You're enrolled in ${a.cohortName ?? 'your cohort'}. Tap Check again to open your internship.",
       action: again,
     ),

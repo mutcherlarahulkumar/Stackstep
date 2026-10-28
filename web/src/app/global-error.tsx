@@ -2,10 +2,13 @@
 
 import { useEffect } from "react";
 
+import { reportError } from "@/lib/report-error";
+
 /** Last resort when the root layout itself fails: plain HTML, no app styles or providers. */
 export default function GlobalError({ error, reset }: { error: Error & { digest?: string }; reset: () => void }) {
   useEffect(() => {
     console.error(error);
+    reportError(error, "root", error.digest);
   }, [error]);
   return (
     <html lang="en">
@@ -16,6 +19,10 @@ export default function GlobalError({ error, reset }: { error: Error & { digest?
           <button type="button" onClick={reset} style={{ marginTop: 12, padding: "10px 16px", borderRadius: 8, border: "1px solid #ccc", background: "#fff", cursor: "pointer" }}>
             Try again
           </button>
+          <p style={{ color: "#888", fontSize: 12, marginTop: 16, maxWidth: 360, wordBreak: "break-word" }}>
+            {error.name}: {error.message}
+            {error.digest ? ` · ref ${error.digest}` : ""}
+          </p>
         </main>
       </body>
     </html>

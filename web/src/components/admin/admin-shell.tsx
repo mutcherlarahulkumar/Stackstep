@@ -1,7 +1,7 @@
 "use client";
 
 import { useQuery } from "@tanstack/react-query";
-import { BookCopy, ChartColumn, ChevronDown, ClipboardCheck, Inbox, QrCode, ReceiptIndianRupee, Route, Send, Settings2, UserPlus, UserRoundCog, Users, type LucideIcon } from "lucide-react";
+import { BookCopy, Building2, ChartColumn, ChevronDown, ClipboardCheck, Inbox, QrCode, ReceiptIndianRupee, Route, Send, Settings2, UserPlus, UserRoundCog, Users, UsersRound, type LucideIcon } from "lucide-react";
 import Link from "next/link";
 import { type ReactNode } from "react";
 
@@ -23,7 +23,7 @@ import { useBrowserNotifications, useUnreadTitle } from "@/lib/use-notifications
 
 import { personaMap, useAllPersonas } from "./catalog-queries";
 
-export type Section = "report" | "overview" | "people" | "reviews" | "students" | "inbox" | "flows" | "library" | "personas" | "assign" | "applications" | "payments";
+export type Section = "report" | "overview" | "people" | "reviews" | "students" | "inbox" | "flows" | "library" | "personas" | "assign" | "applications" | "payments" | "colleges" | "cohorts";
 
 type NavItem = { id: Section; href: string; label: string; icon: LucideIcon };
 
@@ -38,11 +38,13 @@ const DESKTOP_NAV: NavItem[] = [
 
 /** Set up once, change rarely: behind one menu so the bar stays short. */
 const SETUP_NAV: (NavItem & { hint: string })[] = [
-  { id: "people", href: "/admin/people", label: "People", icon: UserPlus, hint: "Enroll students, colleges, staff" },
-  { id: "flows", href: "/admin/flows", label: "Flows", icon: Route, hint: "Day-by-day courses" },
+  { id: "people", href: "/admin/people", label: "People", icon: UserPlus, hint: "Enroll students by hand, manage staff" },
+  { id: "colleges", href: "/admin/colleges", label: "Colleges", icon: Building2, hint: "Institutions you work with" },
+  { id: "cohorts", href: "/admin/cohorts", label: "Cohorts", icon: UsersRound, hint: "Batches, seats, fees and admissions" },
+  { id: "payments", href: "/admin/payments", label: "Payments", icon: QrCode, hint: "UPI ID and QR students pay to" },
+  { id: "flows", href: "/admin/flows", label: "Flows", icon: Route, hint: "Day by day courses" },
   { id: "library", href: "/admin/library", label: "Task library", icon: BookCopy, hint: "Reusable tasks" },
   { id: "personas", href: "/admin/personas", label: "Personas", icon: UserRoundCog, hint: "Your team characters" },
-  { id: "payments", href: "/admin/payments", label: "Payments", icon: QrCode, hint: "UPI ID, QR and cohort fees" },
 ];
 
 /** Sections that light up a top-level item. */
@@ -94,7 +96,7 @@ function Frame({ me, section, phone, children }: { me: Me; section: Section; pho
               const active = n.id === (ACTIVE_FOR[section] ?? section);
               const count = n.id === "inbox" ? unread : n.id === "reviews" ? waiting : n.id === "applications" ? applicants : 0;
               return (
-                <Link key={n.id} href={n.href} aria-current={active ? "page" : undefined} className={cn(NAV_LINK, active && "border-primary text-foreground")}>
+                <Link key={n.id} href={n.href} aria-current={active ? "page" : undefined} className={cn(NAV_LINK, active && "border-b-primary text-foreground")}>
                   <n.icon className="size-4" aria-hidden />
                   <span className={cn(!desktop && n.id !== section && "sr-only sm:not-sr-only")}>{n.label}</span>
                   {count > 0 ? (
@@ -128,7 +130,8 @@ function Frame({ me, section, phone, children }: { me: Me; section: Section; pho
 }
 
 const NAV_LINK =
-  "text-muted-foreground hover:text-foreground focus-visible:ring-ring flex shrink-0 items-center gap-2 border-b-2 border-transparent px-2.5 text-sm font-medium outline-none focus-visible:ring-2 focus-visible:ring-inset";
+  // Equal borders top and bottom keep the label on the header's centre line; the bottom one turns into the active underline.
+  "text-muted-foreground hover:text-foreground focus-visible:ring-ring flex shrink-0 items-center gap-2 border-y-2 border-transparent px-2.5 text-sm font-medium outline-none focus-visible:ring-2 focus-visible:ring-inset";
 
 /** Hand-ins waiting, for the Reviews badge (desktop only; the queue refreshes every minute). */
 function useReviewCount(enabled: boolean): number {
@@ -149,7 +152,7 @@ function SetupMenu({ section }: { section: Section }) {
   const current = SETUP_NAV.find((n) => n.id === section);
   return (
     <DropdownMenu>
-      <DropdownMenuTrigger className={cn(NAV_LINK, "cursor-pointer", active && "border-primary text-foreground")} data-testid="nav-setup">
+      <DropdownMenuTrigger className={cn(NAV_LINK, "cursor-pointer", active && "border-b-primary text-foreground")} data-testid="nav-setup">
         <Settings2 className="size-4" aria-hidden />
         {current ? `Setup · ${current.label}` : "Setup"}
         <ChevronDown className="size-3.5 opacity-60" aria-hidden />

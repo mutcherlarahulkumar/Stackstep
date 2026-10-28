@@ -183,7 +183,7 @@ export function detailsErrors(d: DetailsDraft, now: Date): Record<string, string
 export function proofErrors(utr: string, amount: string, hasImage: boolean, agreed: boolean): Record<string, string> {
   const e: Record<string, string> = {};
   if (!hasImage) e.image = "Attach a screenshot of the payment.";
-  if (!/^[A-Za-z0-9]{6,35}$/.test(utr.trim())) e.utr = "Enter the UPI transaction ID (UTR): 6 to 35 letters and digits.";
+  if (!/^[A-Za-z0-9]{6,35}$/.test(utr.trim())) e.utr = "Enter the UPI transaction ID (UTR), 6 to 35 letters and digits.";
   const n = Number(amount);
   if (!Number.isInteger(n) || n < 1) e.amount_inr = "Enter the amount you paid, in rupees.";
   if (!agreed) e.agree = "Please confirm you've read the refund policy.";

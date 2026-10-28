@@ -96,7 +96,11 @@ callback.
    - **Branch**: `main`
    - **Health check path**: `/readyz`
    - **Instance type**: the free tier sleeps when idle (the first request takes ~50 s and live
-     chat drops). Use at least the smallest paid instance for real students.
+     chat drops). Use at least the smallest paid instance for real students. While you're
+     on the free tier, set the repository variable `API_URL` (GitHub → Settings → Secrets and
+     variables → Actions → Variables) to your Render URL: the **API · keep awake** workflow then
+     pings it every 10 minutes. The web app also waits up to a minute for a waking API and checks
+     whether a save went through before showing an error.
 3. **Environment variables** (Render → your service → Environment):
 
 | Variable | Value | Notes |
@@ -317,6 +321,7 @@ which is already registered in the Android and iOS projects.
 | GitHub says "redirect_uri is not associated" | `GITHUB_REDIRECT_URL` on Render differs from the OAuth app's callback URL. They must match exactly. |
 | After GitHub, "sign-in didn't complete" | `WEB_BASE_URL` points somewhere else, or the browser blocked the cookie. Use the same domain throughout. |
 | "Too many attempts" for many students at once | Set `PROXY_SHARED_SECRET` to the same value on Render and Vercel. |
+| "Something went wrong" or "hit a problem" on a page | The web app reports every crash to the API. In Render, open the API service logs and search for `client error`: each line has the message, the page, the stack and the browser. The crash screen also has **Error details** with a Copy button. |
 | Web shows "API unavailable" | `API_INTERNAL_URL` is wrong, or the API is asleep or crashing (check Render logs). |
 | App says it can't reach Stackstep | `MOBILE_API_BASE_URL` was wrong when the app was built. Fix the variable and rebuild. |
 | AI helper says it's not available | `GROQ_API_KEY` is missing or invalid on Render. |

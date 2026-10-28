@@ -50,11 +50,20 @@ test("apply and pay: details, QR, partial payment flagged, balance paid, approve
   await expect(student.getByText("Please confirm you've read the refund policy.")).toBeVisible();
   await student.getByTestId("apply-agree").click();
   await student.getByTestId("apply-send-proof").click();
-  await expect(student.getByTestId("apply-waiting")).toContainText("Payment received — awaiting confirmation");
+  await expect(student.getByTestId("apply-waiting")).toContainText("Payment received, awaiting confirmation");
   await expect(student.getByTestId("proof-row")).toHaveCount(1);
+  // Sending a message only updates the chat: the page doesn't scroll and nothing else reloads.
+  await student.evaluate(() => window.scrollTo(0, 0));
+  const reloads: string[] = [];
+  student.on("request", (r) => {
+    if (r.method() === "GET" && r.url().includes("/api/v1/me/application")) reloads.push(r.url());
+  });
   await student.getByTestId("application-chat-input").fill("I paid 2000 now, rest tomorrow.");
   await student.getByTestId("application-chat-send").click();
   await expect(student.getByTestId("application-message").filter({ hasText: "rest tomorrow" })).toBeVisible();
+  await expect(student.getByTestId("application-chat-input")).toHaveValue("");
+  expect(await student.evaluate(() => window.scrollY)).toBe(0);
+  expect(reloads).toHaveLength(0);
 
   // AP5: the admin sees it in Applications, with the screenshot and the chat.
   const admin = await (await browser.newContext({ viewport: { width: 1440, height: 900 } })).newPage();
@@ -77,7 +86,7 @@ test("apply and pay: details, QR, partial payment flagged, balance paid, approve
   await dialog.getByTestId("decide-mode-flag").click();
   await expect(dialog.getByTestId("decide-flag-reason")).toContainText("Partial payment");
   await dialog.getByTestId("decide-submit").click();
-  await expectToast(admin, "Flagged — the student was told what to do");
+  await expectToast(admin, "Flagged. The student was told what to do");
   await detail.getByTestId("application-chat-input").fill("Got ₹2,000. Pay the rest whenever you're ready.");
   await detail.getByTestId("application-chat-send").click();
 

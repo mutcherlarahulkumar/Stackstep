@@ -1,7 +1,7 @@
 openapi: 3.1.0
 info:
   title: Stackstep API
-  version: 0.16.0
+  version: 0.17.0
   description: |
     Workspace core (feature 01). All timestamps are RFC 3339 UTC. All errors use the
     `Error` envelope; clients switch on `error.code`, never on `message`.
@@ -128,6 +128,33 @@ paths:
       parameters: [{ $ref: "#/components/parameters/XClient" }]
       responses:
         "204": { description: Signed out }
+  /v1/client-errors:
+    post:
+      tags: [auth]
+      operationId: reportClientError
+      summary: Report a crash in the web app
+      description: Written to the API log so a problem a student hits can be found. Nothing is stored. Rate limited per visitor; 16 KB max.
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [where, message, stack, path, digest, release]
+              properties:
+                where: { type: string, description: "page, section name, or unhandled" }
+                message: { type: string }
+                stack: { type: string }
+                path: { type: string }
+                digest: { type: string }
+                release: { type: string }
+      responses:
+        "204": { description: Logged }
+        "400": { $ref: "#/components/responses/Error" }
+        "413": { $ref: "#/components/responses/Error" }
+        "429": { $ref: "#/components/responses/Error" }
   /v1/me:
     get:
       tags: [student]

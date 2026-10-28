@@ -110,5 +110,5 @@ test("full loop: admin assigns → student works → admin reviews", async ({ br
   await admin.getByTestId("student-asha-dev").click();
   await admin.getByTestId(`task-row-${title}`).getByRole("button", { name: "Approve" }).click();
   await expectToast(admin, "Approved");
-  await expect(student.getByTestId("chat-log").first()).toContainText(`Approved: “${title}”`, { timeout: 10_000 });
+  await expect(student.getByTestId("chat-log").first()).toContainText(`Approved “${title}”`, { timeout: 10_000 });
 });

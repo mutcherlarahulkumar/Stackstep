@@ -65,7 +65,7 @@ func TestHandInFollowUps(t *testing.T) {
 	// HF3: approval is announced as before; the admin inbox shows the student's hand-in.
 	adm = e.login(seed.AdminLogin)
 	e.expect(e.move(adm, task.ID, "done", task.Version+2, ""), 200)
-	if !has(bodies(), "persona: Approved:") {
+	if !has(bodies(), "persona: Approved “") {
 		t.Fatalf("approval not announced: %q", bodies())
 	}
 }

@@ -472,14 +472,14 @@ class _AssignTaskScreenState extends ConsumerState<AssignTaskScreen> {
               const SizedBox(height: Space.lg),
               AppField(
                 label: 'Link',
-                description: 'Optional: docs or a starter repo. Quizzes and more links are on desktop.',
+                description: 'Optional. Docs or a starter repo. Quizzes and more links are on desktop.',
                 error: _errors['resources[0].url'] ?? _errors['resources[0].title'],
                 child: Column(
                   children: [
                     ShadInput(
                       key: const Key('task-link-name'),
                       controller: _linkName,
-                      placeholder: const Text('Name, e.g. MDN: Flexbox'),
+                      placeholder: const Text('Name, e.g. MDN Flexbox guide'),
                       textInputAction: TextInputAction.next,
                     ),
                     const SizedBox(height: Space.sm),

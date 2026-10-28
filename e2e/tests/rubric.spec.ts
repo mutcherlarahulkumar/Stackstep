@@ -55,6 +55,6 @@ test("rubric: admin writes it, the student sees it, the reviewer ticks it, the s
   await student.reload();
   await board.getByTestId("board-done").locator("summary").click();
   await board.getByRole("button", { name: title }).click();
-  await expect(student.getByTestId("rubric")).toContainText("Review: 1 of 2 met");
+  await expect(student.getByTestId("rubric")).toContainText("1 of 2 checks met");
   await expect(student.getByTestId("rubric").getByLabel("Not yet")).toHaveCount(1);
 });

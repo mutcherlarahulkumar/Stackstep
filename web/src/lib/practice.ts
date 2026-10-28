@@ -24,11 +24,11 @@ export function summary(r: RunResult, total: number): string {
 
 /** A hand-in note with the code and how the examples went (≤ 4000 characters). */
 export function handInNote(code: string, result: RunResult | null, total: number, max = 4000): string {
-  const header = result ? `Practice pad: ${summary(result, total).toLowerCase()} (run in my browser).` : "Practice pad code (not run).";
+  const header = result ? `Practice pad. ${summary(result, total)} (run in my browser).` : "Practice pad code (not run).";
   const fence = "```js\n";
-  const room = max - header.length - fence.length - "\n```\n\nApproach and complexity: ".length;
+  const room = max - header.length - fence.length - "\n```\n\nApproach and complexity, ".length;
   const body = code.length > room ? `${code.slice(0, Math.max(0, room - 20))}\n// …trimmed` : code;
-  return `${header}\n\n${fence}${body.trimEnd()}\n\`\`\`\n\nApproach and complexity: `;
+  return `${header}\n\n${fence}${body.trimEnd()}\n\`\`\`\n\nApproach and complexity, `;
 }
 
 const key = (taskId: string) => `stackstep:practice:${taskId}`;

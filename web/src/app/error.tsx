@@ -4,13 +4,16 @@ import { CloudOff, House, RefreshCw } from "lucide-react";
 import Link from "next/link";
 import { useEffect, useSyncExternalStore } from "react";
 
+import { ErrorDetails } from "@/components/app/error-details";
 import { Button } from "@/components/ui/button";
+import { reportError } from "@/lib/report-error";
 
 export default function ErrorPage({ error, reset }: { error: Error & { digest?: string }; reset: () => void }) {
   const offline = useSyncExternalStore(subscribeOnline, () => !navigator.onLine, () => false);
   // Keep the cause in the browser console (and in E2E logs) instead of swallowing it.
   useEffect(() => {
     console.error(error);
+    reportError(error, "page", error.digest);
   }, [error]);
   return (
     <main id="main" className="flex min-h-dvh flex-col items-center justify-center gap-4 p-6 text-center">
@@ -24,7 +27,7 @@ export default function ErrorPage({ error, reset }: { error: Error & { digest?: 
           : "This page hit a problem. Your work is saved. Try again, or go back to the start."}
       </p>
       <div className="flex flex-wrap justify-center gap-2">
-        <Button onClick={reset}>
+        <Button onClick={reset} data-testid="crash-retry">
           <RefreshCw data-icon="inline-start" aria-hidden /> Try again
         </Button>
         <Button variant="outline" asChild>
@@ -33,6 +36,7 @@ export default function ErrorPage({ error, reset }: { error: Error & { digest?: 
           </Link>
         </Button>
       </div>
+      {offline ? null : <ErrorDetails error={error} digest={error.digest} />}
     </main>
   );
 }
