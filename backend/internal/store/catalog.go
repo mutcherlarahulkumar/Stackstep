@@ -416,3 +416,23 @@ func likePattern(search string) string {
 	}
 	return "%" + strings.NewReplacer(`\`, `\\`, "%", `\%`, "_", `\_`).Replace(search) + "%"
 }
+
+// InsertTemplateWithID is InsertTemplate for content shipped with the app (the curriculum),
+// whose ids are fixed so re-running finds the same rows.
+func InsertTemplateWithID(ctx context.Context, q Q, id uuid.UUID, s domain.TaskSpec, by uuid.UUID, now time.Time) (domain.Template, error) {
+	return scanTemplate(q.QueryRow(ctx, `INSERT INTO task_templates
+		(id, type, title, brief, persona_id, review_mode, release_time, due_minutes, created_by, created_at, updated_at, release_window, content)
+		VALUES ($1, $2, $3, $4, $5, $6, $7::time, $8, $9, $10, $10, $11, $12) RETURNING `+templateCols,
+		id, string(s.Type), s.Title, s.Brief, s.PersonaID, string(s.ReviewMode), s.ReleaseTime.String(), s.DueMinutes, by, now,
+		s.ReleaseWindow, encodeContent(s.Content)))
+}
+
+// InsertFlowWithID is InsertFlow with a fixed id (the curriculum's flows).
+func InsertFlowWithID(ctx context.Context, q Q, id uuid.UUID, in domain.FlowInput, by uuid.UUID, now time.Time) (domain.Flow, error) {
+	f, err := scanFlow(q.QueryRow(ctx, `INSERT INTO flows AS f (id, name, stream, description, days, created_by, created_at, updated_at)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $7) RETURNING `+flowSelectCols, id, in.Name, in.Stream, in.Description, in.Days, by, now))
+	if isUnique(err) {
+		return domain.Flow{}, ErrDuplicate
+	}
+	return f, err
+}

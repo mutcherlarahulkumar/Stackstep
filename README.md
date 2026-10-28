@@ -41,6 +41,8 @@ Each has a spec with every edge case and the test that covers it, in [`docs/feat
     "This week" recap for students.
 13. **Notifications** — opt-in browser notifications while a tab is in the background, and an
     unread count in the tab title.
+14. **Curriculum** — Stackstep's own 30-day frontend and 60-day full-stack flows, six personas
+    and 174 tasks, loaded by the "Database · seed curriculum" workflow.
 
 Also: a review queue with hand-in authenticity warnings, and hand-ins posted in the assigning
 persona's chat with an acknowledgement.

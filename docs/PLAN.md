@@ -102,6 +102,7 @@ Each slice goes **backend → mobile app → web**, with E2E before it is called
 | 8 | **AI team lead and AI review drafts** (Groq; labelled automatic replies, admin-edited drafts) | ✅ built — `docs/features/14-ai-team-lead-and-review-drafts.md` |
 | 9 | **Applications and UPI payments** (multi-step form, QR + screenshot proof, admin flags and chat, no refunds) | ✅ built — `docs/features/15-applications-payments.md` |
 | 10 | **Public home page** (session-aware navbar, Verify in the bar, animated feature tour) | ✅ built — `docs/features/16-home.md` |
+| 11 | **Curriculum** (6 personas, 174 tasks, the 30-day frontend and 60-day full-stack flows, loaded by a workflow) | ✅ built — `docs/features/17-curriculum.md` |
 | — | Razorpay checkout (automatic payment matching) | coming soon — UPI screenshots are checked by hand until then |
 | — | Certificate artwork | ✅ built — designed A4 certificate (PNG, SVG, PDF) in `05-progress-certificates.md` |
 | — | DSA judge | later |
