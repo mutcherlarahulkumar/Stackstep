@@ -36,8 +36,19 @@ The engineering specs, with every edge case and its test, are in [`features/`](f
   promises about grades. Anything personal or sensitive is left for a mentor. If AI is off or
   busy, the old scripted replies answer instead.
 - **Download my data.** Account menu → a JSON file of everything Stackstep holds about the
-  person: profile, tasks, hand-ins, chat, AI conversations, points, credits, certificates and
-  notes. In the app, this opens the web app.
+  person: profile, tasks, hand-ins, chat, AI conversations, points, credits, certificates,
+  notes and applications with their payments. In the app, this opens the web app.
+- **Apply and pay (students without an internship).** Instead of an empty screen, a student
+  who isn't enrolled sees a three-step application: their details and a cohort, then the UPI QR
+  and fee with a screenshot upload, then "Payment received — awaiting confirmation". Admins
+  check it under **Applications** and approve (which enrolls the student), flag an issue
+  (partial payment, wrong cohort, unclear or reused screenshot, wrong details…) or close it.
+  The student sees what's wrong and only the options that fix it, and can chat with admissions
+  at every step. Fees are non-refundable under any circumstances. The app shows the status and
+  links to the web to pay. Details: `docs/features/15-applications-payments.md`.
+- **Home page.** `/` explains the program with an animated tour. Signed-in visitors see "Open
+  workspace" (or "Open admin console" / "Continue application") and their avatar instead of
+  "Sign in", and "Verify a certificate" is in the top bar for anyone.
 
 ## 2. The student workspace
 
