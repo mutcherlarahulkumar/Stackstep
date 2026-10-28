@@ -26,6 +26,7 @@ type appView struct {
 		Details  struct {
 			FullName string `json:"full_name"`
 			Phone    string `json:"phone"`
+			Branch   string `json:"branch"`
 		} `json:"details"`
 		EnrollmentID *uuid.UUID `json:"enrollment_id"`
 	} `json:"application"`
@@ -157,7 +158,7 @@ func TestApplicationHappyPathWithPartialPayment(t *testing.T) {
 	if a := v.Application; a.Status != "flagged" || *a.Flag != "partial_payment" || a.DueINR != 2999 || len(a.Actions) != 1 || a.Actions[0] != "pay" {
 		t.Fatalf("flagged = %+v", a)
 	}
-	if last := v.Messages[len(v.Messages)-1]; last.Author != "system" || !strings.Contains(last.Body, "remaining ₹2999") {
+	if last := v.Messages[len(v.Messages)-1]; last.Author != "system" || !strings.Contains(last.Body, "remaining ₹2,999") {
 		t.Fatalf("flag message = %+v", last)
 	}
 	// The same screenshot again is caught.
@@ -245,10 +246,39 @@ func TestApplicationIssues(t *testing.T) {
 	if last := v.Messages[len(v.Messages)-1].Body; v.Application.Status != "rejected" || !strings.Contains(last, "non-refundable") {
 		t.Fatalf("rejected = %s / %q", v.Application.Status, last)
 	}
+	// The student's data export includes the application, its payments and the chat.
+	var ex struct {
+		Applications []struct {
+			Phone    string `json:"phone"`
+			Status   string `json:"status"`
+			Payments []struct {
+				UTR string `json:"utr"`
+			} `json:"payments"`
+			Messages []struct {
+				Body string `json:"body"`
+			} `json:"messages"`
+		} `json:"applications"`
+	}
+	e.expect(e.do("GET", "/v1/me/export", nora, nil), 200).json(t, &ex)
+	if len(ex.Applications) != 1 || ex.Applications[0].Status != "rejected" || ex.Applications[0].Phone != "+919876543210" ||
+		len(ex.Applications[0].Payments) != 1 || len(ex.Applications[0].Messages) < 3 {
+		t.Fatalf("export = %+v", ex)
+	}
 	e.expect(e.do("PUT", "/v1/me/application", nora, details(cheap.ID, nil)), 200).json(t, &v)
 	if v.Application.Status != "draft" || v.Application.ID == id {
 		t.Fatalf("new application = %+v", v.Application)
 	}
+	// AP13: admissions close after the student picked the cohort: details can still be fixed,
+	// but nobody new can pick it.
+	e.expect(e.do("PATCH", "/v1/admin/cohorts/"+cheap.ID.String()+"/admissions", adm, map[string]any{"fee_inr": 2999, "applications_open": false}), 200)
+	fix := details(cheap.ID, &v.Application.Version)
+	fix["branch"] = "Information Technology"
+	e.expect(e.do("PUT", "/v1/me/application", nora, fix), 200).json(t, &v)
+	if v.Application.Details.Branch != "Information Technology" {
+		t.Fatalf("details not saved: %+v", v.Application.Details)
+	}
+	e.expect(e.do("PATCH", "/v1/admin/cohorts/"+cheap.ID.String()+"/admissions", adm, map[string]any{"fee_inr": 2999, "applications_open": true}), 200)
+
 	// The rejected application's screenshot is now "used elsewhere" for the new one.
 	f := e.expect(e.do("POST", "/v1/me/application/proofs", nora, proof(screenshot(7), "UTR000000001", 2999, v.Application.Version)), 422).errCode(t).Error.Fields
 	if !strings.Contains(f["image"], "another application") {

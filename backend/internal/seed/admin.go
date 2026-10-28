@@ -14,7 +14,7 @@ import (
 )
 
 // DemoLogins are every account the demo seed creates.
-var DemoLogins = []string{AdminLogin, CollegeAdminLogin, StudentLogin, Student2Login, IndieStudentLogin, PausedLogin, NoEnrollLogin}
+var DemoLogins = []string{AdminLogin, CollegeAdminLogin, StudentLogin, Student2Login, IndieStudentLogin, PausedLogin, NoEnrollLogin, ApplicantLogin}
 
 // FlushMode picks how much a flush removes.
 type FlushMode string

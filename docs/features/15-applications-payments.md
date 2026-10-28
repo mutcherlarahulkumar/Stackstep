@@ -42,7 +42,7 @@ new application.
   student in the same transaction, optional flow), **Flag** (reason, amount received, note),
   **Reject** (reason required).
 - **Payment settings** (Setup → Payments, platform admins): UPI ID, payee, note, QR image.
-- **Cohort admissions** (Colleges & cohorts, platform admins): fee in ₹ and "applications open".
+- **Cohort fees** (Setup → Payments, platform admins): fee in ₹ and "taking applications" per cohort.
 - College admins see applications to their college's cohorts only.
 
 ## Limits
@@ -64,5 +64,6 @@ type is read from the bytes, not the name.
 | AP8 | Decide twice; enrolled student applies | 422 `invalid_transition`; 400 `invalid_state` | backend `TestApplicationHappyPathWithPartialPayment` |
 | AP9 | Paid another cohort's fee | flagged mismatch → switch → back to review with nothing due | backend `TestApplicationIssues` |
 | AP10 | Enrolled student tries to apply | 400 `invalid_state` | backend `TestApplicationIssues` |
-| AP11 | Chat; rejection | both sides see messages; reason required; "non-refundable" posted; a new application can start, old screenshots refused | backend `TestApplicationIssues` |
+| AP11 | Chat; rejection; data export | both sides see messages; reason required; "non-refundable" posted; the export includes the application, payments and chat; a new application can start, old screenshots refused | backend `TestApplicationIssues` |
 | AP12 | Payment settings and admissions | platform admins only; UPI ID checked; PNG/JPG/WebP QR only; fee required to open | backend `TestApplicationIssues` |
+| AP13 | Admissions close after the student picked the cohort | details can still be fixed; nobody new can pick it | backend `TestApplicationIssues` |

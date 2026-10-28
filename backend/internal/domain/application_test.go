@@ -61,3 +61,11 @@ func TestActionsPerFlag(t *testing.T) {
 		t.Fatal("other needs a note")
 	}
 }
+
+func TestINR(t *testing.T) {
+	for n, want := range map[int]string{0: "₹0", 999: "₹999", 4999: "₹4,999", 150000: "₹1,50,000", 12345678: "₹1,23,45,678"} {
+		if got := INR(n); got != want {
+			t.Errorf("INR(%d) = %q, want %q", n, got, want)
+		}
+	}
+}

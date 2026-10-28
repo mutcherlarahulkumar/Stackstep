@@ -24,6 +24,7 @@ const (
 	IndieStudentLogin = "meera-dev" // follows the seeded React flow
 	PausedLogin       = "kiran-dev"
 	NoEnrollLogin     = "nora-dev"
+	ApplicantLogin    = "neha-dev" // not enrolled; the E2E payment test applies as her
 	// OpenCohortName takes applications (fee ₹4,999) so applicants have something to join.
 	OpenCohortName = "Frontend Cohort · Open"
 )
@@ -59,6 +60,7 @@ func Run(ctx context.Context, q store.Q, now time.Time) error {
 		{IndieStudentLogin, "Meera Iyer", "student", nil},
 		{PausedLogin, "Kiran Kumar", "student", &collegeID},
 		{NoEnrollLogin, "Nora Das", "student", nil},
+		{ApplicantLogin, "Neha Singh", "student", nil},
 	}
 	ids := map[string]uuid.UUID{}
 	for _, p := range people {

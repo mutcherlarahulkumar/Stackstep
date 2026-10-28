@@ -37,10 +37,10 @@ test.describe("student workspace", () => {
     await expect(page).toHaveURL(/\/workspace$/);
   });
 
-  test("a student without an internship sees the empty state", async ({ page }) => {
+  test("a student without an internship gets the application, not old chats (AP1)", async ({ page }) => {
     await signIn(page, "nora-dev");
-    await expect(page.getByRole("heading", { name: "No active internship" })).toBeVisible();
-    await expect(page.getByText("@nora-dev")).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Join an internship cohort" })).toBeVisible();
+    await expect(page.getByRole("navigation", { name: "Chats" })).toHaveCount(0);
   });
 });
 

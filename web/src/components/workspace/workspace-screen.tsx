@@ -1,6 +1,6 @@
 "use client";
 
-import { ArrowLeft, Bot, CalendarX2, MessageCircle, RefreshCw, SquareKanban, UserRound } from "lucide-react";
+import { ArrowLeft, Bot, MessageCircle, SquareKanban, UserRound } from "lucide-react";
 import { useState } from "react";
 
 import { Button } from "@/components/ui/button";
@@ -9,7 +9,6 @@ import { type Enrollment, type Me, type Persona } from "@/lib/api/schemas";
 import { personaTag, totalUnread } from "@/lib/inbox";
 import { useStudentThreads } from "@/lib/inbox-queries";
 import { RealtimeProvider, useSocketStatus } from "@/lib/realtime-context";
-import { useSession } from "@/lib/session";
 import { useIsDesktop } from "@/lib/use-desktop";
 import { useBrowserNotifications, useUnreadTitle } from "@/lib/use-notifications";
 
@@ -22,6 +21,7 @@ import { EmptyState } from "../app/state";
 import { ConversationView } from "../chat/conversation";
 import { AI_THREAD, StudentThreadList } from "../chat/thread-list";
 import { AIHelper } from "../ai/ai-helper";
+import { ApplyScreen } from "../apply/apply-screen";
 import { BoardPanel } from "./board-panel";
 import { OnboardingDialog } from "./onboarding-dialog";
 import { ProgressButton } from "./progress-sheet";
@@ -36,7 +36,7 @@ export function WorkspaceScreen() {
             <Workspace me={me} enrollment={me.enrollment} />
           </RealtimeProvider>
         ) : (
-          <NoEnrollment me={me} />
+          <ApplyScreen me={me} />
         )
       }
     </RequireSession>
@@ -232,28 +232,5 @@ function PanelTitle({ icon: Icon, title }: { icon: typeof MessageCircle; title: 
       <Icon className="text-muted-foreground size-4" aria-hidden />
       {title}
     </h2>
-  );
-}
-
-function NoEnrollment({ me }: { me: Me }) {
-  const { reloadMe } = useSession();
-  return (
-    <div className="flex min-h-dvh flex-col">
-      <AppHeader user={me.user} />
-      <main id="main" className="flex flex-1 items-center justify-center p-6">
-        <EmptyState
-          icon={CalendarX2}
-          title="No active internship"
-          action={
-            <Button variant="outline" onClick={() => void reloadMe()}>
-              <RefreshCw data-icon="inline-start" aria-hidden /> Check again
-            </Button>
-          }
-        >
-          You&apos;re signed in as @{me.user.github_login}, but you aren&apos;t enrolled in a program right now. If your college enrolled you, ask your
-          placement cell to check the email on your GitHub account.
-        </EmptyState>
-      </main>
-    </div>
   );
 }

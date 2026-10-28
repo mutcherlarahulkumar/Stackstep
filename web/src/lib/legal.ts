@@ -1,8 +1,8 @@
 /** Privacy notice and terms, as data so the pages, the consent step and the app agree. */
 
 /** Must match backend `domain.TermsVersion`; bump both when the text changes materially. */
-export const TERMS_VERSION = 2;
-export const LEGAL_UPDATED = "23 October 2026";
+export const TERMS_VERSION = 3;
+export const LEGAL_UPDATED = "28 October 2026";
 
 export type LegalSection = { heading: string; points: readonly string[] };
 
@@ -12,6 +12,7 @@ export const CONSENT_SUMMARY: readonly string[] = [
   "Your mentors and your college's placement cell can read your progress, chat and AI helper conversations.",
   "Teammates in chat are characters played by mentors. Some also reply automatically, sometimes with AI, and every automatic reply is labelled.",
   "AI helper questions, messages to teammates who reply automatically, and hand-ins a mentor asks AI to draft a review for are sent to Groq. Don't paste passwords or personal details.",
+  "If you apply and pay for a cohort, we keep your application details and payment screenshots. Fees are non-refundable under any circumstances.",
   "You can download all of your data from the account menu at any time.",
 ];
 
@@ -21,6 +22,7 @@ export const PRIVACY: readonly LegalSection[] = [
     points: [
       "From GitHub when you sign in: your login, display name, email and avatar. We only ask GitHub for read access to your profile and email address, and we never see your GitHub password.",
       "What you do on Stackstep: task status changes, hand-in links and notes, quiz answers, chat messages, AI helper questions and answers, points, credits and certificates.",
+      "If you apply for a cohort: your phone number, date of birth, college, course, branch and graduation year, the payment screenshots you upload with their UPI transaction IDs and amounts, and your messages with the admissions team.",
       "Basic request logs (time, path, status, request id) to keep the service running. Logs don't include message text.",
     ],
   },
@@ -29,6 +31,7 @@ export const PRIVACY: readonly LegalSection[] = [
     points: [
       "Stackstep admins and mentors can see everything about your internship so they can review your work.",
       "If your internship belongs to a college cohort, that college's placement cell can see your progress, chat and AI helper conversations, but not other colleges' students.",
+      "Applications and payment screenshots are seen by Stackstep admins, and by the placement cell of the college that runs the cohort you applied to.",
       "A certificate's public verification page shows your name, program, dates and the numbers on the certificate. Nothing else is public.",
     ],
   },
@@ -62,6 +65,14 @@ export const TERMS: readonly LegalSection[] = [
     points: [
       "Stackstep is a practice internship. Tasks, deadlines and teammates are simulated to feel like a real software team; it is not employment and there is no pay.",
       "A certificate records the work you finished. Admins decide when to issue one and may revoke it if the work wasn't yours.",
+    ],
+  },
+  {
+    heading: "Fees",
+    points: [
+      "Some cohorts charge a fee, shown before you pay. Pay the exact amount by UPI to the details on the payment step and upload the screenshot; your seat is confirmed once an admin matches the payment.",
+      "Fees are non-refundable under any circumstances, including if you stop, are removed for breaking these terms, or your application is closed.",
+      "If a payment is short, unclear or for a different cohort, we'll tell you what to do: pay the balance, upload a clearer screenshot or switch cohorts. Money we've confirmed carries over when you switch.",
     ],
   },
   {

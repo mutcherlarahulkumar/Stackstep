@@ -271,7 +271,7 @@ func FlagMessage(f ApplicationFlag, a Application, note string) string {
 	var head string
 	switch f {
 	case FlagPartialPayment:
-		head = fmt.Sprintf("We received ₹%d of ₹%d. Please pay the remaining ₹%d and upload the screenshot.", a.PaidINR, a.FeeINR, a.DueINR())
+		head = fmt.Sprintf("We received %s of %s. Please pay the remaining %s and upload the screenshot.", INR(a.PaidINR), INR(a.FeeINR), INR(a.DueINR()))
 	case FlagCohortMismatch:
 		head = "Your payment doesn't match the fee of the cohort you picked. Switch to the cohort you paid for, or pay the difference."
 	case FlagCohortFull:
@@ -291,6 +291,26 @@ func FlagMessage(f ApplicationFlag, a Application, note string) string {
 		head += "\n\n" + note
 	}
 	return head
+}
+
+// INR formats rupees the Indian way: 4999 → "₹4,999", 150000 → "₹1,50,000".
+func INR(n int) string {
+	sign := ""
+	if n < 0 {
+		sign, n = "-", -n
+	}
+	d := fmt.Sprint(n)
+	if len(d) > 3 {
+		head, tail := d[:len(d)-3], d[len(d)-3:]
+		var parts []string
+		for len(head) > 2 {
+			parts = append([]string{head[len(head)-2:]}, parts...)
+			head = head[:len(head)-2]
+		}
+		parts = append([]string{head}, parts...)
+		d = strings.Join(parts, ",") + "," + tail
+	}
+	return sign + "₹" + d
 }
 
 // NoRefundPolicy is shown on the payment step and in the terms.

@@ -1,7 +1,7 @@
 "use client";
 
 import { useQuery } from "@tanstack/react-query";
-import { BookCopy, ChartColumn, ChevronDown, ClipboardCheck, Inbox, Route, Send, Settings2, UserPlus, UserRoundCog, Users, type LucideIcon } from "lucide-react";
+import { BookCopy, ChartColumn, ChevronDown, ClipboardCheck, Inbox, QrCode, ReceiptIndianRupee, Route, Send, Settings2, UserPlus, UserRoundCog, Users, type LucideIcon } from "lucide-react";
 import Link from "next/link";
 import { type ReactNode } from "react";
 
@@ -23,7 +23,7 @@ import { useBrowserNotifications, useUnreadTitle } from "@/lib/use-notifications
 
 import { personaMap, useAllPersonas } from "./catalog-queries";
 
-export type Section = "report" | "overview" | "people" | "reviews" | "students" | "inbox" | "flows" | "library" | "personas" | "assign";
+export type Section = "report" | "overview" | "people" | "reviews" | "students" | "inbox" | "flows" | "library" | "personas" | "assign" | "applications" | "payments";
 
 type NavItem = { id: Section; href: string; label: string; icon: LucideIcon };
 
@@ -31,6 +31,7 @@ type NavItem = { id: Section; href: string; label: string; icon: LucideIcon };
 const DESKTOP_NAV: NavItem[] = [
   { id: "students", href: "/admin", label: "Students", icon: Users },
   { id: "reviews", href: "/admin/reviews", label: "Reviews", icon: ClipboardCheck },
+  { id: "applications", href: "/admin/applications", label: "Applications", icon: ReceiptIndianRupee },
   { id: "inbox", href: "/admin/inbox", label: "Inbox", icon: Inbox },
   { id: "overview", href: "/admin/overview", label: "Insights", icon: ChartColumn },
 ];
@@ -41,6 +42,7 @@ const SETUP_NAV: (NavItem & { hint: string })[] = [
   { id: "flows", href: "/admin/flows", label: "Flows", icon: Route, hint: "Day-by-day courses" },
   { id: "library", href: "/admin/library", label: "Task library", icon: BookCopy, hint: "Reusable tasks" },
   { id: "personas", href: "/admin/personas", label: "Personas", icon: UserRoundCog, hint: "Your team characters" },
+  { id: "payments", href: "/admin/payments", label: "Payments", icon: QrCode, hint: "UPI ID, QR and cohort fees" },
 ];
 
 /** Sections that light up a top-level item. */
@@ -79,6 +81,7 @@ function Frame({ me, section, phone, children }: { me: Me; section: Section; pho
   const unread = totalUnread(inbox.data?.pages.flatMap((p) => p.items) ?? []);
   const nav = desktop ? DESKTOP_NAV : PHONE_NAV;
   const waiting = useReviewCount(desktop === true);
+  const applicants = useApplicationCount(desktop === true);
   const personas = personaMap(useAllPersonas().data);
   useUnreadTitle(unread);
   useBrowserNotifications("staff", (id) => personas.get(id)?.name);
@@ -89,7 +92,7 @@ function Frame({ me, section, phone, children }: { me: Me; section: Section; pho
           <nav aria-label="Admin sections" className="-mb-px flex h-14 min-w-0 items-stretch gap-1 overflow-x-auto">
             {nav.map((n) => {
               const active = n.id === (ACTIVE_FOR[section] ?? section);
-              const count = n.id === "inbox" ? unread : n.id === "reviews" ? waiting : 0;
+              const count = n.id === "inbox" ? unread : n.id === "reviews" ? waiting : n.id === "applications" ? applicants : 0;
               return (
                 <Link key={n.id} href={n.href} aria-current={active ? "page" : undefined} className={cn(NAV_LINK, active && "border-primary text-foreground")}>
                   <n.icon className="size-4" aria-hidden />
@@ -132,6 +135,13 @@ function useReviewCount(enabled: boolean): number {
   const { api } = useSession();
   const q = useQuery({ queryKey: ["reviews", "all"], queryFn: () => api.reviews(null), enabled, refetchInterval: 60_000 });
   return q.data?.items.length ?? 0;
+}
+
+/** Payments waiting to be checked, for the Applications badge. */
+function useApplicationCount(enabled: boolean): number {
+  const { api } = useSession();
+  const q = useQuery({ queryKey: ["applications", "count"], queryFn: () => api.applications("submitted"), enabled, refetchInterval: 60_000 });
+  return q.data?.waiting ?? 0;
 }
 
 function SetupMenu({ section }: { section: Section }) {

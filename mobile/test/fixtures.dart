@@ -100,7 +100,7 @@ Json tokensJson({String access = 'access-1', String refresh = 'refresh-1', Strin
 };
 
 Map<String, Object?> accountJson({bool consentRequired = false, bool onboarded = true}) => {
-  'terms_version': 2,
+  'terms_version': 3,
   'consent_required': consentRequired,
   'onboarded': onboarded,
 };

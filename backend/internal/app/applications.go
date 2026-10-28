@@ -121,17 +121,23 @@ func (a *Admissions) Save(ctx context.Context, u domain.User, in ApplicationInpu
 		} else if err != nil && !errors.Is(err, store.ErrNotFound) {
 			return err
 		}
+		// The cohort is checked when it is picked: a cohort that closed after the student
+		// joined it doesn't block fixing their details.
 		cohort, err := store.GetCohort(ctx, q, in.CohortID, false)
+		var cohortErr string
 		switch {
 		case errors.Is(err, store.ErrNotFound) || err == nil && !admitting(cohort, now):
-			errs["cohort_id"] = "Pick a cohort that's taking applications."
+			cohortErr = "Pick a cohort that's taking applications."
 		case err != nil:
 			return err
 		case cohort.SeatsUsed >= cohort.Cohort.SeatsTotal:
-			errs["cohort_id"] = "This cohort is full. Pick another one."
+			cohortErr = "This cohort is full. Pick another one."
 		}
 		app, err := store.OpenApplication(ctx, q, u.ID, true)
 		if errors.Is(err, store.ErrNotFound) {
+			if cohortErr != "" {
+				errs["cohort_id"] = cohortErr
+			}
 			if len(errs) > 0 {
 				return apperr.Validation(errs)
 			}
@@ -149,8 +155,11 @@ func (a *Admissions) Save(ctx context.Context, u domain.User, in ApplicationInpu
 		}
 		changingCohort := app.CohortID != in.CohortID
 		editing := app.Details != details
-		if changingCohort && !app.Status.Allows(app.Flag, domain.ActionChangeCohort) {
+		switch {
+		case changingCohort && !app.Status.Allows(app.Flag, domain.ActionChangeCohort):
 			errs["cohort_id"] = "You can't change the cohort right now. Message us if you need to."
+		case changingCohort && cohortErr != "":
+			errs["cohort_id"] = cohortErr
 		}
 		if editing && !app.Status.Allows(app.Flag, domain.ActionEditDetails) {
 			return apperr.New(apperr.CodeInvalidState, "Your details can't be changed while the payment is being checked.")
@@ -170,7 +179,7 @@ func (a *Admissions) Save(ctx context.Context, u domain.User, in ApplicationInpu
 					f := domain.FlagPartialPayment
 					app.Flag, app.FlagNote = &f, ""
 				}
-				msg := fmt.Sprintf("Switched to %s (fee ₹%d).", cohort.Cohort.Name, app.FeeINR)
+				msg := fmt.Sprintf("Switched to %s (fee %s).", cohort.Cohort.Name, domain.INR(app.FeeINR))
 				if err := a.system(ctx, q, app.ID, msg, now); err != nil {
 					return err
 				}
@@ -253,7 +262,7 @@ func (a *Admissions) UploadProof(ctx context.Context, u domain.User, in ProofInp
 		if _, err := store.SaveApplication(ctx, q, app, now); err != nil {
 			return err
 		}
-		if err := a.system(ctx, q, app.ID, fmt.Sprintf("Payment proof uploaded: ₹%d, UTR %s. We'll confirm it soon.", proof.Amount, proof.UTR), now); err != nil {
+		if err := a.system(ctx, q, app.ID, fmt.Sprintf("Payment proof uploaded: %s, UTR %s. We'll confirm it soon.", domain.INR(proof.Amount), proof.UTR), now); err != nil {
 			return err
 		}
 		return store.MarkApplicationUnread(ctx, q, app.ID, true)
@@ -519,7 +528,7 @@ func (a *Admissions) flag(ctx context.Context, q store.Q, app domain.Application
 		case d.PaidINR == nil:
 			errs["paid_inr"] = "Enter how much arrived in total."
 		case *d.PaidINR >= app.FeeINR:
-			errs["paid_inr"] = fmt.Sprintf("That covers the ₹%d fee. Approve it instead.", app.FeeINR)
+			errs["paid_inr"] = fmt.Sprintf("That covers the %s fee. Approve it instead.", domain.INR(app.FeeINR))
 		}
 	}
 	if len(errs) > 0 {
@@ -545,7 +554,7 @@ func (a *Admissions) approve(ctx context.Context, q store.Q, u domain.User, app 
 		paid = *d.PaidINR
 	}
 	if paid < app.FeeINR {
-		return apperr.Validation(map[string]string{"paid_inr": fmt.Sprintf("Confirm the full ₹%d fee arrived, or flag it as a partial payment.", app.FeeINR)})
+		return apperr.Validation(map[string]string{"paid_inr": fmt.Sprintf("Confirm the full %s fee arrived, or flag it as a partial payment.", domain.INR(app.FeeINR))})
 	}
 	applicant, err := store.GetUser(ctx, q, app.UserID)
 	if err != nil {
@@ -585,7 +594,7 @@ func (a *Admissions) approve(ctx context.Context, q store.Q, u domain.User, app 
 	if err := store.SetDecidedBy(ctx, q, app.ID, u.ID); err != nil {
 		return err
 	}
-	msg := fmt.Sprintf("Payment of ₹%d confirmed. You're enrolled in %s. Open your workspace to meet your team.", paid, cohort.Cohort.Name)
+	msg := fmt.Sprintf("Payment of %s confirmed. You're enrolled in %s. Open your workspace to meet your team.", domain.INR(paid), cohort.Cohort.Name)
 	if err := a.system(ctx, q, app.ID, msg, now); err != nil {
 		return err
 	}
