@@ -1,7 +1,7 @@
 openapi: 3.1.0
 info:
   title: Stackstep API
-  version: 0.15.0
+  version: 0.16.0
   description: |
     Workspace core (feature 01). All timestamps are RFC 3339 UTC. All errors use the
     `Error` envelope; clients switch on `error.code`, never on `message`.
@@ -1236,6 +1236,254 @@ paths:
       responses:
         "101": { description: Switching protocols }
         "400": { $ref: "#/components/responses/Error" }
+  /v1/me/application:
+    get:
+      tags: [student]
+      operationId: getMyApplication
+      summary: The student's application (open one, else the latest), open cohorts and where to pay
+      responses:
+        "200": { description: Application screens, content: { application/json: { schema: { $ref: "#/components/schemas/ApplicantView" } } } }
+        "403": { $ref: "#/components/responses/Error" }
+    put:
+      tags: [student]
+      operationId: saveMyApplication
+      summary: Start an application (no expected_version) or update the open one's details and cohort where its state allows
+      description: |
+        400 invalid_state when the student already has an internship or the details can't change now; 409 version_conflict
+        when expected_version is stale; 422 for field errors (cohort_id must be open with seats left).
+        Switching cohort on a flagged application carries the confirmed amount over: covered → submitted; short → flagged partial_payment.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [cohort_id, full_name, phone, date_of_birth, college, course, branch, grad_year, expected_version]
+              properties:
+                cohort_id: { type: string, format: uuid }
+                full_name: { type: string, maxLength: 120 }
+                phone: { type: string, description: "10–15 digits, optional +; spaces and dashes are ignored" }
+                date_of_birth: { type: string, format: date }
+                college: { type: string, maxLength: 120 }
+                course: { type: string, maxLength: 120 }
+                branch: { type: string, maxLength: 120 }
+                grad_year: { type: integer }
+                expected_version: { oneOf: [{ type: integer, minimum: 1 }, { type: "null" }] }
+      responses:
+        "200": { description: Saved, content: { application/json: { schema: { $ref: "#/components/schemas/ApplicantView" } } } }
+        "400": { $ref: "#/components/responses/Error" }
+        "409": { $ref: "#/components/responses/Error" }
+        "422": { $ref: "#/components/responses/Error" }
+  /v1/me/application/proofs:
+    post:
+      tags: [student]
+      operationId: uploadPaymentProof
+      summary: Upload a UPI payment screenshot (base64 PNG/JPEG/WebP, max 4 MB) with its UTR and amount; sends the application for review
+      description: 422 when the same screenshot or UTR was already sent on this or another application; 429 after 10 uploads a day.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [image_base64, utr, amount_inr, expected_version]
+              properties:
+                image_base64: { type: string, description: Base64 image bytes (a data URL prefix is accepted) }
+                utr: { type: string, pattern: "^[A-Za-z0-9]{6,35}$" }
+                amount_inr: { type: integer, minimum: 1 }
+                expected_version: { type: integer, minimum: 1 }
+      responses:
+        "200": { description: Submitted, content: { application/json: { schema: { $ref: "#/components/schemas/ApplicantView" } } } }
+        "400": { $ref: "#/components/responses/Error" }
+        "409": { $ref: "#/components/responses/Error" }
+        "413": { $ref: "#/components/responses/Error" }
+        "422": { $ref: "#/components/responses/Error" }
+        "429": { $ref: "#/components/responses/Error" }
+  /v1/me/application/proofs/{id}/image:
+    get:
+      tags: [student]
+      operationId: getMyProofImage
+      summary: One of the student's own payment screenshots
+      parameters: [{ $ref: "#/components/parameters/Id" }]
+      responses:
+        "200": { description: The image, content: { application/json: { schema: { $ref: "#/components/schemas/Image" } } } }
+        "404": { $ref: "#/components/responses/Error" }
+  /v1/me/application/resubmit:
+    post:
+      tags: [student]
+      operationId: resubmitApplication
+      summary: Send a flagged application back for review without a new payment (when actions include resubmit)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { type: object, additionalProperties: false, required: [expected_version], properties: { expected_version: { type: integer, minimum: 1 } } }
+      responses:
+        "200": { description: Submitted, content: { application/json: { schema: { $ref: "#/components/schemas/ApplicantView" } } } }
+        "400": { $ref: "#/components/responses/Error" }
+        "409": { $ref: "#/components/responses/Error" }
+  /v1/me/application/messages:
+    post:
+      tags: [student]
+      operationId: sendApplicationMessage
+      summary: Message the admissions team about the application (40 a day)
+      requestBody: { $ref: "#/components/requestBodies/SendMessage" }
+      responses:
+        "201": { description: Sent, content: { application/json: { schema: { $ref: "#/components/schemas/ApplicationMessage" } } } }
+        "404": { $ref: "#/components/responses/Error" }
+        "422": { $ref: "#/components/responses/Error" }
+        "429": { $ref: "#/components/responses/Error" }
+  /v1/payment-qr:
+    get:
+      tags: [student]
+      operationId: getPaymentQR
+      summary: The UPI QR to pay into (any signed-in user); 503 not_configured until an admin uploads one
+      responses:
+        "200": { description: The image, content: { application/json: { schema: { $ref: "#/components/schemas/Image" } } } }
+        "503": { $ref: "#/components/responses/Error" }
+  /v1/admin/applications:
+    get:
+      tags: [admin]
+      operationId: listApplications
+      summary: Applications in scope; without status, every open one (submitted first, oldest activity first). Max 300.
+      parameters:
+        - { name: status, in: query, schema: { $ref: "#/components/schemas/ApplicationStatus" } }
+      responses:
+        "200":
+          description: Queue
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [items, waiting]
+                properties:
+                  items: { type: array, items: { $ref: "#/components/schemas/ApplicationRow" } }
+                  waiting: { type: integer, minimum: 0, description: Submitted applications waiting for a decision }
+  /v1/admin/applications/{id}:
+    get:
+      tags: [admin]
+      operationId: getApplication
+      summary: One application with proofs (duplicates marked) and chat; marks it read for staff
+      parameters: [{ $ref: "#/components/parameters/Id" }]
+      responses:
+        "200": { description: The application, content: { application/json: { schema: { $ref: "#/components/schemas/StaffApplication" } } } }
+        "404": { $ref: "#/components/responses/Error" }
+  /v1/admin/applications/{id}/decision:
+    post:
+      tags: [admin]
+      operationId: decideApplication
+      summary: Approve (enrolls the student), flag an issue, or reject (note required; fees are not refunded)
+      description: |
+        approve needs paid_inr (or the confirmed total) ≥ the fee. flag partial_payment needs paid_inr below the fee.
+        422 invalid_transition once the application is closed; 409 when expected_version is stale.
+      parameters: [{ $ref: "#/components/parameters/Id" }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [action, expected_version]
+              properties:
+                action: { $ref: "#/components/schemas/ApplicationDecision" }
+                flag: { oneOf: [{ $ref: "#/components/schemas/ApplicationFlag" }, { type: "null" }] }
+                note: { type: string, maxLength: 1000 }
+                paid_inr: { oneOf: [{ type: integer, minimum: 0 }, { type: "null" }], description: Total confirmed received so far }
+                flow_id: { oneOf: [{ type: string, format: uuid }, { type: "null" }], description: Flow to schedule on approval }
+                expected_version: { type: integer, minimum: 1 }
+      responses:
+        "200": { description: Decided, content: { application/json: { schema: { $ref: "#/components/schemas/StaffApplication" } } } }
+        "404": { $ref: "#/components/responses/Error" }
+        "409": { $ref: "#/components/responses/Error" }
+        "422": { $ref: "#/components/responses/Error" }
+  /v1/admin/applications/{id}/messages:
+    post:
+      tags: [admin]
+      operationId: sendStaffApplicationMessage
+      summary: Reply to the applicant
+      parameters: [{ $ref: "#/components/parameters/Id" }]
+      requestBody: { $ref: "#/components/requestBodies/SendMessage" }
+      responses:
+        "201": { description: Sent, content: { application/json: { schema: { $ref: "#/components/schemas/ApplicationMessage" } } } }
+        "404": { $ref: "#/components/responses/Error" }
+        "422": { $ref: "#/components/responses/Error" }
+  /v1/admin/applications/{id}/proofs/{proof}/image:
+    get:
+      tags: [admin]
+      operationId: getApplicationProofImage
+      summary: A payment screenshot
+      parameters:
+        - { $ref: "#/components/parameters/Id" }
+        - { name: proof, in: path, required: true, schema: { type: string, format: uuid } }
+      responses:
+        "200": { description: The image, content: { application/json: { schema: { $ref: "#/components/schemas/Image" } } } }
+        "404": { $ref: "#/components/responses/Error" }
+  /v1/admin/payment-settings:
+    get:
+      tags: [admin]
+      operationId: getPaymentSettings
+      summary: Where applicants pay
+      responses:
+        "200": { description: Settings, content: { application/json: { schema: { $ref: "#/components/schemas/PaymentInfo" } } } }
+    put:
+      tags: [admin]
+      operationId: putPaymentSettings
+      summary: Set the UPI ID, payee name and a note (platform admins)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [upi_id, payee_name, note]
+              properties:
+                upi_id: { type: string, maxLength: 100, description: "name@bank, or empty" }
+                payee_name: { type: string, maxLength: 100 }
+                note: { type: string, maxLength: 500 }
+      responses:
+        "200": { description: Saved, content: { application/json: { schema: { $ref: "#/components/schemas/PaymentInfo" } } } }
+        "403": { $ref: "#/components/responses/Error" }
+        "422": { $ref: "#/components/responses/Error" }
+  /v1/admin/payment-settings/qr:
+    put:
+      tags: [admin]
+      operationId: putPaymentQR
+      summary: Replace the UPI QR image (base64 PNG/JPEG/WebP, max 2 MB; platform admins)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { type: object, additionalProperties: false, required: [image_base64], properties: { image_base64: { type: string } } }
+      responses:
+        "200": { description: Saved, content: { application/json: { schema: { $ref: "#/components/schemas/PaymentInfo" } } } }
+        "403": { $ref: "#/components/responses/Error" }
+        "422": { $ref: "#/components/responses/Error" }
+  /v1/admin/cohorts/{id}/admissions:
+    patch:
+      tags: [people]
+      operationId: setCohortAdmissions
+      summary: Set a cohort's fee and whether it takes applications (platform admins; opening needs a fee)
+      parameters: [{ $ref: "#/components/parameters/Id" }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [fee_inr, applications_open]
+              properties:
+                fee_inr: { oneOf: [{ type: integer, minimum: 1, maximum: 10000000 }, { type: "null" }] }
+                applications_open: { type: boolean }
+      responses:
+        "200": { description: Saved, content: { application/json: { schema: { $ref: "#/components/schemas/Cohort" } } } }
+        "403": { $ref: "#/components/responses/Error" }
+        "404": { $ref: "#/components/responses/Error" }
+        "422": { $ref: "#/components/responses/Error" }
 components:
   securitySchemes:
     bearer: { type: http, scheme: bearer, bearerFormat: JWT }
@@ -1880,6 +2128,103 @@ components:
         draft: { oneOf: [{ $ref: "#/components/schemas/FlowVersion" }, { type: "null" }] }
         published: { oneOf: [{ $ref: "#/components/schemas/FlowVersion" }, { type: "null" }] }
     CohortKind: { type: string, enum: [group, college] }
+    ApplicationStatus: { type: string, enum: [draft, submitted, flagged, approved, rejected] }
+    ApplicationFlag: { type: string, enum: [partial_payment, cohort_mismatch, cohort_full, unclear_proof, payment_not_found, duplicate_proof, details_incorrect, other] }
+    ApplicantAction: { type: string, enum: [pay, change_cohort, edit_details, resubmit], description: What a flagged or draft applicant can do next }
+    ApplicationAuthor: { type: string, enum: [applicant, staff, system] }
+    ApplicationDecision: { type: string, enum: [approve, flag, reject] }
+    ApplicantDetails:
+      type: object
+      required: [full_name, phone, date_of_birth, college, course, branch, grad_year]
+      properties:
+        full_name: { type: string }
+        phone: { type: string }
+        date_of_birth: { type: string, format: date }
+        college: { type: string }
+        course: { type: string }
+        branch: { type: string }
+        grad_year: { type: integer }
+    Application:
+      type: object
+      required: [id, status, cohort_id, details, fee_inr, paid_inr, due_inr, flag, flag_note, actions, decided_at, enrollment_id, version, created_at, updated_at]
+      properties:
+        id: { type: string, format: uuid }
+        status: { $ref: "#/components/schemas/ApplicationStatus" }
+        cohort_id: { type: string, format: uuid }
+        details: { $ref: "#/components/schemas/ApplicantDetails" }
+        fee_inr: { type: integer, minimum: 0 }
+        paid_inr: { type: integer, minimum: 0, description: Confirmed by an admin }
+        due_inr: { type: integer, minimum: 0 }
+        flag: { oneOf: [{ $ref: "#/components/schemas/ApplicationFlag" }, { type: "null" }] }
+        flag_note: { type: string }
+        actions: { type: array, items: { $ref: "#/components/schemas/ApplicantAction" } }
+        decided_at: { type: [string, "null"], format: date-time }
+        enrollment_id: { type: [string, "null"], format: uuid }
+        version: { type: integer, minimum: 1 }
+        created_at: { type: string, format: date-time }
+        updated_at: { type: string, format: date-time }
+    PaymentProof:
+      type: object
+      required: [id, utr, amount_inr, uploaded_at, duplicate]
+      properties:
+        id: { type: string, format: uuid }
+        utr: { type: string }
+        amount_inr: { type: integer, minimum: 1 }
+        uploaded_at: { type: string, format: date-time }
+        duplicate: { type: boolean, description: "Staff only: the image or UTR also appears on another application" }
+    ApplicationMessage:
+      type: object
+      required: [id, author, body, client_id, created_at]
+      properties:
+        id: { type: string, format: uuid }
+        author: { $ref: "#/components/schemas/ApplicationAuthor" }
+        body: { type: string }
+        client_id: { type: [string, "null"], format: uuid }
+        created_at: { type: string, format: date-time }
+    PaymentInfo:
+      type: object
+      required: [upi_id, payee_name, note, has_qr, no_refund_policy, updated_at]
+      properties:
+        upi_id: { type: string }
+        payee_name: { type: string }
+        note: { type: string }
+        has_qr: { type: boolean }
+        no_refund_policy: { type: string }
+        updated_at: { type: string, format: date-time }
+    ApplicantView:
+      type: object
+      required: [application, cohort, proofs, messages, cohorts, payment, enrolled]
+      properties:
+        application: { oneOf: [{ $ref: "#/components/schemas/Application" }, { type: "null" }] }
+        cohort: { oneOf: [{ $ref: "#/components/schemas/Cohort" }, { type: "null" }] }
+        proofs: { type: array, items: { $ref: "#/components/schemas/PaymentProof" } }
+        messages: { type: array, items: { $ref: "#/components/schemas/ApplicationMessage" } }
+        cohorts: { type: array, items: { $ref: "#/components/schemas/Cohort" }, description: Cohorts taking applications }
+        payment: { $ref: "#/components/schemas/PaymentInfo" }
+        enrolled: { type: boolean, description: The student already has an active or paused internship }
+    StaffApplication:
+      allOf:
+        - $ref: "#/components/schemas/ApplicantView"
+        - type: object
+          required: [applicant]
+          properties:
+            applicant: { $ref: "#/components/schemas/User" }
+    ApplicationRow:
+      type: object
+      required: [application, applicant, cohort_name, college_name, proofs, unread]
+      properties:
+        application: { $ref: "#/components/schemas/Application" }
+        applicant: { $ref: "#/components/schemas/User" }
+        cohort_name: { type: string }
+        college_name: { type: [string, "null"] }
+        proofs: { type: integer, minimum: 0 }
+        unread: { type: boolean }
+    Image:
+      type: object
+      required: [content_type, data_base64]
+      properties:
+        content_type: { type: string, enum: [image/png, image/jpeg, image/webp] }
+        data_base64: { type: string }
     Program:
       type: object
       required: [slug, days, track]
@@ -1899,7 +2244,7 @@ components:
         created_at: { type: string, format: date-time }
     Cohort:
       type: object
-      required: [id, kind, name, college_id, college_name, program, start_date, seats_total, seats_used]
+      required: [id, kind, name, college_id, college_name, program, start_date, seats_total, seats_used, fee_inr, applications_open]
       properties:
         id: { type: string, format: uuid }
         kind: { $ref: "#/components/schemas/CohortKind" }
@@ -1910,6 +2255,8 @@ components:
         start_date: { type: string, format: date }
         seats_total: { type: integer, minimum: 1 }
         seats_used: { type: integer, minimum: 0, description: Active or paused internships }
+        fee_inr: { type: [integer, "null"], description: "Fee for applicants, in rupees" }
+        applications_open: { type: boolean }
     PersonInput:
       type: object
       required: [github_login]

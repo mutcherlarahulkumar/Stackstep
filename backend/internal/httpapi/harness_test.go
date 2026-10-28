@@ -128,7 +128,7 @@ func newEnv(t *testing.T, opts ...envOpt) *env {
 		Config: cfg, Store: st, Clock: clk, Signer: signer, States: states,
 		GitHub:    &auth.GitHub{ClientID: cfg.GitHubClientID, ClientSecret: cfg.GitHubClientSecret, RedirectURL: cfg.GitHubRedirectURL, OAuthBaseURL: cfg.GitHubOAuthBaseURL, APIBaseURL: cfg.GitHubAPIBaseURL},
 		Sessions:  &app.Sessions{Store: st, Clock: clk, Signer: signer, BootstrapAdmins: cfg.BootstrapAdminLogins},
-		Workspace: ws, Helper: app.NewHelper(ws, fake, cfg.AI),
+		Workspace: ws, Helper: app.NewHelper(ws, fake, cfg.AI), Admissions: app.NewAdmissions(ws),
 		Drafter: &app.Drafter{Store: st, Clock: clk, AI: fake, PRs: prs, Config: cfg.AI, Log: log},
 		Hub:     realtime.NewHub(), Log: log,
 	})

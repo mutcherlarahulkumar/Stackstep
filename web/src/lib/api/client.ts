@@ -54,6 +54,26 @@ export type FlowInput = { name: string; stream: string; description: string; day
 export type DraftItemInput = TemplateInput & { day: number; template_id: string | null };
 export type TemplateFilter = { q?: string; type?: S.TaskType | null; personaId?: string | null; includeArchived?: boolean };
 
+export type ApplicationInput = {
+  cohort_id: string;
+  full_name: string;
+  phone: string;
+  date_of_birth: string;
+  college: string;
+  course: string;
+  branch: string;
+  grad_year: number;
+};
+
+export type ApplicationDecisionInput = {
+  action: S.ApplicationDecision;
+  flag: S.ApplicationFlag | null;
+  note: string;
+  paid_inr: number | null;
+  flow_id: string | null;
+  expected_version: number;
+};
+
 type Method = "GET" | "POST" | "PUT" | "PATCH";
 export type PersonInput = { github_login: string; name?: string; email?: string };
 export type EnrollSettings = { cohort_id: string | null; program_slug?: string; start_date: string | null; timezone: string; flow_id: string | null };
@@ -279,6 +299,74 @@ export class ApiClient {
 
   createCohort(input: CohortInput) {
     return this.send("POST", "/v1/admin/cohorts", S.Cohort, { body: input });
+  }
+
+  setCohortAdmissions(id: string, feeInr: number | null, open: boolean) {
+    return this.send("PATCH", `/v1/admin/cohorts/${seg(id)}/admissions`, S.Cohort, { body: { fee_inr: feeInr, applications_open: open } });
+  }
+
+  // ---- Applications and UPI payments (feature 15) ----
+
+  myApplication() {
+    return this.send("GET", "/v1/me/application", S.ApplicantView);
+  }
+
+  saveApplication(input: ApplicationInput, expectedVersion: number | null) {
+    return this.send("PUT", "/v1/me/application", S.ApplicantView, { body: { ...input, expected_version: expectedVersion } });
+  }
+
+  uploadProof(imageBase64: string, utr: string, amountInr: number, expectedVersion: number) {
+    return this.send("POST", "/v1/me/application/proofs", S.ApplicantView, {
+      body: { image_base64: imageBase64, utr, amount_inr: amountInr, expected_version: expectedVersion },
+    });
+  }
+
+  resubmitApplication(expectedVersion: number) {
+    return this.send("POST", "/v1/me/application/resubmit", S.ApplicantView, { body: { expected_version: expectedVersion } });
+  }
+
+  sendApplicationMessage(clientId: string, body: string) {
+    return this.send("POST", "/v1/me/application/messages", S.ApplicationMessage, { body: { client_id: clientId, body } });
+  }
+
+  myProofImage(id: string) {
+    return this.send("GET", `/v1/me/application/proofs/${seg(id)}/image`, S.ImageData);
+  }
+
+  paymentQR() {
+    return this.send("GET", "/v1/payment-qr", S.ImageData);
+  }
+
+  applications(status: S.ApplicationStatus | null) {
+    return this.send("GET", "/v1/admin/applications", S.ApplicationQueue, { query: { status } });
+  }
+
+  application(id: string) {
+    return this.send("GET", `/v1/admin/applications/${seg(id)}`, S.StaffApplication);
+  }
+
+  decideApplication(id: string, decision: ApplicationDecisionInput) {
+    return this.send("POST", `/v1/admin/applications/${seg(id)}/decision`, S.StaffApplication, { body: decision });
+  }
+
+  sendStaffApplicationMessage(id: string, clientId: string, body: string) {
+    return this.send("POST", `/v1/admin/applications/${seg(id)}/messages`, S.ApplicationMessage, { body: { client_id: clientId, body } });
+  }
+
+  applicationProofImage(id: string, proofId: string) {
+    return this.send("GET", `/v1/admin/applications/${seg(id)}/proofs/${seg(proofId)}/image`, S.ImageData);
+  }
+
+  paymentSettings() {
+    return this.send("GET", "/v1/admin/payment-settings", S.PaymentInfo);
+  }
+
+  savePaymentSettings(upiId: string, payeeName: string, note: string) {
+    return this.send("PUT", "/v1/admin/payment-settings", S.PaymentInfo, { body: { upi_id: upiId, payee_name: payeeName, note } });
+  }
+
+  savePaymentQR(imageBase64: string) {
+    return this.send("PUT", "/v1/admin/payment-settings/qr", S.PaymentInfo, { body: { image_base64: imageBase64 } });
   }
 
   enroll(person: PersonInput, settings: EnrollSettings) {

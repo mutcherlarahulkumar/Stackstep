@@ -52,10 +52,10 @@ func (s *Server) reviews(c *gin.Context) {
 
 type reviewDraftDTO struct {
 	Decision domain.ReviewDecision `json:"decision"`
-	Summary  string `json:"summary"`
-	Note     string `json:"note"`
-	Rubric   []bool `json:"rubric"` // null when there is no rubric or no usable ticks
-	ReadPR   bool   `json:"read_pr"`
+	Summary  string                `json:"summary"`
+	Note     string                `json:"note"`
+	Rubric   []bool                `json:"rubric"` // null when there is no rubric or no usable ticks
+	ReadPR   bool                  `json:"read_pr"`
 }
 
 func (s *Server) reviewDraft(c *gin.Context) {

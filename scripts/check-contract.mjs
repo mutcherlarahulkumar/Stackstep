@@ -22,6 +22,11 @@ const go = {
   CohortKind: read("backend/internal/domain/people.go"),
   HandInCheckCode: read("backend/internal/domain/review.go"),
   ReviewDecision: read("backend/internal/domain/review.go"),
+  ApplicationStatus: read("backend/internal/domain/application.go"),
+  ApplicationFlag: read("backend/internal/domain/application.go"),
+  ApplicantAction: read("backend/internal/domain/application.go"),
+  ApplicationAuthor: read("backend/internal/domain/application.go"),
+  ApplicationDecision: read("backend/internal/domain/application.go"),
 };
 const goType = {
   Role: "Role",
@@ -38,6 +43,11 @@ const goType = {
   CohortKind: "CohortKind",
   HandInCheckCode: "HandInCheckCode",
   ReviewDecision: "ReviewDecision",
+  ApplicationStatus: "ApplicationStatus",
+  ApplicationFlag: "ApplicationFlag",
+  ApplicantAction: "ApplicantAction",
+  ApplicationAuthor: "ApplicationAuthor",
+  ApplicationDecision: "ApplicationDecision",
 };
 const ts = read("web/src/lib/api/schemas.ts");
 const tsConst = {
@@ -55,6 +65,11 @@ const tsConst = {
   CohortKind: "COHORT_KINDS",
   HandInCheckCode: "HAND_IN_CHECK_CODES",
   ReviewDecision: "REVIEW_DECISIONS",
+  ApplicationStatus: "APPLICATION_STATUSES",
+  ApplicationFlag: "APPLICATION_FLAGS",
+  ApplicantAction: "APPLICANT_ACTIONS",
+  ApplicationAuthor: "APPLICATION_AUTHORS",
+  ApplicationDecision: "APPLICATION_DECISIONS",
 };
 const dart = read("mobile/lib/api/models.dart");
 const dartEnum = { ...goType, ErrorCode: "ErrorCode" };

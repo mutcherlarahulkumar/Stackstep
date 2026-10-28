@@ -48,6 +48,7 @@ type Server struct {
 	workspace    *app.Workspace
 	helper       *app.Helper
 	drafter      *app.Drafter
+	admissions   *app.Admissions
 	hub          *realtime.Hub
 	log          *slog.Logger
 	signInLimit  *ipLimiter
@@ -56,25 +57,26 @@ type Server struct {
 
 // Deps are the server's collaborators.
 type Deps struct {
-	Config    config.Config
-	Store     *store.Store
-	Clock     clock.Clock
-	Signer    *auth.Signer
-	States    *auth.StateSigner
-	GitHub    *auth.GitHub
-	Sessions  *app.Sessions
-	Workspace *app.Workspace
-	Helper    *app.Helper
-	Drafter   *app.Drafter // nil turns AI review drafts off
-	Hub       *realtime.Hub
-	Log       *slog.Logger
+	Config     config.Config
+	Store      *store.Store
+	Clock      clock.Clock
+	Signer     *auth.Signer
+	States     *auth.StateSigner
+	GitHub     *auth.GitHub
+	Sessions   *app.Sessions
+	Workspace  *app.Workspace
+	Helper     *app.Helper
+	Drafter    *app.Drafter // nil turns AI review drafts off
+	Admissions *app.Admissions
+	Hub        *realtime.Hub
+	Log        *slog.Logger
 }
 
 // New builds a Server.
 func New(d Deps) *Server {
 	return &Server{
 		cfg: d.Config, store: d.Store, clock: d.Clock, signer: d.Signer, states: d.States, github: d.GitHub,
-		sessions: d.Sessions, workspace: d.Workspace, helper: d.Helper, drafter: d.Drafter, hub: d.Hub, log: d.Log,
+		sessions: d.Sessions, workspace: d.Workspace, helper: d.Helper, drafter: d.Drafter, admissions: d.Admissions, hub: d.Hub, log: d.Log,
 		// Sign-in is the brute-force target; refresh runs on every page load, so it gets more room.
 		signInLimit:  newIPLimiter(perMinute(d.Config.AuthRatePerMinute), d.Config.AuthRatePerMinute),
 		refreshLimit: newIPLimiter(perMinute(4*d.Config.AuthRatePerMinute), 4*d.Config.AuthRatePerMinute),
@@ -134,6 +136,13 @@ func (s *Server) Handler() http.Handler {
 	authed.POST("/me/ai/conversations", s.askAI)
 	authed.GET("/me/ai/conversations/:id", s.myAIConversation)
 	authed.POST("/me/ai/conversations/:id/messages", s.followUpAI)
+	authed.GET("/me/application", s.myApplication)
+	authed.PUT("/me/application", s.saveApplication)
+	authed.POST("/me/application/proofs", s.uploadProof)
+	authed.GET("/me/application/proofs/:id/image", s.myProofImage)
+	authed.POST("/me/application/resubmit", s.resubmitApplication)
+	authed.POST("/me/application/messages", s.sendApplicantMessage)
+	authed.GET("/payment-qr", s.paymentQR)
 
 	admin := authed.Group("/admin", s.requireStaff)
 	admin.GET("/students", s.students)
@@ -145,6 +154,15 @@ func (s *Server) Handler() http.Handler {
 	admin.GET("/programs", s.listPrograms)
 	admin.GET("/cohorts", s.listCohorts)
 	admin.POST("/cohorts", s.createCohort)
+	admin.PATCH("/cohorts/:id/admissions", s.setCohortAdmissions)
+	admin.GET("/applications", s.listApplications)
+	admin.GET("/applications/:id", s.getApplication)
+	admin.POST("/applications/:id/decision", s.decideApplication)
+	admin.POST("/applications/:id/messages", s.sendStaffApplicationMessage)
+	admin.GET("/applications/:id/proofs/:proof/image", s.staffProofImage)
+	admin.GET("/payment-settings", s.getPaymentSettings)
+	admin.PUT("/payment-settings", s.putPaymentSettings)
+	admin.PUT("/payment-settings/qr", s.putPaymentQR)
 	admin.POST("/enrollments", s.enroll)
 	admin.POST("/enrollments/import", s.importEnrollments)
 	admin.POST("/enrollments/:id/status", s.setEnrollmentStatus)

@@ -121,7 +121,7 @@ func build(cfg config.Config, pool *pgxpool.Pool, log *slog.Logger) (*httpapi.Se
 	srv := httpapi.New(httpapi.Deps{
 		Config: cfg, Store: st, Clock: clk, Signer: signer, States: states, GitHub: gh,
 		Sessions:  &app.Sessions{Store: st, Clock: clk, Signer: signer, BootstrapAdmins: cfg.BootstrapAdminLogins},
-		Workspace: ws, Helper: app.NewHelper(ws, groq, cfg.AI),
+		Workspace: ws, Helper: app.NewHelper(ws, groq, cfg.AI), Admissions: app.NewAdmissions(ws),
 		Drafter: &app.Drafter{Store: st, Clock: clk, AI: groq, Config: cfg.AI, Log: log,
 			PRs: &ghpr.Client{BaseURL: cfg.GitHubAPIBaseURL, Token: cfg.AI.GitHubToken, HTTP: &http.Client{Timeout: 15 * time.Second}}},
 		Hub: hub, Log: log,

@@ -1040,3 +1040,63 @@ final class WeekRecap {
     return '$done ${done == 1 ? 'task' : 'tasks'} finished, $onTime on time. Start the next one early to stay ahead.';
   }
 }
+
+// ---- Applications and UPI payments (feature 15) ----
+
+/// Where a student's application to a cohort stands.
+enum ApplicationStatus {
+  draft('draft'),
+  submitted('submitted'),
+  flagged('flagged'),
+  approved('approved'),
+  rejected('rejected');
+
+  ApplicationStatus(this.wire);
+  final String wire;
+}
+
+/// The issue an admin raised on an application.
+enum ApplicationFlag {
+  partialPayment('partial_payment'),
+  cohortMismatch('cohort_mismatch'),
+  cohortFull('cohort_full'),
+  unclearProof('unclear_proof'),
+  paymentNotFound('payment_not_found'),
+  duplicateProof('duplicate_proof'),
+  detailsIncorrect('details_incorrect'),
+  other('other');
+
+  ApplicationFlag(this.wire);
+  final String wire;
+}
+
+/// What an applicant can do next.
+enum ApplicantAction {
+  pay('pay'),
+  changeCohort('change_cohort'),
+  editDetails('edit_details'),
+  resubmit('resubmit');
+
+  ApplicantAction(this.wire);
+  final String wire;
+}
+
+/// Who wrote an application message.
+enum ApplicationAuthor {
+  applicant('applicant'),
+  staff('staff'),
+  system('system');
+
+  ApplicationAuthor(this.wire);
+  final String wire;
+}
+
+/// A reviewer's decision (desktop web only; mirrored here for the contract).
+enum ApplicationDecision {
+  approve('approve'),
+  flag('flag'),
+  reject('reject');
+
+  ApplicationDecision(this.wire);
+  final String wire;
+}

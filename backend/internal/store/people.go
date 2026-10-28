@@ -114,6 +114,7 @@ type CohortRow struct {
 
 const cohortSelect = `
 	SELECT co.id, co.kind, co.name, co.college_id, p.id, p.slug, p.days, p.track, co.start_date, co.seats_total, co.created_at, cl.name,
+	       co.fee_inr, co.applications_open,
 	       (SELECT count(*) FROM enrollments e WHERE e.cohort_id = co.id AND e.status IN ('active', 'paused'))::int
 	FROM cohorts co
 	JOIN programs p ON p.id = co.program_id
@@ -123,7 +124,8 @@ func scanCohort(row interface{ Scan(...any) error }) (CohortRow, error) {
 	var r CohortRow
 	var kind string
 	err := row.Scan(&r.Cohort.ID, &kind, &r.Cohort.Name, &r.Cohort.CollegeID, &r.ProgramID, &r.Cohort.Program.Slug, &r.Cohort.Program.Days,
-		&r.Cohort.Program.Track, &r.Cohort.StartDate, &r.Cohort.SeatsTotal, &r.Cohort.CreatedAt, &r.CollegeName, &r.SeatsUsed)
+		&r.Cohort.Program.Track, &r.Cohort.StartDate, &r.Cohort.SeatsTotal, &r.Cohort.CreatedAt, &r.CollegeName,
+		&r.Cohort.FeeINR, &r.Cohort.ApplicationsOpen, &r.SeatsUsed)
 	r.Cohort.Kind = domain.CohortKind(kind)
 	return r, notFound(err)
 }
@@ -159,9 +161,38 @@ func GetCohort(ctx context.Context, q Q, id uuid.UUID, forUpdate bool) (CohortRo
 // InsertCohort adds a cohort.
 func InsertCohort(ctx context.Context, q Q, c domain.Cohort, programID uuid.UUID, now time.Time) (uuid.UUID, error) {
 	var id uuid.UUID
-	err := q.QueryRow(ctx, `INSERT INTO cohorts (kind, name, college_id, program_id, start_date, seats_total, created_at)
-		VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING id`, string(c.Kind), c.Name, c.CollegeID, programID, c.StartDate, c.SeatsTotal, now).Scan(&id)
+	err := q.QueryRow(ctx, `INSERT INTO cohorts (kind, name, college_id, program_id, start_date, seats_total, created_at, fee_inr, applications_open)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9) RETURNING id`, string(c.Kind), c.Name, c.CollegeID, programID, c.StartDate, c.SeatsTotal, now,
+		c.FeeINR, c.ApplicationsOpen).Scan(&id)
 	return id, err
+}
+
+// SetCohortAdmissions sets a cohort's fee and whether it takes applications.
+func SetCohortAdmissions(ctx context.Context, q Q, id uuid.UUID, fee *int, open bool) error {
+	tag, err := q.Exec(ctx, `UPDATE cohorts SET fee_inr = $2, applications_open = $3 WHERE id = $1`, id, fee, open)
+	if err == nil && tag.RowsAffected() == 0 {
+		return ErrNotFound
+	}
+	return err
+}
+
+// OpenCohorts are cohorts taking applications that haven't started more than a week ago.
+func OpenCohorts(ctx context.Context, q Q, now time.Time) ([]CohortRow, error) {
+	rows, err := q.Query(ctx, cohortSelect+` WHERE co.applications_open AND co.fee_inr IS NOT NULL AND co.start_date >= ($1::date - 7)
+		ORDER BY co.start_date, lower(co.name), co.id`, now)
+	if err != nil {
+		return nil, fmt.Errorf("open cohorts: %w", err)
+	}
+	defer rows.Close()
+	out := []CohortRow{}
+	for rows.Next() {
+		r, err := scanCohort(rows)
+		if err != nil {
+			return nil, err
+		}
+		out = append(out, r)
+	}
+	return out, rows.Err()
 }
 
 // InsertPendingUser creates a user who hasn't signed in yet; GitHub sign-in links them by login.

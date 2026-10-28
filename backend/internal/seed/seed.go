@@ -24,6 +24,8 @@ const (
 	IndieStudentLogin = "meera-dev" // follows the seeded React flow
 	PausedLogin       = "kiran-dev"
 	NoEnrollLogin     = "nora-dev"
+	// OpenCohortName takes applications (fee ₹4,999) so applicants have something to join.
+	OpenCohortName = "Frontend Cohort · Open"
 )
 
 // Reset deletes all workspace data. Never call this against production.
@@ -83,6 +85,20 @@ func Run(ctx context.Context, q store.Q, now time.Time) error {
 			VALUES ('college', 'ANITS Batch 1', $1, $2, $3, 60) RETURNING id`, collegeID, programID, start).Scan(&cohortID); err != nil {
 			return fmt.Errorf("cohort: %w", err)
 		}
+	}
+
+	// Feature 15: a cohort taking applications, with UPI details and a sample QR to pay.
+	if _, err := q.Exec(ctx, `INSERT INTO cohorts (kind, name, program_id, start_date, seats_total, fee_inr, applications_open)
+		SELECT 'group', $1, $2, $3, 100, 4999, true WHERE NOT EXISTS (SELECT 1 FROM cohorts WHERE name = $1)`,
+		OpenCohortName, programID, start.AddDate(0, 0, 14)); err != nil {
+		return fmt.Errorf("open cohort: %w", err)
+	}
+	if err := store.SetPaymentDetails(ctx, q, "stackstep@okaxis", "Stackstep Internships", "Pay the exact fee shown. Keep the screenshot.",
+		ids[AdminLogin], now); err != nil {
+		return fmt.Errorf("payment settings: %w", err)
+	}
+	if err := store.SetPaymentQR(ctx, q, SampleQR(), "image/png", ids[AdminLogin], now); err != nil {
+		return fmt.Errorf("payment qr: %w", err)
 	}
 
 	enroll := func(login string, cohort *uuid.UUID, status string) error {

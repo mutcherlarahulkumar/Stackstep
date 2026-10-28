@@ -47,6 +47,9 @@ type Cohort struct {
 	StartDate  time.Time
 	SeatsTotal int
 	CreatedAt  time.Time
+	// FeeINR and ApplicationsOpen let students apply and pay for the cohort (feature 15).
+	FeeINR           *int
+	ApplicationsOpen bool
 }
 
 // ValidGitHubLogin follows GitHub's rules: 1–39 letters, digits or single hyphens, not
