@@ -28,7 +28,7 @@ Each has a spec with every edge case and the test that covers it, in [`docs/feat
    hints for students, paid in credits, rate limited, and it makes students explain the
    problem and try things themselves first.
 5. **Certificates** — progress against a 70% bar, issued by hand, public `/verify` page and a
-   printable certificate.
+   designed certificate (print, PDF, PNG).
 6. **Placement overview** — cohort table, CSV export and nudges for inactive students.
 7. **People** — enroll by GitHub login, roster CSV import, colleges, cohorts, internship status
    and staff roles.
@@ -46,7 +46,7 @@ Also: a review queue with hand-in authenticity warnings, and hand-ins posted in 
 persona's chat with an acknowledgement.
 
 Coming soon (labelled in the UI, nothing faked): Razorpay payments, GitHub PR checks,
-push notifications on phones, Orshot certificate artwork.
+push notifications on phones.
 
 ## Who uses what
 

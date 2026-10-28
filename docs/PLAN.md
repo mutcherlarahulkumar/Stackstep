@@ -101,7 +101,7 @@ Each slice goes **backend → mobile app → web**, with E2E before it is called
 | — | GitHub App ingest + PR checks (webhooks, runner, hidden tests) | coming soon — needs a GitHub App |
 | 8 | **AI team lead and AI review drafts** (Groq; labelled automatic replies, admin-edited drafts) | ✅ built — `docs/features/14-ai-team-lead-and-review-drafts.md` |
 | — | Razorpay payments, entitlements, college seats, bulk import | coming soon — needs Razorpay keys |
-| — | Certificate artwork via Orshot | coming soon — the printable certificate works today |
+| — | Certificate artwork | ✅ built — designed A4 certificate (PNG, SVG, PDF) in `05-progress-certificates.md` |
 | — | DSA judge | later |
 
 Setup and every environment variable: `docs/SETUP.md`.

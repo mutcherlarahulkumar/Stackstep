@@ -1,6 +1,8 @@
 import { describe, expect, it } from "vitest";
 
-import { dateOnlyLabel, formatCode, isCode, normalizeCode, periodEnd, programLabel, verifyPath } from "./certificate";
+import { wrap } from "@/components/certificate/certificate-art";
+
+import { dateOnlyLabel, formatCode, isCode, normalizeCode, periodEnd, programLabel, verifyPath, certificateWording, trackName } from "./certificate";
 
 describe("certificate codes", () => {
   it("normalizes what people type", () => {
@@ -35,5 +37,36 @@ describe("certificate period", () => {
   it("never claims days after the issue date", () => {
     expect(periodEnd({ end_date: "2026-11-19", issued_at: new Date("2026-10-23T10:00:00Z") })).toBe("2026-10-23");
     expect(periodEnd({ end_date: "2026-11-19", issued_at: new Date("2026-11-25T10:00:00Z") })).toBe("2026-11-19");
+  });
+});
+
+describe("certificate wording (C10)", () => {
+  const cert = {
+    student_name: "Asha Rao",
+    program_days: 30 as const,
+    program_slug: "frontend-30",
+    flow_name: "React Frontend · 30 days",
+    start_date: "2026-11-02",
+    end_date: "2026-12-01",
+    issued_at: new Date("2026-12-01T10:00:00Z"),
+  };
+
+  it("reads like an internship certificate and never mentions tasks or points", () => {
+    const w = certificateWording(cert);
+    expect(w.body).toBe("has successfully completed the 30-day Frontend Engineering Internship in React Frontend at Stackstep, from November 2, 2026 to December 1, 2026.");
+    expect(w.closing).toContain("Asha showed dedication");
+    expect(`${w.body} ${w.closing}`).not.toMatch(/task|point/i);
+    expect(w.issued).toBe("2026-12-01");
+  });
+
+  it("leaves the track out when there is no flow", () => {
+    expect(certificateWording({ ...cert, flow_name: null }).body).not.toContain(" in ");
+    expect(trackName("Data · 60 days")).toBe("Data");
+    expect(trackName(null)).toBeNull();
+  });
+
+  it("wraps on word boundaries", () => {
+    expect(wrap("one two three four", 9)).toEqual(["one two", "three", "four"]);
+    expect(wrap("", 10)).toEqual([]);
   });
 });

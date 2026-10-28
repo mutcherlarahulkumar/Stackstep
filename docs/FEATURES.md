@@ -146,7 +146,8 @@ colleges and cohorts, and grant staff access.
 
 - **Verify a certificate:** `/verify` (type a code) or `/verify/<code>`. Shows valid or revoked
   (with the reason), the student, program, dates and numbers.
-- **Printable certificate:** `/certificate/<code>`.
+- **Certificate:** `/certificate/<code>`. A designed A4 internship certificate with a seal and a
+  QR code to the verification page. Print it, save it as PDF, or download a PNG or SVG.
 - **Privacy** and **Terms** pages.
 
 ## 7. Web and app side by side
@@ -172,8 +173,6 @@ colleges and cohorts, and grant staff access.
 - **Payments (Razorpay):** paid seats and college bulk seats. Enrollment is manual for now.
 - **GitHub PR checks:** automatic checks and hidden tests on pull requests.
 - **Push notifications on phones:** needs an external push service (Firebase / Web Push keys).
-- **Certificate artwork (Orshot):** designed certificate images. The printable certificate
-  works today.
 
 ## 9. Running it
 

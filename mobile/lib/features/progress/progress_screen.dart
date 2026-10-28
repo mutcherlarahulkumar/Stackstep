@@ -219,9 +219,14 @@ class _CertificateCard extends StatelessWidget {
                     children: [
                       ShadButton(
                         key: const Key('open-certificate'),
+                        leading: const Icon(LucideIcons.award, size: 16),
+                        onPressed: () => openLink(context, AppConfig.webUrl('/certificate/${Uri.encodeComponent(c.code)}')),
+                        child: const Text('View certificate'),
+                      ),
+                      ShadButton.outline(
                         leading: const Icon(LucideIcons.externalLink, size: 16),
                         onPressed: () => openLink(context, AppConfig.verifyUrl(c.code)),
-                        child: const Text('Open verification page'),
+                        child: const Text('Verification page'),
                       ),
                       ShadButton.outline(
                         leading: const Icon(LucideIcons.copy, size: 16),

@@ -1,10 +1,10 @@
 "use client";
 
 import { useQuery } from "@tanstack/react-query";
-import { BadgeCheck, Copy, FileBadge, Printer, SearchX, ShieldAlert } from "lucide-react";
+import { BadgeCheck, Copy, FileBadge, FileDown, ImageDown, Printer, SearchX, ShieldAlert } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useState, type ReactNode } from "react";
+import { useRef, useState, type ReactNode } from "react";
 import { toast } from "sonner";
 
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
@@ -13,14 +13,16 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { Field, FieldDescription, FieldError, FieldLabel } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Spinner } from "@/components/ui/spinner";
 import { ApiError, messageFor } from "@/lib/api/errors";
 import { type Certificate } from "@/lib/api/schemas";
-import { certificatePath, dateOnlyLabel, periodEnd, formatCode, isCode, normalizeCode, programLabel, verifyPath } from "@/lib/certificate";
+import { certificatePath, dateOnlyLabel, formatCode, isCode, normalizeCode, programLabel, verifyPath } from "@/lib/certificate";
 import { dateTimeLabel } from "@/lib/format";
 import { useSession } from "@/lib/session";
 
 import { Wordmark } from "../app/brand";
 import { EmptyState, ErrorState } from "../app/state";
+import { ART_HEIGHT, ART_WIDTH, CertificateArt } from "./certificate-art";
 import { ThemeToggle } from "../app/theme-toggle";
 
 const isNotFound = (e: unknown) => e instanceof ApiError && e.code === "not_found";
@@ -233,7 +235,7 @@ function Fact({ label, children }: { label: string; children: ReactNode }) {
   );
 }
 
-/** /certificate/{code} — a printable certificate. Designed artwork is coming soon. */
+/** /certificate/{code} — the designed certificate: print, or download as PNG or SVG. */
 export function CertificateScreen({ code }: { code: string }) {
   const q = useVerifiedCertificate(code);
   return (
@@ -257,17 +259,7 @@ export function CertificateScreen({ code }: { code: string }) {
           <ErrorState message={messageFor(q.error)} onRetry={() => void q.refetch()} />
         )
       ) : (
-        <div className="flex w-full max-w-4xl flex-col gap-4">
-          <div className="flex flex-wrap items-center justify-end gap-2 print:hidden">
-            <div className="flex gap-2">
-              <Button variant="outline" asChild>
-                <Link href={verifyPath(q.data.code)}>Verification page</Link>
-              </Button>
-              <Button onClick={() => window.print()} disabled={q.data.status === "revoked"}>
-                <Printer data-icon="inline-start" aria-hidden /> Print or save PDF
-              </Button>
-            </div>
-          </div>
+        <div className="flex w-full max-w-5xl flex-col gap-4 print:max-w-none">
           <CertificateDocument cert={q.data} />
         </div>
       )}
@@ -276,52 +268,90 @@ export function CertificateScreen({ code }: { code: string }) {
 }
 
 function CertificateDocument({ cert }: { cert: Certificate }) {
+  const art = useRef<SVGSVGElement>(null);
+  const [busy, setBusy] = useState(false);
+  const origin = typeof window === "undefined" ? "" : window.location.origin;
   const revoked = cert.status === "revoked";
-  const host = typeof window === "undefined" ? "" : window.location.host;
+  const name = `stackstep-certificate-${formatCode(cert.code)}`;
+
+  const svgText = () => {
+    const el = art.current;
+    return el ? new XMLSerializer().serializeToString(el) : null;
+  };
+  const save = (blob: Blob, file: string) => {
+    const href = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = href;
+    a.download = file;
+    a.click();
+    setTimeout(() => URL.revokeObjectURL(href), 1000);
+  };
+  const downloadSvg = () => {
+    const text = svgText();
+    if (!text) return;
+    save(new Blob([text], { type: "image/svg+xml" }), `${name}.svg`);
+  };
+  const downloadPng = async () => {
+    const text = svgText();
+    if (!text) return;
+    setBusy(true);
+    try {
+      const png = await svgToPng(text, ART_WIDTH * 2, ART_HEIGHT * 2);
+      save(png, `${name}.png`);
+    } catch {
+      toast.error("Couldn't make the image. Try Download SVG, or Print and save as PDF.");
+    } finally {
+      setBusy(false);
+    }
+  };
+
   return (
-    <article
-      data-testid="certificate-document"
-      aria-label={`Certificate for ${cert.student_name}`}
-      className="relative overflow-hidden rounded-xl border-2 bg-white p-6 text-zinc-900 shadow-sm sm:p-12 print:rounded-none print:border-0 print:shadow-none"
-    >
-      <div className="pointer-events-none absolute inset-3 rounded-lg border border-zinc-300 sm:inset-5" aria-hidden />
-      {revoked ? (
-        <div className="absolute inset-0 flex items-center justify-center" aria-hidden>
-          <span className="-rotate-12 rounded-lg border-4 border-red-600/70 px-6 py-2 text-4xl font-bold tracking-widest text-red-600/70 sm:text-6xl">REVOKED</span>
-        </div>
-      ) : null}
-      <div className="relative flex flex-col items-center gap-4 text-center sm:gap-6">
-        <Wordmark className="text-lg" />
-        <p className="text-xs font-semibold tracking-[0.3em] text-zinc-500 uppercase">Certificate of completion</p>
-        <p className="text-sm text-zinc-600">This certifies that</p>
-        <h1 className="text-3xl font-semibold tracking-tight text-balance sm:text-5xl">{cert.student_name}</h1>
-        <p className="text-sm text-zinc-500">@{cert.github_login}</p>
-        <p className="max-w-xl text-base text-balance text-zinc-700 sm:text-lg">
-          completed the <span className="font-semibold">{programLabel(cert)}</span>
-          {cert.flow_name ? <> on the {cert.flow_name} track</> : null}, from {dateOnlyLabel(cert.start_date)} to {dateOnlyLabel(periodEnd(cert))}
-          {cert.tasks_total > 0 ? (
-            <>
-              , finishing {cert.tasks_done} of {cert.tasks_total} tasks and earning {cert.points} points.
-            </>
-          ) : (
-            "."
-          )}
-        </p>
-        <div className="mt-2 grid w-full max-w-xl grid-cols-1 gap-4 border-t border-zinc-200 pt-6 text-left text-xs text-zinc-500 sm:grid-cols-2">
-          <div>
-            <p>Issued {dateOnlyLabel(cert.issued_at.toISOString().slice(0, 10))}</p>
-            <p className="font-mono text-sm text-zinc-800">{formatCode(cert.code)}</p>
-          </div>
-          <div className="sm:text-right">
-            <p>Verify at</p>
-            <p className="font-mono text-sm text-zinc-800">
-              <span className="whitespace-nowrap">{host}</span>
-              <wbr />
-              <span className="whitespace-nowrap">{verifyPath(cert.code)}</span>
-            </p>
-          </div>
-        </div>
+    <div className="flex flex-col gap-3">
+      <div className="flex flex-wrap justify-end gap-2 print:hidden">
+        <Button variant="ghost" asChild>
+          <Link href={verifyPath(cert.code)}>Verification page</Link>
+        </Button>
+        {revoked ? null : (
+          <>
+          <Button variant="outline" onClick={() => void downloadPng()} disabled={busy} data-testid="download-png">
+            {busy ? <Spinner data-icon="inline-start" /> : <ImageDown data-icon="inline-start" aria-hidden />} Download PNG
+          </Button>
+          <Button variant="outline" onClick={downloadSvg} data-testid="download-svg">
+            <FileDown data-icon="inline-start" aria-hidden /> Download SVG
+          </Button>
+          <Button onClick={() => window.print()}>
+            <Printer data-icon="inline-start" aria-hidden /> Print or save PDF
+          </Button>
+          </>
+        )}
       </div>
-    </article>
+      <article
+        data-testid="certificate-document"
+        aria-label={`Certificate for ${cert.student_name}`}
+        className="overflow-hidden rounded-xl border shadow-sm print:rounded-none print:border-0 print:shadow-none"
+      >
+        <CertificateArt ref={art} cert={cert} origin={origin} />
+      </article>
+      {/* Landscape, no margins: the artwork is drawn to A4. */}
+      <style>{"@media print { @page { size: A4 landscape; margin: 0; } }"}</style>
+    </div>
   );
+}
+
+/** Draws the SVG onto a canvas and returns a PNG. System fonts only, so nothing is missing. */
+function svgToPng(svg: string, width: number, height: number): Promise<Blob> {
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    img.onload = () => {
+      const canvas = document.createElement("canvas");
+      canvas.width = width;
+      canvas.height = height;
+      const ctx = canvas.getContext("2d");
+      if (!ctx) return reject(new Error("no canvas"));
+      ctx.drawImage(img, 0, 0, width, height);
+      canvas.toBlob((b) => (b ? resolve(b) : reject(new Error("no blob"))), "image/png");
+    };
+    img.onerror = () => reject(new Error("image load failed"));
+    img.src = `data:image/svg+xml;charset=utf-8,${encodeURIComponent(svg)}`;
+  });
 }
