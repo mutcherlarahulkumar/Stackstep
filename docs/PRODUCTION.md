@@ -249,7 +249,17 @@ real data depends on demo data", a real student is on the demo flow or has tasks
 
 Each run summary says, per login, `created` (they'll be linked on first GitHub sign-in),
 `promoted` (an existing user became admin) or `already admin`. It creates nothing else: you set
-up personas, the task library, flows, colleges and cohorts yourself from the admin console.
+up colleges and cohorts yourself from the admin console.
+
+**Load the curriculum:** Actions → **Database · seed curriculum** → **Run workflow**:
+- environment: `production`
+
+Run it after **seed admins**. It loads six personas, the task library (174 tasks) and two
+published flows, **Frontend Internship · 30 days** and **Full-stack Internship · 60 days**. It
+first checks every DSA answer, and the run summary lists what was created, updated or left
+unchanged. Re-running is safe: changed content publishes a new flow version, and students keep
+the version they started on. Then pick these flows when you create cohorts, approve
+applications or enroll students. Details: `docs/features/17-curriculum.md`.
 
 You can also run the same tool from a laptop:
 
@@ -257,6 +267,7 @@ You can also run the same tool from a laptop:
 cd backend
 DATABASE_URL='<NEON_DIRECT_URL>' go run ./cmd/dbadmin admins -logins alice,bob
 DATABASE_URL='<NEON_DIRECT_URL>' go run ./cmd/dbadmin flush -mode demo -confirm FLUSH
+DATABASE_URL='<NEON_DIRECT_URL>' go run ./cmd/dbadmin curriculum
 ```
 
 **Never run `make seed` against production.** It loads test fixtures for automated tests and

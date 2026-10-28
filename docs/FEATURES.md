@@ -123,7 +123,9 @@ People, Flows, Task library and Personas.
   flag a PR in someone else's repository, or a link already handed in by someone else.
 - **Inbox.** Every student conversation; reply as the persona. **Broadcast** sends one message
   to many students.
-- **Flows.** Day-by-day courses (e.g. "React Frontend · 30 days"). Build drafts, publish
+- **Flows.** Day-by-day courses. Stackstep's own two, **Frontend Internship · 30 days** and
+  **Full-stack Internship · 60 days**, are loaded by the **Database · seed curriculum** workflow
+  (`docs/features/17-curriculum.md`). Build drafts, publish
   versions, duplicate, and assign to many students at once. Tasks are scheduled in each
   student's time zone, and "surprise" tasks land at a random time in a window.
 - **Task library.** Reusable tasks to add to flows. Flows keep their own copy, so editing the

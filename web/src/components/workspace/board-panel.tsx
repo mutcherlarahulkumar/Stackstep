@@ -16,6 +16,7 @@ import { dateTimeLabel, dueLabel, isOverdue, taskTimeLabel } from "@/lib/format"
 import { cn } from "@/lib/utils";
 import { studentMoves } from "@/lib/validation";
 
+import { SafeMarkdown } from "../ai/markdown";
 import { InfoNote } from "../app/info-note";
 import { PersonaAvatar } from "../app/persona-avatar";
 import { EmptyState, ErrorState } from "../app/state";
@@ -248,7 +249,9 @@ function TaskSheet({
               </Alert>
               <h3 className="mt-6 mb-2 text-sm font-medium">Brief</h3>
               {task.brief ? (
-                <p className="text-sm leading-relaxed whitespace-pre-wrap">{task.brief}</p>
+                <div className="text-sm" data-testid="task-brief">
+                  <SafeMarkdown>{task.brief}</SafeMarkdown>
+                </div>
               ) : (
                 <p className="text-muted-foreground text-sm">No brief for this one. Ask {persona?.name ?? "your lead"} in chat if anything is unclear.</p>
               )}

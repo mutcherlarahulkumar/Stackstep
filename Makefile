@@ -2,7 +2,7 @@
 DB_URL ?= postgres://stackstep:stackstep@localhost:5432/stackstep?sslmode=disable
 TEST_DB_URL ?= postgres://stackstep:stackstep@localhost:5432/stackstep_test?sslmode=disable
 
-.PHONY: up down db api seed web mobile check check-backend check-web check-mobile contract e2e
+.PHONY: up down db api seed web mobile check check-backend check-web check-mobile contract e2e curriculum
 
 up:            ## Whole stack in Docker
 	docker compose up --build
@@ -33,6 +33,11 @@ check: contract check-backend check-web check-mobile
 
 check-backend:
 	cd backend && golangci-lint run ./... && TEST_DATABASE_URL="$(TEST_DB_URL)" go test -race ./...
+	cd backend && go run ./cmd/dbadmin curriculum -dump > ../.curriculum.json
+	node scripts/check-dsa.mjs .curriculum.json && rm -f .curriculum.json
+
+curriculum:    ## Load or update the curriculum (personas, task library, flows) into DB_URL
+	cd backend && export DATABASE_URL="$(DB_URL)"; $(LOAD_ENV) go run ./cmd/dbadmin curriculum
 
 check-web:
 	cd web && pnpm check
