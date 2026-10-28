@@ -190,19 +190,58 @@ void main() {
     expect(find.textContaining('From Priya Sharma'), findsOneWidget);
   });
 
-  testWidgets('student without an internship sees the empty state (C8)', (tester) async {
-    final client = MockClient(
-      (req) async => switch (req.url.path) {
-        '/v1/auth/refresh' => json(tokensJson()),
-        '/v1/me' => json({'user': userJson(login: 'nora-dev', name: 'Nora Das'), 'enrollment': null, 'account': accountJson()}),
-        _ => json({
-          'error': {'code': 'not_found', 'message': ''},
-        }, 404),
-      },
+  Map<String, Object?> applicantView({Map<String, Object?>? application, int openCohorts = 1}) => {
+    'application': application,
+    'cohort': null,
+    'proofs': <Object?>[],
+    'messages': <Object?>[],
+    'cohorts': [
+      for (var i = 0; i < openCohorts; i++) {'id': 'c$i'},
+    ],
+    'payment': <String, Object?>{},
+    'enrolled': false,
+  };
+
+  MockClient applicant(Map<String, Object?> view) => MockClient(
+    (req) async => switch (req.url.path) {
+      '/v1/auth/refresh' => json(tokensJson()),
+      '/v1/me' => json({'user': userJson(login: 'nora-dev', name: 'Nora Das'), 'enrollment': null, 'account': accountJson()}),
+      '/v1/me/application' => json(view),
+      _ => json({
+        'error': {'code': 'not_found', 'message': ''},
+      }, 404),
+    },
+  );
+
+  testWidgets('student without an internship is sent to apply on the web, never old chats (C8, AP1)', (tester) async {
+    await pumpApp(tester, applicant(applicantView()));
+    expect(find.text('Join an internship cohort'), findsOneWidget);
+    expect(find.byKey(const Key('apply-on-web')), findsOneWidget);
+    expect(find.text('Chats'), findsNothing);
+  });
+
+  testWidgets('a flagged application says what is wrong in plain words (AP6)', (tester) async {
+    await pumpApp(
+      tester,
+      applicant(
+        applicantView(
+          application: {
+            'status': 'flagged',
+            'flag': 'partial_payment',
+            'flag_note': '',
+            'fee_inr': 4999,
+            'paid_inr': 2000,
+            'due_inr': 2999,
+          },
+        ),
+      ),
     );
-    await pumpApp(tester, client);
-    expect(find.text('No active internship'), findsOneWidget);
-    expect(find.textContaining('@nora-dev'), findsOneWidget);
+    expect(find.text('We received ₹2,000 of ₹4,999. Pay the remaining ₹2,999.'), findsOneWidget);
+  });
+
+  testWidgets('no open cohort: admissions closed (AP1)', (tester) async {
+    await pumpApp(tester, applicant(applicantView(openCohorts: 0)));
+    expect(find.text('Admissions are closed right now'), findsOneWidget);
   });
 
   testWidgets('no stored session shows sign-in', (tester) async {

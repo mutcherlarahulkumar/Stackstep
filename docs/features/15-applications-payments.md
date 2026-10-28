@@ -54,12 +54,12 @@ type is read from the bytes, not the name.
 
 | # | Case | Expected | Test |
 |---|---|---|---|
-| AP1 | Signed in, not enrolled | apply view: open cohorts with fees, UPI, QR, no-refund policy; no old chats | backend `TestApplicationHappyPathWithPartialPayment`, E2E `apply.spec.ts` |
+| AP1 | Signed in, not enrolled | apply view: open cohorts with fees, UPI, QR, no-refund policy; no old chats; the app shows the status and links to the web | backend `TestApplicationHappyPathWithPartialPayment`, E2E `apply.spec.ts`, `workspace.spec.ts`, Flutter `app_routing_test.dart` |
 | AP2 | Bad phone, DOB, year, empty name, unknown cohort | 422 with a message per field | backend `TestApplicationHappyPathWithPartialPayment`, domain `TestValidateDetails` |
 | AP3 | Two tabs edit the draft | the stale one gets 409 `version_conflict` | backend `TestApplicationHappyPathWithPartialPayment` |
 | AP4 | Not an image, short UTR, zero amount; upload while waiting | 422 per field; 400 `invalid_state` | backend `TestApplicationHappyPathWithPartialPayment`, domain `TestValidateProof` |
 | AP5 | Admin queue | waiting count, unread, screenshot viewable; other colleges' admins get 404 | backend `TestApplicationHappyPathWithPartialPayment`, E2E `apply.spec.ts` |
-| AP6 | Partial payment | approve refused below the fee; flag shows the balance; same screenshot again refused | backend `TestApplicationHappyPathWithPartialPayment`, E2E `apply.spec.ts` |
+| AP6 | Partial payment | approve refused below the fee; flag shows the balance; same screenshot again refused | backend `TestApplicationHappyPathWithPartialPayment`, E2E `apply.spec.ts`, Flutter `app_routing_test.dart` |
 | AP7 | Approved | enrolled, workspace opens, system message | backend `TestApplicationHappyPathWithPartialPayment`, E2E `apply.spec.ts` |
 | AP8 | Decide twice; enrolled student applies | 422 `invalid_transition`; 400 `invalid_state` | backend `TestApplicationHappyPathWithPartialPayment` |
 | AP9 | Paid another cohort's fee | flagged mismatch → switch → back to review with nothing due | backend `TestApplicationIssues` |

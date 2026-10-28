@@ -8,13 +8,13 @@ import 'package:stackstep/core/theme.dart';
 import 'package:stackstep/features/account/onboarding_sheet.dart';
 import 'package:stackstep/features/admin/assign_screen.dart';
 import 'package:stackstep/features/admin/broadcast_screen.dart';
+import 'package:stackstep/features/apply/application_status.dart';
 import 'package:stackstep/features/chat/inbox_controller.dart';
 import 'package:stackstep/features/chat/inbox_screen.dart';
 import 'package:stackstep/features/progress/progress_screen.dart';
 import 'package:stackstep/features/tasks/board_screen.dart';
 import 'package:stackstep/features/tasks/task_work.dart';
 import 'package:stackstep/shared/brand_mark.dart';
-import 'package:stackstep/shared/state_views.dart';
 
 class _AccountMenu extends ConsumerWidget {
   const _AccountMenu({required this.user});
@@ -219,27 +219,15 @@ class _AdminShellState extends ConsumerState<AdminShell> {
   }
 }
 
-class NoEnrollmentScreen extends ConsumerWidget {
+class NoEnrollmentScreen extends StatelessWidget {
   const NoEnrollmentScreen({required this.me, super.key});
   final Me me;
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    return Scaffold(
-      appBar: AppBar(actions: [_AccountMenu(user: me.user)]),
-      body: EmptyState(
-        icon: LucideIcons.calendarX2,
-        title: 'No active internship',
-        body:
-            "You're signed in as @${me.user.githubLogin}, but you aren't enrolled in a program right now. If your college enrolled you, ask your placement cell to check the email on your GitHub account.",
-        action: ShadButton.outline(
-          leading: const Icon(LucideIcons.refreshCw, size: 16),
-          onPressed: () => ref.read(sessionProvider.notifier).refreshMe(),
-          child: const Text('Check again'),
-        ),
-      ),
-    );
-  }
+  Widget build(BuildContext context) => Scaffold(
+    appBar: AppBar(actions: [_AccountMenu(user: me.user)]),
+    body: const ApplicationStatusBody(),
+  );
 }
 
 class SplashScreen extends StatelessWidget {
