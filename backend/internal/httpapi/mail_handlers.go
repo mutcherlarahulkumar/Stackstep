@@ -158,3 +158,28 @@ func (s *Server) listAnnouncements(c *gin.Context) {
 	}
 	c.JSON(http.StatusOK, gin.H{"items": items})
 }
+
+type reactReq struct {
+	Emoji domain.ReactionEmoji `json:"emoji"`
+	On    bool                 `json:"on"`
+}
+
+// react toggles the caller's side's reaction on a message (students and staff share it).
+func (s *Server) react(c *gin.Context) {
+	id, err := pathUUID(c, "id")
+	if err != nil {
+		s.fail(c, err)
+		return
+	}
+	var req reactReq
+	if err := decode(c, &req); err != nil {
+		s.fail(c, err)
+		return
+	}
+	m, err := s.workspace.React(c.Request.Context(), currentUser(c), id, req.Emoji, req.On)
+	if err != nil {
+		s.fail(c, err)
+		return
+	}
+	c.JSON(http.StatusOK, toMessage(m))
+}

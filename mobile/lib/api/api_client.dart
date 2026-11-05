@@ -185,6 +185,11 @@ final class ApiClient {
   Future<Page<Message>> messages(String personaId, {String? cursor, int limit = 50}) async =>
       _messagePage(await _send('GET', '/v1/me/threads/$personaId/messages', query: {'limit': '$limit', 'cursor': ?cursor}));
 
+  /// Adds or removes the caller's reaction: students on their conversations, staff as the persona.
+  Future<Message> react(String messageId, ReactionEmoji emoji, {required bool on, required bool staff}) async => Message.fromJson(
+    asObject(await _send('POST', '/v1/${staff ? 'admin' : 'me'}/messages/$messageId/reactions', body: {'emoji': emoji.wire, 'on': on})),
+  );
+
   Future<Message> sendMessage(String personaId, {required String clientId, required String body}) async =>
       Message.fromJson(asObject(await _send('POST', '/v1/me/threads/$personaId/messages', body: {'client_id': clientId, 'body': body})));
 

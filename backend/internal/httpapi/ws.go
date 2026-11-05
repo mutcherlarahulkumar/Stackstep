@@ -173,6 +173,28 @@ func (s *Server) EncodeEvent(ctx context.Context, ev store.Event) ([]realtime.De
 			return nil, err
 		}
 		return []realtime.Delivery{{Frame: b, Topics: []realtime.Topic{realtime.EnrollmentTopic(t.EnrollmentID)}}}, nil
+	case store.EventReaction:
+		m, err := store.GetMessage(ctx, s.store.Pool, ev.ID)
+		if errors.Is(err, store.ErrNotFound) {
+			return nil, nil
+		}
+		if err != nil {
+			return nil, err
+		}
+		msgs := []domain.Message{m}
+		if err := store.AttachReactions(ctx, s.store.Pool, msgs); err != nil {
+			return nil, err
+		}
+		dto := toMessage(msgs[0])
+		b, err := json.Marshal(frame{Type: frameReaction, Message: &dto})
+		if err != nil {
+			return nil, err
+		}
+		topics := []realtime.Topic{realtime.EnrollmentTopic(m.EnrollmentID), realtime.StaffTopic(nil)}
+		if e, err := store.GetEnrollment(ctx, s.store.Pool, m.EnrollmentID); err == nil && e.CollegeID != nil {
+			topics = append(topics, realtime.StaffTopic(e.CollegeID))
+		}
+		return []realtime.Delivery{{Frame: b, Topics: topics}}, nil
 	case store.EventMail:
 		// One frame (subject only, no body) to every reader who is connected.
 		m, err := store.GetMailHead(ctx, s.store.Pool, ev.ID)

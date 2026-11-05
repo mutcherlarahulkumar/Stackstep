@@ -78,7 +78,7 @@ final class StudentInboxController extends AsyncNotifier<List<Thread>> {
           _apply(message);
         case ReadyFrame():
           unawaited(refresh());
-        case TaskFrame() || MailFrame():
+        case TaskFrame() || MailFrame() || ReactionFrame():
           break;
       }
     });
@@ -142,7 +142,7 @@ final class StaffInboxController extends AsyncNotifier<StaffInboxState> {
           _apply(message);
         case ReadyFrame():
           unawaited(refresh());
-        case TaskFrame() || MailFrame():
+        case TaskFrame() || MailFrame() || ReactionFrame():
           break;
       }
     });

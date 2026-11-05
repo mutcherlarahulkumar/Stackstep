@@ -15,7 +15,14 @@ import 'package:stackstep/features/mail/mail_screen.dart';
 
 import 'fixtures.dart';
 
-Json mailJson({String id = 'm-1', String kind = 'review', String subject = 'Changes requested', bool read = false, String? body, String? taskId = 't-1'}) => {
+Json mailJson({
+  String id = 'm-1',
+  String kind = 'review',
+  String subject = 'Changes requested',
+  bool read = false,
+  String? body,
+  String? taskId = 't-1',
+}) => {
   'id': id,
   'kind': kind,
   'subject': subject,
@@ -32,7 +39,13 @@ Json mailJson({String id = 'm-1', String kind = 'review', String subject = 'Chan
 
 void main() {
   test('MA8 mail decodes strictly, including the live frame', () {
-    final page = MailPage.fromJson(JsonReader({'items': [mailJson()], 'next_cursor': null, 'unread': 1}));
+    final page = MailPage.fromJson(
+      JsonReader({
+        'items': [mailJson()],
+        'next_cursor': null,
+        'unread': 1,
+      }),
+    );
     expect(page.items.single.kind, MailKind.review);
     expect(page.items.single.asRead().read, isTrue);
     expect(Frame.fromJson(JsonReader({'type': 'mail', 'mail': mailJson()})), isA<MailFrame>());

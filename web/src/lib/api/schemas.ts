@@ -13,6 +13,7 @@ export const ROLES = ["student", "college_admin", "admin"] as const;
 export const TASK_TYPES = ["feature", "bug_fix", "dsa", "doc_reading", "quiz", "git_chore", "code_review", "standup", "blog"] as const;
 export const TASK_STATUSES = ["todo", "in_progress", "in_review", "changes_requested", "done", "cancelled"] as const;
 export const CALENDAR_KINDS = ["task", "surprise", "class"] as const;
+export const REACTION_EMOJIS = ["thumbs_up", "heart", "party", "laugh", "thinking", "eyes"] as const;
 export const MAIL_KINDS = ["announcement", "welcome", "review", "certificate", "class"] as const;
 export const AUDIENCES = ["all", "flow", "cohort", "class"] as const;
 export const ENROLLMENT_STATUSES = ["active", "paused", "completed", "cancelled"] as const;
@@ -192,6 +193,11 @@ export const Task = z.object({
 });
 export type Task = z.output<typeof Task>;
 
+export const ReactionEmoji = z.enum(REACTION_EMOJIS);
+export type ReactionEmoji = z.output<typeof ReactionEmoji>;
+export const Reaction = z.object({ emoji: ReactionEmoji, by: Author });
+export type Reaction = z.output<typeof Reaction>;
+
 export const Message = z.object({
   id: z.uuid(),
   enrollment_id: z.uuid(),
@@ -203,6 +209,8 @@ export const Message = z.object({
   sent_at: timestamp,
   /** A persona message no admin wrote (AI or scripted reply, acknowledgement, announcement). */
   automated: z.boolean(),
+  /** Oldest first; each side leaves each emoji at most once. */
+  reactions: z.array(Reaction),
 });
 export type Message = z.output<typeof Message>;
 
@@ -346,6 +354,8 @@ export const Frame = z.discriminatedUnion("type", [
   z.object({ type: z.literal("task"), task: Task }),
   // A new letter (no body); the mailbox refetches.
   z.object({ type: z.literal("mail"), mail: z.lazy(() => Mail) }),
+  // A message whose reactions changed; never counts as unread.
+  z.object({ type: z.literal("reaction"), message: Message }),
 ]);
 export type Frame = z.output<typeof Frame>;
 
@@ -736,3 +746,18 @@ export const Announcement = z.object({
 });
 export type Announcement = z.output<typeof Announcement>;
 export const AnnouncementList = z.object({ items: z.array(Announcement) });
+
+export const InboxStudent = z.object({
+  student: z.object({ name: z.string(), github_login: z.string(), avatar_url: z.string().nullable() }),
+  enrollment_id: z.uuid(),
+  status: EnrollmentStatus,
+  cohort_name: z.string().nullable(),
+  flow_name: z.string().nullable(),
+  day_number: z.int().min(0),
+  unread: z.int().min(0),
+  threads: z.int().min(0),
+  last_at: timestamp.nullable(),
+});
+export type InboxStudent = z.output<typeof InboxStudent>;
+export const InboxStudentPage = z.object({ items: z.array(InboxStudent), next_offset: z.int().min(0).nullable() });
+export type InboxStudentPage = z.output<typeof InboxStudentPage>;

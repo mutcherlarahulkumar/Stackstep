@@ -502,6 +502,7 @@ final class Message {
     required this.clientId,
     required this.sentAt,
     required this.automated,
+    this.reactions = const [],
   });
 
   factory Message.fromJson(JsonReader j) => Message(
@@ -514,6 +515,7 @@ final class Message {
     clientId: j.stringOrNull('client_id'),
     sentAt: j.dateTime('sent_at'),
     automated: j.boolean('automated'),
+    reactions: j.list('reactions', Reaction.fromJson),
   );
 
   final String id;
@@ -527,6 +529,50 @@ final class Message {
 
   /// A persona message no admin wrote (AI or scripted reply, acknowledgement, announcement).
   final bool automated;
+
+  /// Oldest first; each side leaves each emoji at most once.
+  final List<Reaction> reactions;
+
+  /// This message with [by]'s [emoji] added or removed (for an instant, optimistic update).
+  Message withReaction(ReactionEmoji emoji, Author by, {required bool on}) => Message(
+    id: id,
+    enrollmentId: enrollmentId,
+    personaId: personaId,
+    author: author,
+    body: body,
+    taskId: taskId,
+    clientId: clientId,
+    sentAt: sentAt,
+    automated: automated,
+    reactions: [
+      ...reactions.where((r) => !(r.emoji == emoji && r.by == by)),
+      if (on) Reaction(emoji: emoji, by: by),
+    ],
+  );
+}
+
+/// The reactions a message can get.
+enum ReactionEmoji {
+  thumbsUp('thumbs_up', '👍'),
+  heart('heart', '❤️'),
+  party('party', '🎉'),
+  laugh('laugh', '😂'),
+  thinking('thinking', '🤔'),
+  eyes('eyes', '👀');
+
+  ReactionEmoji(this.wire, this.glyph);
+  final String wire;
+  final String glyph;
+}
+
+final class Reaction {
+  const Reaction({required this.emoji, required this.by});
+
+  factory Reaction.fromJson(JsonReader j) =>
+      Reaction(emoji: j.enumValue('emoji', ReactionEmoji.values, (e) => e.wire), by: j.enumValue('by', Author.values, (a) => a.wire));
+
+  final ReactionEmoji emoji;
+  final Author by;
 }
 
 final class Page<T> {
@@ -577,7 +623,8 @@ sealed class Frame {
       'message' => MessageFrame(Message.fromJson(j.object('message'))),
       'task' => TaskFrame(Task.fromJson(j.object('task'))),
       'mail' => MailFrame(Mail.fromJson(j.object('mail'))),
-      final other => throw ContractViolation('type', 'ready, message, task or mail, got "$other"'),
+      'reaction' => ReactionFrame(Message.fromJson(j.object('message'))),
+      final other => throw ContractViolation('type', 'ready, message, task, mail or reaction, got "$other"'),
     };
   }
 }
@@ -594,6 +641,12 @@ final class MessageFrame extends Frame {
 final class TaskFrame extends Frame {
   const TaskFrame(this.task);
   final Task task;
+}
+
+/// A message's reactions changed. Never counts as unread.
+final class ReactionFrame extends Frame {
+  const ReactionFrame(this.message);
+  final Message message;
 }
 
 /// A new letter arrived (no body); refresh the mailbox.

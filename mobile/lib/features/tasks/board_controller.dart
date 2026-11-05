@@ -54,7 +54,7 @@ final class BoardController extends AsyncNotifier<List<Task>> {
           _upsert(task);
         case ReadyFrame():
           unawaited(refresh());
-        case MessageFrame() || MailFrame():
+        case MessageFrame() || MailFrame() || ReactionFrame():
           break;
       }
     });

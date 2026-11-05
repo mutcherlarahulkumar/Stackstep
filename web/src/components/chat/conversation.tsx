@@ -1,14 +1,17 @@
 "use client";
 
-import { ArrowUp, MessagesSquare, SquareKanban } from "lucide-react";
+import { ArrowUp, MessagesSquare, SmilePlus, SquareKanban } from "lucide-react";
+import { toast } from "sonner";
 import { Fragment, useLayoutEffect, useRef, useState, type KeyboardEvent, type ReactNode } from "react";
 
 import { Button } from "@/components/ui/button";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Spinner } from "@/components/ui/spinner";
 import { Textarea } from "@/components/ui/textarea";
-import { type Message } from "@/lib/api/schemas";
+import { REACTION_EMOJIS, type Message } from "@/lib/api/schemas";
 import { dayLabel, timeLabel } from "@/lib/format";
 import { isMine, isStaffTarget, type ChatTarget } from "@/lib/inbox";
+import { REACTION_GLYPH, reactionChips } from "@/lib/reactions";
 import { cn } from "@/lib/utils";
 import { Bounds, runeLength } from "@/lib/validation";
 
@@ -16,7 +19,7 @@ import { ChatSkeleton } from "../app/loading";
 import { EmptyState, ErrorState } from "../app/state";
 import { useConversation, type Conversation, type Outgoing } from "./use-conversation";
 
-type Row = { key: string; at: Date; mine: boolean; body: string; taskId: string | null; automated: boolean; outgoing: Outgoing | null };
+type Row = { key: string; at: Date; mine: boolean; body: string; taskId: string | null; automated: boolean; outgoing: Outgoing | null; message: Message | null };
 
 function rows(target: ChatTarget, messages: Message[], outgoing: Outgoing[]): Row[] {
   // Oldest first for rendering top-to-bottom.
@@ -28,8 +31,12 @@ function rows(target: ChatTarget, messages: Message[], outgoing: Outgoing[]): Ro
     taskId: m.task_id,
     automated: m.automated,
     outgoing: null,
+    message: m,
   }));
-  return [...delivered, ...outgoing.map((o) => ({ key: `out-${o.clientId}`, at: o.at, mine: true, body: o.body, taskId: null, automated: false, outgoing: o }))];
+  return [
+    ...delivered,
+    ...outgoing.map((o) => ({ key: `out-${o.clientId}`, at: o.at, mine: true, body: o.body, taskId: null, automated: false, outgoing: o, message: null })),
+  ];
 }
 
 const STUDENT_REPLIES = ["PR ready for review", "I'm stuck on this", "Good morning"];
@@ -160,14 +167,17 @@ function Bubble({
           <span className="w-6 shrink-0" />
         )
       ) : null}
-      <div className={cn("flex max-w-[min(36rem,85%)] flex-col", row.mine ? "items-end" : "items-start")}>
+      <div className={cn("group/bubble flex max-w-[min(36rem,85%)] flex-col", row.mine ? "items-end" : "items-start")}>
+        <div className={cn("flex items-center gap-1", row.mine && "flex-row-reverse")}>
         <div
           className={cn(
-            "rounded-2xl px-3.5 py-2 text-[0.94rem] leading-relaxed break-words whitespace-pre-wrap transition-opacity",
-            row.mine ? "bg-primary text-primary-foreground rounded-br-md" : "bg-muted text-foreground rounded-bl-md",
+            "rounded-2xl px-3.5 py-2 text-[0.94rem] leading-relaxed break-words whitespace-pre-wrap shadow-xs transition-opacity",
+            row.mine ? "from-primary bg-gradient-to-br to-violet-600 text-primary-foreground rounded-br-md" : "bg-muted text-foreground rounded-bl-md",
+            !showMeta && (row.mine ? "rounded-br-2xl" : "rounded-bl-2xl"),
             sending && "opacity-60",
             failed && "ring-destructive ring-2",
           )}
+          data-testid="chat-bubble"
         >
           <span className="sr-only">{row.mine ? "You: " : `${other.name}: `}</span>
           {row.body}
@@ -180,6 +190,9 @@ function Bubble({
             </div>
           ) : null}
         </div>
+        {row.message ? <ReactionPicker message={row.message} ws={ws} /> : null}
+        </div>
+        {row.message && row.message.reactions.length > 0 ? <ReactionChips message={row.message} ws={ws} /> : null}
         {failed && o ? (
           <p className="text-destructive mt-1 flex items-center gap-2 text-xs" role="alert">
             {o.error}
@@ -279,5 +292,81 @@ function Composer({ onSend, placeholder, quickReplies }: { onSend: (raw: string)
         ) : null}
       </div>
     </form>
+  );
+}
+
+async function toggle(ws: Conversation, m: Message, emoji: (typeof REACTION_EMOJIS)[number]) {
+  const err = await ws.react(m, emoji);
+  if (err) toast.error(err);
+}
+
+/** The smile button beside a bubble: shown on hover and focus, opens the six reactions. */
+function ReactionPicker({ message, ws }: { message: Message; ws: Conversation }) {
+  const [open, setOpen] = useState(false);
+  return (
+    <Popover open={open} onOpenChange={setOpen}>
+      <PopoverTrigger asChild>
+        <Button
+          variant="ghost"
+          size="icon-sm"
+          className="text-muted-foreground size-7 rounded-full opacity-0 transition-opacity group-hover/bubble:opacity-100 focus-visible:opacity-100 data-[state=open]:opacity-100"
+          aria-label="React to this message"
+          data-testid="react-open"
+        >
+          <SmilePlus aria-hidden />
+        </Button>
+      </PopoverTrigger>
+      <PopoverContent className="w-auto rounded-full p-1" side="top" data-testid="reaction-bar">
+        <div className="flex gap-0.5">
+          {REACTION_EMOJIS.map((e) => {
+            const mine = message.reactions.some((r) => r.emoji === e && r.by === ws.side);
+            return (
+              <button
+                key={e}
+                type="button"
+                className={cn(
+                  "focus-visible:ring-ring/60 grid size-9 place-items-center rounded-full text-xl transition-transform outline-none hover:scale-125 focus-visible:ring-2",
+                  mine && "bg-primary/12",
+                )}
+                aria-label={REACTION_GLYPH[e].label}
+                aria-pressed={mine}
+                data-testid={`react-${e}`}
+                onClick={() => {
+                  setOpen(false);
+                  void toggle(ws, message, e);
+                }}
+              >
+                {REACTION_GLYPH[e].glyph}
+              </button>
+            );
+          })}
+        </div>
+      </PopoverContent>
+    </Popover>
+  );
+}
+
+function ReactionChips({ message, ws }: { message: Message; ws: Conversation }) {
+  return (
+    <ul className="mt-1 flex flex-wrap gap-1" aria-label="Reactions">
+      {reactionChips(message.reactions, ws.side).map((c) => (
+        <li key={c.emoji}>
+          <button
+            type="button"
+            onClick={() => void toggle(ws, message, c.emoji)}
+            aria-pressed={c.mine}
+            aria-label={`${REACTION_GLYPH[c.emoji].label}${c.count > 1 ? `, ${c.count}` : ""}${c.mine ? ", yours. Remove it" : ""}`}
+            className={cn(
+              "animate-in zoom-in-75 flex h-6 items-center gap-1 rounded-full border px-2 text-xs transition-colors duration-200",
+              c.mine ? "border-primary bg-primary/10" : "bg-background hover:bg-accent",
+            )}
+            data-testid={`chip-${c.emoji}`}
+          >
+            <span aria-hidden>{REACTION_GLYPH[c.emoji].glyph}</span>
+            {c.count > 1 ? <span className="tabular-nums">{c.count}</span> : null}
+          </button>
+        </li>
+      ))}
+    </ul>
   );
 }

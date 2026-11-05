@@ -251,11 +251,12 @@ func StudentThreads(ctx context.Context, q Q, enrollmentID uuid.UUID, now time.T
 
 // StaffThreadFilter narrows the admin inbox.
 type StaffThreadFilter struct {
-	College   *uuid.UUID
-	PersonaID *uuid.UUID
-	Unread    bool
-	After     *Cursor
-	Limit     int
+	College      *uuid.UUID
+	PersonaID    *uuid.UUID
+	EnrollmentID *uuid.UUID // one student's conversations
+	Unread       bool
+	After        *Cursor
+	Limit        int
 }
 
 // StaffThreads lists conversations for the admin inbox, most recent first.
@@ -285,8 +286,9 @@ func StaffThreads(ctx context.Context, q Q, now time.Time, f StaffThreadFilter) 
 		  AND ($3::uuid IS NULL OR t.persona_id = $3)
 		  AND (NOT $4 OR `+unreadStaffExpr+` > 0)
 		  AND ($5::timestamptz IS NULL OR (`+threadSortExpr+`, t.enrollment_id, t.persona_id) < ($5, $6, $8))
+		  AND ($9::uuid IS NULL OR t.enrollment_id = $9)
 		ORDER BY `+threadSortExpr+` DESC, t.enrollment_id DESC, t.persona_id DESC
-		LIMIT $7`, now, f.College, f.PersonaID, f.Unread, at, id, f.Limit, pid)
+		LIMIT $7`, now, f.College, f.PersonaID, f.Unread, at, id, f.Limit, pid, f.EnrollmentID)
 	if err != nil {
 		return nil, fmt.Errorf("staff threads: %w", err)
 	}
@@ -311,4 +313,76 @@ func MarkThreadRead(ctx context.Context, q Q, enrollmentID, personaID uuid.UUID,
 	_, err := q.Exec(ctx, `UPDATE chat_threads SET `+col+` = GREATEST(`+col+`, $3) WHERE enrollment_id = $1 AND persona_id = $2`,
 		enrollmentID, personaID, now)
 	return err
+}
+
+// InboxStudentFilter narrows the student list of the admin inbox.
+type InboxStudentFilter struct {
+	College  *uuid.UUID
+	FlowID   *uuid.UUID
+	CohortID *uuid.UUID
+	Search   string
+	Offset   int
+	Limit    int
+}
+
+// InboxStudent is one student in the admin inbox, with their conversations rolled up.
+type InboxStudent struct {
+	UserID       uuid.UUID
+	Name, Login  string
+	Avatar       *string
+	EnrollmentID uuid.UUID
+	Status       domain.EnrollmentStatus
+	CohortName   *string
+	FlowName     *string
+	DayNumber    int
+	Unread       int        // student messages staff haven't read, across personas
+	Threads      int        // conversations with at least one message
+	LastAt       *time.Time // latest visible message in any conversation
+}
+
+// InboxStudents lists every student with an open internship in scope (whether or not they've
+// chatted): unread first, then most recent activity, then by name.
+func InboxStudents(ctx context.Context, q Q, now time.Time, f InboxStudentFilter) ([]InboxStudent, error) {
+	rows, err := q.Query(ctx, `
+		SELECT u.id, u.name, u.github_login, u.avatar_url, e.id, e.status, co.name, fl.name,
+		       e.start_date, e.end_date, e.timezone, p.days,
+		       COALESCE(s.unread, 0)::int, COALESCE(s.threads, 0)::int, s.last_at
+		FROM enrollments e
+		JOIN users u ON u.id = e.user_id
+		JOIN programs p ON p.id = e.program_id
+		LEFT JOIN cohorts co ON co.id = e.cohort_id
+		LEFT JOIN flow_versions fv ON fv.id = e.flow_version_id
+		LEFT JOIN flows fl ON fl.id = fv.flow_id
+		LEFT JOIN LATERAL (
+			SELECT sum((SELECT count(*) FROM chat_messages m WHERE m.enrollment_id = t.enrollment_id AND m.persona_id = t.persona_id
+			            AND m.author = 'student' AND m.deliver_at > t.staff_read_at)) AS unread,
+			       count(*) FILTER (WHERE EXISTS (SELECT 1 FROM chat_messages m WHERE m.enrollment_id = t.enrollment_id AND m.persona_id = t.persona_id AND m.deliver_at <= $1)) AS threads,
+			       (SELECT max(m.deliver_at) FROM chat_messages m WHERE m.enrollment_id = e.id AND m.deliver_at <= $1) AS last_at
+			FROM chat_threads t WHERE t.enrollment_id = e.id
+		) s ON true
+		WHERE e.status IN ('active', 'paused')
+		  AND ($2::uuid IS NULL OR COALESCE(co.college_id, u.college_id) = $2)
+		  AND ($3::uuid IS NULL OR fv.flow_id = $3)
+		  AND ($4::uuid IS NULL OR e.cohort_id = $4)
+		  AND ($5 = '' OR u.name ILIKE '%' || $5 || '%' OR u.github_login ILIKE '%' || $5 || '%')
+		ORDER BY (COALESCE(s.unread, 0) > 0) DESC, s.last_at DESC NULLS LAST, lower(u.name), e.id
+		OFFSET $6 LIMIT $7`, now, f.College, f.FlowID, f.CohortID, f.Search, f.Offset, f.Limit)
+	if err != nil {
+		return nil, fmt.Errorf("inbox students: %w", err)
+	}
+	defer rows.Close()
+	out := []InboxStudent{}
+	for rows.Next() {
+		var r InboxStudent
+		var status string
+		var e domain.Enrollment
+		if err := rows.Scan(&r.UserID, &r.Name, &r.Login, &r.Avatar, &r.EnrollmentID, &status, &r.CohortName, &r.FlowName,
+			&e.StartDate, &e.EndDate, &e.Timezone, &e.Program.Days, &r.Unread, &r.Threads, &r.LastAt); err != nil {
+			return nil, err
+		}
+		r.Status = domain.EnrollmentStatus(status)
+		r.DayNumber = e.DayNumber(now)
+		out = append(out, r)
+	}
+	return out, rows.Err()
 }

@@ -133,6 +133,7 @@ func (s *Server) Handler() http.Handler {
 	authed.GET("/me/threads/:persona/messages", s.myMessages)
 	authed.POST("/me/threads/:persona/messages", s.sendMessage)
 	authed.POST("/me/threads/:persona/read", s.markRead)
+	authed.POST("/me/messages/:id/reactions", s.react)
 	authed.POST("/tasks/:id/transitions", s.transition)
 	authed.POST("/tasks/:id/quiz", s.submitQuiz)
 	authed.GET("/tasks/:id/note", s.myNote)
@@ -207,10 +208,12 @@ func (s *Server) Handler() http.Handler {
 	admin.POST("/flows/:id/assign", s.bulkAssign)
 
 	admin.GET("/threads", s.staffThreads)
+	admin.GET("/inbox/students", s.inboxStudents)
 	admin.GET("/threads/:enrollment/:persona/messages", s.staffMessages)
 	admin.POST("/threads/:enrollment/:persona/messages", s.staffSend)
 	admin.POST("/threads/:enrollment/:persona/read", s.staffMarkRead)
 	admin.POST("/broadcasts", s.broadcast)
+	admin.POST("/messages/:id/reactions", s.react)
 	admin.GET("/announcements", s.listAnnouncements)
 	admin.POST("/announcements", s.announce)
 

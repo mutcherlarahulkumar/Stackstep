@@ -5,7 +5,7 @@ import { newId } from "@/lib/uuid";
 import { useCallback, useEffect, useReducer, useRef } from "react";
 
 import { messageFor } from "@/lib/api/errors";
-import { type Frame, type Message } from "@/lib/api/schemas";
+import { type Author, type Frame, type Message, type ReactionEmoji } from "@/lib/api/schemas";
 import { mergeMessages } from "@/lib/board";
 import { belongsTo, isMine, type ChatTarget } from "@/lib/inbox";
 import { clearUnreadInCache } from "@/lib/inbox-queries";
@@ -14,6 +14,12 @@ import { useSession } from "@/lib/session";
 import { validateMessage } from "@/lib/validation";
 
 export type Outgoing = { clientId: string; body: string; at: Date; error: string | null };
+
+/** The message with one side's emoji added or removed. */
+export function withReaction(m: Message, emoji: ReactionEmoji, by: Author, on: boolean): Message {
+  const rest = m.reactions.filter((r) => !(r.emoji === emoji && r.by === by));
+  return { ...m, reactions: on ? [...rest, { emoji, by }] : rest };
+}
 
 type State = {
   messages: { status: "loading" } | { status: "error"; message: string } | { status: "ready"; data: Message[] };
@@ -126,6 +132,7 @@ export function useConversation(target: ChatTarget) {
     useCallback(
       (f: Frame) => {
         if (f.type === "ready") void load();
+        else if (f.type === "reaction" && belongsTo({ personaId, enrollmentId }, f.message)) dispatch({ type: "received", items: [f.message] });
         else if (f.type === "message" && belongsTo({ personaId, enrollmentId }, f.message)) {
           dispatch({ type: "received", items: [f.message] });
           // Only count it as read once someone can actually see it.
@@ -186,7 +193,25 @@ export function useConversation(target: ChatTarget) {
 
   const discard = useCallback((o: Outgoing) => dispatch({ type: "discarded", clientId: o.clientId }), []);
 
-  return { state, send, retry, discard, loadOlder, reload: load, target };
+  /** Our side: the student, or staff writing as the persona. */
+  const side: Author = enrollmentId ? "persona" : "student";
+  /** Toggles our reaction straight away; the server's answer (or the old message) wins after. */
+  const react = useCallback(
+    async (m: Message, emoji: ReactionEmoji): Promise<string | null> => {
+      const on = !m.reactions.some((r) => r.emoji === emoji && r.by === side);
+      dispatch({ type: "received", items: [withReaction(m, emoji, side, on)] });
+      try {
+        dispatch({ type: "received", items: [await api.react(m.id, emoji, on, !!enrollmentId)] });
+        return null;
+      } catch (e) {
+        dispatch({ type: "received", items: [m] });
+        return messageFor(e);
+      }
+    },
+    [api, enrollmentId, side],
+  );
+
+  return { state, send, retry, discard, loadOlder, reload: load, target, react, side };
 }
 
 export type Conversation = ReturnType<typeof useConversation>;

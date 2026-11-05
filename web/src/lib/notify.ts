@@ -40,6 +40,8 @@ export function notificationFor(f: Frame, who: Audience, personaName: (id: strin
     }
     case "mail":
       return who === "student" ? { title: `Mail from ${f.mail.from_name}`, body: f.mail.subject, tag: `mail-${f.mail.id}` } : null;
+    case "reaction":
+      return null;
   }
 }
 

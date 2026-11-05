@@ -2,7 +2,7 @@ import { type z } from "zod";
 
 import { ApiError, NetworkError, toErrorCode } from "./errors";
 import * as S from "./schemas";
-import { type Audience, type CohortKind, type EnrollmentStatus } from "./schemas";
+import { type Audience, type CohortKind, type EnrollmentStatus, type ReactionEmoji } from "./schemas";
 
 /**
  * Talks to the Go API through the same-origin /api proxy. The access token lives in memory
@@ -479,11 +479,24 @@ export class ApiClient {
 
   // ---- Inbox ----
 
-  staffThreads(opts: { personaId?: string | null; unreadOnly?: boolean; cursor?: string | null; limit?: number } = {}) {
+  /** Adds or removes the caller's reaction: students on their own chats, staff as the persona. */
+  react(messageId: string, emoji: ReactionEmoji, on: boolean, staff: boolean) {
+    return this.send("POST", `/v1/${staff ? "admin" : "me"}/messages/${seg(messageId)}/reactions`, S.Message, { body: { emoji, on } });
+  }
+
+  /** Every student in scope for the inbox, unread first. */
+  inboxStudents(opts: { flowId?: string | null; cohortId?: string | null; q?: string; offset?: number } = {}) {
+    return this.send("GET", "/v1/admin/inbox/students", S.InboxStudentPage, {
+      query: { flow_id: opts.flowId ?? null, cohort_id: opts.cohortId ?? null, q: opts.q?.trim() ? opts.q.trim() : null, offset: opts.offset ? String(opts.offset) : null },
+    });
+  }
+
+  staffThreads(opts: { personaId?: string | null; enrollmentId?: string | null; unreadOnly?: boolean; cursor?: string | null; limit?: number } = {}) {
     return this.send("GET", "/v1/admin/threads", S.StaffThreadPage, {
       query: {
         limit: String(opts.limit ?? 30),
         persona_id: opts.personaId ?? null,
+        enrollment_id: opts.enrollmentId ?? null,
         unread: opts.unreadOnly ? "true" : null,
         cursor: opts.cursor ?? null,
       },

@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shadcn_ui/shadcn_ui.dart';
+import 'package:stackstep/api/models.dart';
 import 'package:stackstep/api/validation.dart';
 import 'package:stackstep/core/providers.dart';
 import 'package:stackstep/core/theme.dart';
@@ -222,10 +223,19 @@ class _Bubble extends ConsumerWidget {
           button: failed,
           child: GestureDetector(
             onTap: failed ? () => ref.read(chatProvider(target).notifier).retry(outgoing!) : null,
-            onLongPress: failed ? () => _confirmDiscard(context, ref, outgoing!) : () => _copy(context, body),
+            onLongPress: switch (item) {
+              _ when failed => () => _confirmDiscard(context, ref, outgoing!),
+              Delivered(:final message) => () => _reactSheet(context, ref, message),
+              _ => () => _copy(context, body),
+            },
             child: AnimatedOpacity(opacity: sending ? 0.65 : 1, duration: const Duration(milliseconds: 150), child: bubble),
           ),
         ),
+        if (item case Delivered(:final message) when message.reactions.isNotEmpty)
+          Padding(
+            padding: const EdgeInsets.only(top: 4),
+            child: _ReactionChips(message: message, target: target),
+          ),
         if (meta != null)
           Padding(
             padding: const EdgeInsets.only(top: 4, left: 4, right: 4),
@@ -243,6 +253,66 @@ class _Bubble extends ConsumerWidget {
         Flexible(child: content),
       ],
     );
+  }
+
+  /// Long press on a delivered message: react, or copy it.
+  Future<void> _reactSheet(BuildContext context, WidgetRef ref, Message m) async {
+    final controller = ref.read(chatProvider(target).notifier);
+    final picked = await showModalBottomSheet<Object>(
+      context: context,
+      showDragHandle: true,
+      builder: (ctx) => SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(Space.lg, 0, Space.lg, Space.lg),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Row(
+                key: const Key('reaction-bar'),
+                mainAxisAlignment: MainAxisAlignment.spaceAround,
+                children: [
+                  for (final e in ReactionEmoji.values)
+                    Semantics(
+                      button: true,
+                      selected: controller.reacted(m, e),
+                      label: 'React ${e.wire.replaceAll('_', ' ')}',
+                      child: InkResponse(
+                        key: Key('react-${e.wire}'),
+                        radius: 28,
+                        onTap: () => Navigator.pop(ctx, e),
+                        child: AnimatedContainer(
+                          duration: const Duration(milliseconds: 150),
+                          padding: const EdgeInsets.all(Space.sm),
+                          decoration: BoxDecoration(
+                            shape: BoxShape.circle,
+                            color: controller.reacted(m, e) ? ShadTheme.of(ctx).colorScheme.primary.withValues(alpha: 0.15) : null,
+                          ),
+                          child: Text(e.glyph, style: const TextStyle(fontSize: 28)),
+                        ),
+                      ),
+                    ),
+                ],
+              ),
+              const SizedBox(height: Space.md),
+              ShadButton.outline(
+                leading: const Icon(LucideIcons.copy, size: 16),
+                onPressed: () => Navigator.pop(ctx, 'copy'),
+                child: const Text('Copy text'),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+    if (!context.mounted) return;
+    switch (picked) {
+      case final ReactionEmoji e:
+        final err = await controller.toggleReaction(m, e);
+        if (err != null && context.mounted) showToast(context, err);
+      case 'copy':
+        _copy(context, m.body);
+    }
   }
 
   void _copy(BuildContext context, String body) {
@@ -377,6 +447,51 @@ class _ComposerState extends ConsumerState<_Composer> {
           ),
         ),
       ),
+    );
+  }
+}
+
+/// The emoji left on a message, each once per side; ours are highlighted and tap to undo.
+class _ReactionChips extends ConsumerWidget {
+  const _ReactionChips({required this.message, required this.target});
+  final Message message;
+  final ChatTarget target;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final t = ShadTheme.of(context);
+    final controller = ref.read(chatProvider(target).notifier);
+    final counts = <ReactionEmoji, int>{};
+    for (final r in message.reactions) {
+      counts[r.emoji] = (counts[r.emoji] ?? 0) + 1;
+    }
+    return Wrap(
+      spacing: 4,
+      runSpacing: 4,
+      children: [
+        for (final MapEntry(key: e, value: n) in counts.entries)
+          Semantics(
+            button: true,
+            label: '${e.wire.replaceAll('_', ' ')} $n',
+            child: InkWell(
+              key: Key('chip-${e.wire}'),
+              borderRadius: BorderRadius.circular(12),
+              onTap: () async {
+                final err = await controller.toggleReaction(message, e);
+                if (err != null && context.mounted) showToast(context, err);
+              },
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(12),
+                  color: controller.reacted(message, e) ? t.colorScheme.primary.withValues(alpha: 0.14) : t.colorScheme.muted,
+                  border: Border.all(color: controller.reacted(message, e) ? t.colorScheme.primary : t.colorScheme.border),
+                ),
+                child: Text(n > 1 ? '${e.glyph} $n' : e.glyph, style: const TextStyle(fontSize: 13)),
+              ),
+            ),
+          ),
+      ],
     );
   }
 }

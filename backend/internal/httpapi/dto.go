@@ -299,10 +299,21 @@ type messageDTO struct {
 	ClientID     *uuid.UUID    `json:"client_id"`
 	SentAt       time.Time     `json:"sent_at"`
 	Automated    bool          `json:"automated"`
+	Reactions    []reactionDTO `json:"reactions"`
+}
+
+type reactionDTO struct {
+	Emoji domain.ReactionEmoji `json:"emoji"`
+	By    domain.Author        `json:"by"`
 }
 
 func toMessage(m domain.Message) messageDTO {
-	return messageDTO{ID: m.ID, EnrollmentID: m.EnrollmentID, PersonaID: m.PersonaID, Author: m.Author, Body: m.Body, TaskID: m.TaskID, ClientID: m.ClientID, SentAt: m.SentAt.UTC(), Automated: m.Automated}
+	r := make([]reactionDTO, len(m.Reactions))
+	for i, x := range m.Reactions {
+		r[i] = reactionDTO(x)
+	}
+	return messageDTO{ID: m.ID, EnrollmentID: m.EnrollmentID, PersonaID: m.PersonaID, Author: m.Author, Body: m.Body, TaskID: m.TaskID, ClientID: m.ClientID,
+		SentAt: m.SentAt.UTC(), Automated: m.Automated, Reactions: r}
 }
 
 type meDTO struct {
@@ -421,6 +432,8 @@ const (
 	frameMessage frameType = "message"
 	frameTask    frameType = "task"
 	frameMail    frameType = "mail"
+	// frameReaction re-sends a message whose reactions changed; it never counts as unread.
+	frameReaction frameType = "reaction"
 )
 
 type frame struct {

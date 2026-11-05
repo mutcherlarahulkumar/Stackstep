@@ -315,6 +315,27 @@ paths:
       summary: Clear the conversation's unread count
       responses:
         "204": { description: Marked read }
+  /v1/me/messages/{id}/reactions:
+    post:
+      tags: [student]
+      operationId: reactAsStudent
+      summary: Add or remove your reaction on a message in one of your conversations
+      parameters: [{ $ref: "#/components/parameters/Id" }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [emoji, on]
+              properties:
+                emoji: { $ref: "#/components/schemas/ReactionEmoji" }
+                on: { type: boolean, description: "true adds the reaction, false removes it; repeating either is a no-op" }
+      responses:
+        "200": { description: The message with its reactions, content: { application/json: { schema: { $ref: "#/components/schemas/Message" } } } }
+        "404": { $ref: "#/components/responses/Error" }
+        "422": { $ref: "#/components/responses/Error" }
   /v1/tasks/{id}/transitions:
     post:
       tags: [student, admin]
@@ -972,6 +993,51 @@ paths:
             application/json:
               schema: { type: object, required: [items], properties: { items: { type: array, items: { $ref: "#/components/schemas/AssignResult" } } } }
         "422": { $ref: "#/components/responses/Error" }
+  /v1/admin/inbox/students:
+    get:
+      tags: [inbox]
+      operationId: inboxStudents
+      summary: Every student in your scope for the inbox, unread first, then most recent activity, then by name
+      description: Includes students who haven't chatted yet. Pages of 50.
+      parameters:
+        - { name: flow_id, in: query, schema: { type: string, format: uuid } }
+        - { name: cohort_id, in: query, schema: { type: string, format: uuid } }
+        - { name: q, in: query, schema: { type: string, maxLength: 100 }, description: Name or GitHub login }
+        - { name: offset, in: query, schema: { type: integer, minimum: 0, default: 0 } }
+      responses:
+        "200":
+          description: Students
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [items, next_offset]
+                properties:
+                  items: { type: array, items: { $ref: "#/components/schemas/InboxStudent" } }
+                  next_offset: { type: [integer, "null"] }
+        "403": { $ref: "#/components/responses/Error" }
+        "422": { $ref: "#/components/responses/Error" }
+  /v1/admin/messages/{id}/reactions:
+    post:
+      tags: [inbox]
+      operationId: reactAsStaff
+      summary: Add or remove the persona's reaction on a message (students in your scope)
+      parameters: [{ $ref: "#/components/parameters/Id" }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [emoji, on]
+              properties:
+                emoji: { $ref: "#/components/schemas/ReactionEmoji" }
+                on: { type: boolean, description: "true adds the reaction, false removes it; repeating either is a no-op" }
+      responses:
+        "200": { description: The message with its reactions, content: { application/json: { schema: { $ref: "#/components/schemas/Message" } } } }
+        "404": { $ref: "#/components/responses/Error" }
+        "422": { $ref: "#/components/responses/Error" }
   /v1/admin/threads:
     get:
       tags: [inbox]
@@ -979,6 +1045,7 @@ paths:
       summary: Admin inbox, most recent first
       parameters:
         - { name: persona_id, in: query, schema: { type: string, format: uuid } }
+        - { name: enrollment_id, in: query, schema: { type: string, format: uuid }, description: One student's conversations }
         - { name: unread, in: query, schema: { type: boolean } }
         - $ref: "#/components/parameters/Limit"
         - $ref: "#/components/parameters/Cursor"
@@ -2216,7 +2283,7 @@ components:
         wallet: { $ref: "#/components/schemas/Wallet" }
     Message:
       type: object
-      required: [id, enrollment_id, persona_id, author, body, task_id, client_id, sent_at, automated]
+      required: [id, enrollment_id, persona_id, author, body, task_id, client_id, sent_at, automated, reactions]
       properties:
         id: { type: string, format: uuid }
         enrollment_id: { type: string, format: uuid }
@@ -2229,6 +2296,36 @@ components:
         automated:
           type: boolean
           description: A persona message no admin wrote (AI or scripted reply, acknowledgement, announcement). Clients label it as automatic.
+        reactions:
+          type: array
+          description: Oldest first. Each side of the conversation (the student, or staff as the persona) leaves each emoji at most once.
+          items: { $ref: "#/components/schemas/Reaction" }
+    ReactionEmoji: { type: string, enum: [thumbs_up, heart, party, laugh, thinking, eyes] }
+    Reaction:
+      type: object
+      required: [emoji, by]
+      properties:
+        emoji: { $ref: "#/components/schemas/ReactionEmoji" }
+        by: { $ref: "#/components/schemas/Author" }
+    InboxStudent:
+      type: object
+      required: [student, enrollment_id, status, cohort_name, flow_name, day_number, unread, threads, last_at]
+      properties:
+        student:
+          type: object
+          required: [name, github_login, avatar_url]
+          properties:
+            name: { type: string }
+            github_login: { type: string }
+            avatar_url: { type: [string, "null"] }
+        enrollment_id: { type: string, format: uuid }
+        status: { $ref: "#/components/schemas/EnrollmentStatus" }
+        cohort_name: { type: [string, "null"] }
+        flow_name: { type: [string, "null"] }
+        day_number: { type: integer, minimum: 0 }
+        unread: { type: integer, minimum: 0, description: "Student messages staff have not read, across personas" }
+        threads: { type: integer, minimum: 0, description: Conversations with at least one message }
+        last_at: { type: [string, "null"], format: date-time }
     Student:
       type: object
       required: [user, enrollment, open_tasks, in_review]
@@ -2241,8 +2338,8 @@ components:
       type: object
       required: [type]
       properties:
-        type: { type: string, enum: [ready, message, task, mail] }
-        message: { $ref: "#/components/schemas/Message" }
+        type: { type: string, enum: [ready, message, task, mail, reaction] }
+        message: { $ref: "#/components/schemas/Message", description: "Set on message frames, and on reaction frames (the message with its new reactions; never unread)" }
         task: { $ref: "#/components/schemas/Task" }
         mail: { $ref: "#/components/schemas/Mail", description: "A new letter (no body); refresh the mailbox" }
     Persona:

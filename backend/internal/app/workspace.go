@@ -393,6 +393,9 @@ func pageMessages(ctx context.Context, q store.Q, enrollmentID, personaID uuid.U
 	if err != nil {
 		return nil, "", err
 	}
+	if err := store.AttachReactions(ctx, q, msgs); err != nil {
+		return nil, "", err
+	}
 	next := ""
 	if len(msgs) > limit {
 		msgs = msgs[:limit]

@@ -30,6 +30,7 @@ const go = {
   CalendarKind: read("backend/internal/domain/calendar.go"),
   MailKind: read("backend/internal/domain/mail.go"),
   Audience: read("backend/internal/domain/mail.go"),
+  ReactionEmoji: read("backend/internal/domain/chat.go"),
 };
 const goType = {
   Role: "Role",
@@ -54,6 +55,7 @@ const goType = {
   CalendarKind: "CalendarKind",
   MailKind: "MailKind",
   Audience: "Audience",
+  ReactionEmoji: "ReactionEmoji",
 };
 const ts = read("web/src/lib/api/schemas.ts");
 const tsConst = {
@@ -79,6 +81,7 @@ const tsConst = {
   CalendarKind: "CALENDAR_KINDS",
   MailKind: "MAIL_KINDS",
   Audience: "AUDIENCES",
+  ReactionEmoji: "REACTION_EMOJIS",
 };
 const dart = read("mobile/lib/api/models.dart");
 const dartEnum = { ...goType, ErrorCode: "ErrorCode" };

@@ -92,8 +92,10 @@ test("inbox: admin answers as the persona and the student sees it live; broadcas
 
   await signIn(admin, "admin-demo");
   await admin.goto("/admin/inbox");
-  const thread = admin.getByTestId("staff-thread-asha-dev-Sam Rivera");
-  await thread.click();
+  // Student first: Asha (waiting on a reply) is at the top, then her chat with Sam.
+  await expect(admin.getByTestId("inbox-students").getByRole("listitem").first()).toContainText("Asha Rao");
+  await admin.getByTestId("inbox-student-asha-dev").click();
+  await admin.getByTestId("student-persona-Sam Rivera").click();
   await expect(admin.getByTestId("chat-log")).toContainText(question);
   await admin.getByLabel("Message Asha Rao").fill(answer);
   await admin.keyboard.press("Enter");
