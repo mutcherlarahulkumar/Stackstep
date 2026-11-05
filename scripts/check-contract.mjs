@@ -28,6 +28,8 @@ const go = {
   ApplicationAuthor: read("backend/internal/domain/application.go"),
   ApplicationDecision: read("backend/internal/domain/application.go"),
   CalendarKind: read("backend/internal/domain/calendar.go"),
+  MailKind: read("backend/internal/domain/mail.go"),
+  Audience: read("backend/internal/domain/mail.go"),
 };
 const goType = {
   Role: "Role",
@@ -50,6 +52,8 @@ const goType = {
   ApplicationAuthor: "ApplicationAuthor",
   ApplicationDecision: "ApplicationDecision",
   CalendarKind: "CalendarKind",
+  MailKind: "MailKind",
+  Audience: "Audience",
 };
 const ts = read("web/src/lib/api/schemas.ts");
 const tsConst = {
@@ -73,6 +77,8 @@ const tsConst = {
   ApplicationAuthor: "APPLICATION_AUTHORS",
   ApplicationDecision: "APPLICATION_DECISIONS",
   CalendarKind: "CALENDAR_KINDS",
+  MailKind: "MAIL_KINDS",
+  Audience: "AUDIENCES",
 };
 const dart = read("mobile/lib/api/models.dart");
 const dartEnum = { ...goType, ErrorCode: "ErrorCode" };

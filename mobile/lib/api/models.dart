@@ -576,7 +576,8 @@ sealed class Frame {
       'ready' => const ReadyFrame(),
       'message' => MessageFrame(Message.fromJson(j.object('message'))),
       'task' => TaskFrame(Task.fromJson(j.object('task'))),
-      final other => throw ContractViolation('type', 'ready, message or task, got "$other"'),
+      'mail' => MailFrame(Mail.fromJson(j.object('mail'))),
+      final other => throw ContractViolation('type', 'ready, message, task or mail, got "$other"'),
     };
   }
 }
@@ -593,6 +594,12 @@ final class MessageFrame extends Frame {
 final class TaskFrame extends Frame {
   const TaskFrame(this.task);
   final Task task;
+}
+
+/// A new letter arrived (no body); refresh the mailbox.
+final class MailFrame extends Frame {
+  const MailFrame(this.mail);
+  final Mail mail;
 }
 
 final class Persona {
@@ -1242,4 +1249,98 @@ class Calendar {
     }
     return out;
   }
+}
+
+/// Why a letter arrived (feature 21).
+enum MailKind {
+  announcement('announcement', 'Announcement'),
+  welcome('welcome', 'Welcome'),
+  review('review', 'Review'),
+  certificate('certificate', 'Certificate'),
+  classInvite('class', 'Live class');
+
+  MailKind(this.wire, this.label);
+  final String wire;
+  final String label;
+}
+
+/// Who an announcement goes to (written on the desktop console; listed here for the contract).
+enum Audience {
+  all('all'),
+  flow('flow'),
+  cohort('cohort'),
+  classInvitees('class');
+
+  Audience(this.wire);
+  final String wire;
+}
+
+/// One letter. [body] is only present once it has been opened.
+final class Mail {
+  const Mail({
+    required this.id,
+    required this.kind,
+    required this.subject,
+    required this.preview,
+    required this.body,
+    required this.fromName,
+    required this.personaId,
+    required this.taskId,
+    required this.classId,
+    required this.createdAt,
+    required this.read,
+  });
+
+  factory Mail.fromJson(JsonReader j) => Mail(
+    id: j.string('id'),
+    kind: j.enumValue('kind', MailKind.values, (k) => k.wire),
+    subject: j.string('subject'),
+    preview: j.string('preview'),
+    body: j.stringOrNull('body'),
+    fromName: j.string('from_name'),
+    personaId: j.stringOrNull('persona_id'),
+    taskId: j.stringOrNull('task_id'),
+    classId: j.stringOrNull('class_id'),
+    createdAt: j.dateTime('created_at'),
+    read: j.boolean('read'),
+  );
+
+  final String id;
+  final MailKind kind;
+  final String subject;
+  final String preview;
+  final String? body;
+  final String fromName;
+  final String? personaId;
+  final String? taskId;
+  final String? classId;
+  final DateTime createdAt;
+  final bool read;
+
+  /// This letter, marked read.
+  Mail asRead() => Mail(
+    id: id,
+    kind: kind,
+    subject: subject,
+    preview: preview,
+    body: body,
+    fromName: fromName,
+    personaId: personaId,
+    taskId: taskId,
+    classId: classId,
+    createdAt: createdAt,
+    read: true,
+  );
+}
+
+/// A page of the mailbox and the unread count.
+final class MailPage {
+  const MailPage({required this.items, required this.nextCursor, required this.unread});
+
+  factory MailPage.fromJson(JsonReader j) =>
+      MailPage(items: j.list('items', Mail.fromJson), nextCursor: j.stringOrNull('next_cursor'), unread: j.integer('unread'));
+
+  final List<Mail> items;
+  final String? nextCursor;
+  final int unread;
 }

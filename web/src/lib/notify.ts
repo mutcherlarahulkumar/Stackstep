@@ -38,6 +38,8 @@ export function notificationFor(f: Frame, who: Audience, personaName: (id: strin
       }
       return t.status === "in_review" ? { title: "New hand-in to review", body: t.title, tag: `review-${t.id}` } : null;
     }
+    case "mail":
+      return who === "student" ? { title: `Mail from ${f.mail.from_name}`, body: f.mail.subject, tag: `mail-${f.mail.id}` } : null;
   }
 }
 

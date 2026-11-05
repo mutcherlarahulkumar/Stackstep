@@ -164,7 +164,45 @@ func Run(ctx context.Context, q store.Q, now time.Time) error {
 			return fmt.Errorf("welcome %s: %w", login, err)
 		}
 	}
-	return nil
+	return seedAnnouncement(ctx, q, ids[AdminLogin], now.Add(-2*time.Hour))
+}
+
+// demoAnnouncement shows what mail can look like: headings, a list and a callout.
+const demoAnnouncement = `## This week at Stackstep
+
+Welcome to the November batch. Here's what's coming up.
+
+- **Wednesday** a live class on Git branching, 6 PM. The link lands in your mail.
+- **Friday** demo day. Show one thing you built in five minutes.
+
+> [!TIP]
+> Hand in early. Reviews are faster before lunch, and you get feedback while the work is fresh.
+
+See you in class,
+
+The Stackstep team`
+
+// seedAnnouncement sends one announcement to every seeded student, once.
+func seedAnnouncement(ctx context.Context, q store.Q, admin uuid.UUID, now time.Time) error {
+	var has bool
+	if err := q.QueryRow(ctx, `SELECT EXISTS (SELECT 1 FROM announcements)`).Scan(&has); err != nil || has {
+		return err
+	}
+	to, err := store.AudienceStudents(ctx, q, domain.AudienceAll, nil, nil, nil)
+	if err != nil || len(to) == 0 {
+		return err
+	}
+	sender, err := store.GetUser(ctx, q, admin)
+	if err != nil {
+		return err
+	}
+	a := store.Announcement{Subject: "This week at Stackstep", Body: demoAnnouncement, Audience: domain.AudienceAll, SentByID: admin, SentByName: sender.Name, Recipients: len(to)}
+	id, err := store.InsertAnnouncement(ctx, q, a, now)
+	if err != nil {
+		return fmt.Errorf("announcement: %w", err)
+	}
+	_, err = store.InsertMail(ctx, q, store.NewMail{Kind: domain.MailAnnouncement, Subject: a.Subject, Body: a.Body, FromName: a.SentByName, AnnouncementID: &id}, to, now)
+	return err
 }
 
 // seedZone is the time zone seeded enrollments use (the column default).

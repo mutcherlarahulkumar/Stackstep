@@ -308,17 +308,21 @@ func (w *Workspace) enrollTx(ctx context.Context, q store.Q, u domain.User, in E
 
 // welcome has the team lead greet the student when their internship opens.
 func (w *Workspace) welcome(ctx context.Context, q store.Q, actor domain.User, e domain.Enrollment, student domain.User, now time.Time) error {
-	// The welcome arrives straight away and says when day 1 starts, so nobody joins to silence.
-	first, err := FirstDayNote(ctx, q, e, now)
+	// The welcome arrives straight away and says when day 1 starts, so nobody joins to silence:
+	// a chat from the team lead and a letter in their mail.
+	first, err := LoadFirstDay(ctx, q, e)
 	if err != nil {
 		return err
 	}
 	by := actor.ID
-	_, _, err = store.InsertMessage(ctx, q, store.NewMessage{
+	if _, _, err = store.InsertMessage(ctx, q, store.NewMessage{
 		EnrollmentID: e.ID, PersonaID: domain.DefaultPersonaID, SentBy: &by, Author: domain.AuthorPersona, DeliverAt: now,
 		Body: fmt.Sprintf("Welcome to Stackstep, %s. I'm your team lead for the next %d days. %s Each morning I'll post a standup and drop tickets on your board. Ask me anything here.",
-			firstNameOf(student.Name), e.Program.Days, first),
-	}, now)
+			firstNameOf(student.Name), e.Program.Days, first.Sentence(e, now)),
+	}, now); err != nil {
+		return err
+	}
+	_, err = store.InsertMail(ctx, q, welcomeMail(e, student, first, now), []uuid.UUID{student.ID}, now)
 	return err
 }
 

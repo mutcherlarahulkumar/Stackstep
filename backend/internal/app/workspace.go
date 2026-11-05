@@ -294,6 +294,14 @@ func (w *Workspace) Transition(ctx context.Context, u domain.User, taskID uuid.U
 			if err := store.RecordReview(ctx, q, t.ID, u.ID, ticks, now); err != nil {
 				return fmt.Errorf("record review: %w", err)
 			}
+			// The decision also lands in the student's mail, so it isn't lost in a busy chat.
+			persona, err := store.GetPersona(ctx, q, t.PersonaID)
+			if err != nil {
+				return fmt.Errorf("review persona: %w", err)
+			}
+			if _, err := store.InsertMail(ctx, q, reviewMail(t, in.To == domain.StatusDone, note, ticks, persona), []uuid.UUID{e.UserID}, now); err != nil {
+				return err
+			}
 		}
 		if err := awardFinished(ctx, q, out, now); err != nil {
 			return err

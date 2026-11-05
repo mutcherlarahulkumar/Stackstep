@@ -3,11 +3,14 @@
 import {
   ArrowLeft,
   Bot,
+  Mail,
   MessageCircle,
   SquareKanban,
   UserRound,
 } from "lucide-react";
-import { useState } from "react";
+import Link from "next/link";
+import { useRouter, useSearchParams } from "next/navigation";
+import { useEffect, useState } from "react";
 
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -15,6 +18,7 @@ import { startsCaption } from "@/lib/people";
 import { type Enrollment, type Me, type Persona } from "@/lib/api/schemas";
 import { personaTag, totalUnread } from "@/lib/inbox";
 import { useStudentThreads } from "@/lib/inbox-queries";
+import { useMailFrames, useUnreadMail } from "@/lib/mail-queries";
 import { RealtimeProvider, useSocketStatus } from "@/lib/realtime-context";
 import { useIsDesktop } from "@/lib/use-desktop";
 import {
@@ -75,6 +79,21 @@ function Workspace({ me, enrollment }: { me: Me; enrollment: Enrollment }) {
   const desktop = useIsDesktop();
   const [tab, setTab] = useState<"chat" | "tasks">("chat");
   const [openTask, setOpenTask] = useState<string | null>(null);
+  // Links from mail open a task (/workspace?task=<id>). The page stays mounted between
+  // routes, so the link is read on every visit, once per link.
+  const linked = useSearchParams().get("task");
+  const router = useRouter();
+  const [seenLink, setSeenLink] = useState<string | null>(null);
+  if (linked !== seenLink) {
+    setSeenLink(linked);
+    if (linked) {
+      setOpenTask(linked);
+      setTab("tasks");
+    }
+  }
+  useEffect(() => {
+    if (linked) router.replace("/workspace", { scroll: false });
+  }, [linked, router]);
   // Desktop always shows a conversation (the newest by default); phones start on the list.
   const [picked, setPicked] = useState<string | null>(null);
   const [phoneThread, setPhoneThread] = useState<string | null>(null);
@@ -94,6 +113,8 @@ function Workspace({ me, enrollment }: { me: Me; enrollment: Enrollment }) {
     setOpenTask(id);
     setTab("tasks");
   };
+  const mailUnread = useUnreadMail();
+  useMailFrames();
 
   return (
     <div className="flex h-dvh flex-col">
@@ -114,6 +135,17 @@ function Workspace({ me, enrollment }: { me: Me; enrollment: Enrollment }) {
           </span>
         </div>
         <div className="ml-auto flex items-center gap-1">
+          <Button asChild variant="ghost" size="sm" className="relative gap-2 rounded-full" data-testid="open-mail">
+            <Link href="/mail" aria-label={mailUnread > 0 ? `Mail, ${mailUnread} unread` : "Mail"}>
+              <Mail aria-hidden />
+              <span className="hidden md:inline">Mail</span>
+              {mailUnread > 0 ? (
+                <span className="bg-primary text-primary-foreground absolute -top-0.5 right-0 grid min-w-4 place-items-center rounded-full px-1 text-[10px] leading-4 font-semibold tabular-nums" aria-hidden>
+                  {mailUnread > 99 ? "99+" : mailUnread}
+                </span>
+              ) : null}
+            </Link>
+          </Button>
           <CalendarButton personas={personas} onOpenTask={openFromChat} />
           <ProgressButton enrollment={enrollment} />
         </div>

@@ -2,7 +2,7 @@ import { type z } from "zod";
 
 import { ApiError, NetworkError, toErrorCode } from "./errors";
 import * as S from "./schemas";
-import { type CohortKind, type EnrollmentStatus } from "./schemas";
+import { type Audience, type CohortKind, type EnrollmentStatus } from "./schemas";
 
 /**
  * Talks to the Go API through the same-origin /api proxy. The access token lives in memory
@@ -78,6 +78,14 @@ export type ApplicationDecisionInput = {
 type Method = "GET" | "POST" | "PUT" | "PATCH";
 export type PersonInput = { github_login: string; name?: string; email?: string };
 export type EnrollSettings = { cohort_id: string | null; program_slug?: string; start_date: string | null; timezone: string; flow_id: string | null };
+export type AnnouncementInput = {
+  subject: string;
+  body: string;
+  audience: Audience;
+  flow_id?: string | null;
+  cohort_id?: string | null;
+  class_id?: string | null;
+};
 export type CohortInput = {
   kind: CohortKind;
   name: string;
@@ -176,6 +184,23 @@ export class ApiClient {
 
   calendar() {
     return this.send("GET", "/v1/me/calendar", S.Calendar);
+  }
+
+  myMail(cursor: string | null = null) {
+    return this.send("GET", "/v1/me/mail", S.MailPage, { query: { cursor } });
+  }
+
+  /** Reads one letter; opening it marks it read. */
+  openMail(id: string) {
+    return this.send("GET", `/v1/me/mail/${seg(id)}`, S.Mail);
+  }
+
+  async announcements() {
+    return (await this.send("GET", "/v1/admin/announcements", S.AnnouncementList)).items;
+  }
+
+  announce(input: AnnouncementInput) {
+    return this.send("POST", "/v1/admin/announcements", S.Announcement, { body: input });
   }
 
   async threads() {

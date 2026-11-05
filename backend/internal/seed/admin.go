@@ -34,7 +34,7 @@ func Flush(ctx context.Context, q store.Q, mode FlushMode) error {
 	switch mode {
 	case FlushAll:
 		if _, err := q.Exec(ctx, `TRUNCATE task_notes, task_submissions, quiz_attempts, points_ledger, credit_ledger, ai_messages, ai_conversations,
-			certificates, task_events, chat_threads, chat_messages, tasks, enrollments, flow_items, flow_versions, flows,
+			mail_recipients, mails, announcements, certificates, task_events, chat_threads, chat_messages, tasks, enrollments, flow_items, flow_versions, flows,
 			task_templates, personas, cohorts, login_codes, refresh_tokens, users, colleges RESTART IDENTITY CASCADE`); err != nil {
 			return fmt.Errorf("truncate: %w", err)
 		}
@@ -66,6 +66,10 @@ func flushDemo(ctx context.Context, q store.Q) error {
 		{`UPDATE payment_settings SET updated_by = NULL WHERE updated_by IN (SELECT id FROM demo_users)`, nil},
 		// The seeded UPI details and sample QR are not real; clear them so nobody pays into them.
 		{`UPDATE payment_settings SET upi_id = '', payee_name = '', note = '', qr_image = NULL, qr_type = NULL WHERE upi_id = 'stackstep@okaxis'`, nil},
+		// Feature 21: demo users' mailboxes and the demo admin's announcements go.
+		{`DELETE FROM mail_recipients WHERE user_id IN (SELECT id FROM demo_users)`, nil},
+		{`DELETE FROM announcements WHERE sent_by IN (SELECT id FROM demo_users)`, nil},
+		{`DELETE FROM mails m WHERE NOT EXISTS (SELECT 1 FROM mail_recipients r WHERE r.mail_id = m.id)`, nil},
 		{`DELETE FROM credit_ledger WHERE enrollment_id IN (SELECT id FROM demo_enr)`, nil},
 		{`DELETE FROM points_ledger WHERE enrollment_id IN (SELECT id FROM demo_enr)`, nil},
 		{`DELETE FROM ai_messages WHERE enrollment_id IN (SELECT id FROM demo_enr)`, nil},
@@ -91,7 +95,8 @@ func flushDemo(ctx context.Context, q store.Q) error {
 		   AND NOT EXISTS (SELECT 1 FROM chat_messages m WHERE m.persona_id = p.id)
 		   AND NOT EXISTS (SELECT 1 FROM chat_threads th WHERE th.persona_id = p.id)
 		   AND NOT EXISTS (SELECT 1 FROM task_templates tt WHERE tt.persona_id = p.id)
-		   AND NOT EXISTS (SELECT 1 FROM flow_items fi WHERE fi.persona_id = p.id)`, []any{demoPersonas}},
+		   AND NOT EXISTS (SELECT 1 FROM flow_items fi WHERE fi.persona_id = p.id)
+		   AND NOT EXISTS (SELECT 1 FROM mails ml WHERE ml.persona_id = p.id)`, []any{demoPersonas}},
 		{`DELETE FROM cohorts c WHERE c.name IN ('ANITS Batch 1', $1) AND NOT EXISTS (SELECT 1 FROM enrollments e WHERE e.cohort_id = c.id)
 		   AND NOT EXISTS (SELECT 1 FROM applications a WHERE a.cohort_id = c.id)`, []any{OpenCohortName}},
 		{`DELETE FROM colleges col WHERE col.name = 'ANITS'

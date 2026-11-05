@@ -173,6 +173,34 @@ func (s *Server) EncodeEvent(ctx context.Context, ev store.Event) ([]realtime.De
 			return nil, err
 		}
 		return []realtime.Delivery{{Frame: b, Topics: []realtime.Topic{realtime.EnrollmentTopic(t.EnrollmentID)}}}, nil
+	case store.EventMail:
+		// One frame (subject only, no body) to every reader who is connected.
+		m, err := store.GetMailHead(ctx, s.store.Pool, ev.ID)
+		if errors.Is(err, store.ErrNotFound) {
+			return nil, nil
+		}
+		if err != nil {
+			return nil, err
+		}
+		readers, err := store.MailReaders(ctx, s.store.Pool, ev.ID)
+		if err != nil {
+			return nil, err
+		}
+		topics := make([]realtime.Topic, 0, len(readers))
+		for _, e := range readers {
+			if t := realtime.EnrollmentTopic(e); s.hub.Has(t) {
+				topics = append(topics, t)
+			}
+		}
+		if len(topics) == 0 {
+			return nil, nil
+		}
+		dto := toMail(m, false)
+		b, err := json.Marshal(frame{Type: frameMail, Mail: &dto})
+		if err != nil {
+			return nil, err
+		}
+		return []realtime.Delivery{{Frame: b, Topics: topics}}, nil
 	}
 	return nil, nil
 }

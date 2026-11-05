@@ -420,12 +420,14 @@ const (
 	frameReady   frameType = "ready"
 	frameMessage frameType = "message"
 	frameTask    frameType = "task"
+	frameMail    frameType = "mail"
 )
 
 type frame struct {
 	Type    frameType   `json:"type"`
 	Message *messageDTO `json:"message,omitempty"`
 	Task    *taskDTO    `json:"task,omitempty"`
+	Mail    *mailDTO    `json:"mail,omitempty"`
 }
 
 // ---- Feature 02 wire types ----

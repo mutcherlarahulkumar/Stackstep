@@ -127,6 +127,8 @@ func (s *Server) Handler() http.Handler {
 	authed.POST("/me/onboarded", s.onboarded)
 	authed.GET("/me/tasks", s.myTasks)
 	authed.GET("/me/calendar", s.myCalendar)
+	authed.GET("/me/mail", s.myMail)
+	authed.GET("/me/mail/:id", s.openMail)
 	authed.GET("/me/threads", s.myThreads)
 	authed.GET("/me/threads/:persona/messages", s.myMessages)
 	authed.POST("/me/threads/:persona/messages", s.sendMessage)
@@ -209,6 +211,8 @@ func (s *Server) Handler() http.Handler {
 	admin.POST("/threads/:enrollment/:persona/messages", s.staffSend)
 	admin.POST("/threads/:enrollment/:persona/read", s.staffMarkRead)
 	admin.POST("/broadcasts", s.broadcast)
+	admin.GET("/announcements", s.listAnnouncements)
+	admin.POST("/announcements", s.announce)
 
 	v1.GET("/ws", s.websocket)
 	return r

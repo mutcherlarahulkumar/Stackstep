@@ -121,7 +121,7 @@ final class ChatController extends AsyncNotifier<ChatState> {
           if (!target.isMine(message)) unawaited(_markRead());
         case ReadyFrame():
           unawaited(_catchUp());
-        case MessageFrame() || TaskFrame():
+        case MessageFrame() || TaskFrame() || MailFrame():
           break;
       }
     });

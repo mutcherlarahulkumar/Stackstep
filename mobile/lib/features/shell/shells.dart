@@ -12,6 +12,7 @@ import 'package:stackstep/features/apply/application_status.dart';
 import 'package:stackstep/features/calendar/calendar_screen.dart';
 import 'package:stackstep/features/chat/inbox_controller.dart';
 import 'package:stackstep/features/chat/inbox_screen.dart';
+import 'package:stackstep/features/mail/mail_screen.dart';
 import 'package:stackstep/features/progress/progress_screen.dart';
 import 'package:stackstep/features/tasks/board_screen.dart';
 import 'package:stackstep/features/tasks/task_work.dart';
@@ -94,6 +95,7 @@ class _StudentShellState extends ConsumerState<StudentShell> {
     final e = widget.me.enrollment!;
     final t = ShadTheme.of(context);
     final unread = totalUnread(ref.watch(studentInboxProvider).value ?? const []);
+    final mailUnread = ref.watch(mailProvider).value?.unread ?? 0;
     return Scaffold(
       appBar: AppBar(
         titleSpacing: Space.lg,
@@ -108,7 +110,8 @@ class _StudentShellState extends ConsumerState<StudentShell> {
                   Text(switch (_tab) {
                     0 => 'Chats',
                     1 => 'Your board',
-                    _ => 'Calendar',
+                    2 => 'Calendar',
+                    _ => 'Mail',
                   }, style: t.textTheme.large),
                   Text(
                     e.status == EnrollmentStatus.paused
@@ -144,6 +147,12 @@ class _StudentShellState extends ConsumerState<StudentShell> {
               _tab = 1;
             }),
           ),
+          MailScreen(
+            onOpenTask: (id) => setState(() {
+              _focusTask = id;
+              _tab = 1;
+            }),
+          ),
         ],
       ),
       bottomNavigationBar: NavigationBar(
@@ -156,6 +165,11 @@ class _StudentShellState extends ConsumerState<StudentShell> {
           ),
           const NavigationDestination(icon: Icon(LucideIcons.squareKanban), label: 'Tasks'),
           const NavigationDestination(key: Key('nav-calendar'), icon: Icon(LucideIcons.calendarDays), label: 'Calendar'),
+          NavigationDestination(
+            key: const Key('nav-mail'),
+            icon: _Badged(count: mailUnread, child: const Icon(LucideIcons.mail)),
+            label: 'Mail',
+          ),
         ],
       ),
     );

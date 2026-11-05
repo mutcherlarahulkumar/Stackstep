@@ -30,6 +30,8 @@ tags:
     description: Admin conversations with students, as manager personas
   - name: people
     description: Colleges, cohorts, enrollment (one or by CSV), internship status and staff roles
+  - name: mail
+    description: In-house mail. Announcements and system letters land in each user's mailbox.
 paths:
   /v1/auth/dev-login:
     post:
@@ -226,6 +228,26 @@ paths:
       responses:
         "200": { description: Calendar, content: { application/json: { schema: { $ref: "#/components/schemas/Calendar" } } } }
         "409": { $ref: "#/components/responses/Error" }
+  /v1/me/mail:
+    get:
+      tags: [mail]
+      operationId: myMail
+      summary: Your mailbox, newest first (announcements, welcome, review results, certificates, classes)
+      parameters:
+        - { name: limit, in: query, schema: { type: integer, minimum: 1, maximum: 100, default: 50 } }
+        - { name: cursor, in: query, schema: { type: string } }
+      responses:
+        "200": { description: Mailbox, content: { application/json: { schema: { $ref: "#/components/schemas/MailPage" } } } }
+        "422": { $ref: "#/components/responses/Error" }
+  /v1/me/mail/{id}:
+    get:
+      tags: [mail]
+      operationId: openMail
+      summary: Read one letter (with its body). Opening it marks it read.
+      parameters: [{ $ref: "#/components/parameters/Id" }]
+      responses:
+        "200": { description: Letter, content: { application/json: { schema: { $ref: "#/components/schemas/Mail" } } } }
+        "404": { $ref: "#/components/responses/Error" }
   /v1/me/tasks:
     get:
       tags: [student]
@@ -1530,6 +1552,43 @@ paths:
         "403": { $ref: "#/components/responses/Error" }
         "404": { $ref: "#/components/responses/Error" }
         "422": { $ref: "#/components/responses/Error" }
+  /v1/admin/announcements:
+    get:
+      tags: [mail]
+      operationId: listAnnouncements
+      summary: Sent announcements in your scope, newest first (last 100), with read counts
+      responses:
+        "200":
+          description: Announcements
+          content:
+            application/json:
+              schema: { type: object, required: [items], properties: { items: { type: array, items: { $ref: "#/components/schemas/Announcement" } } } }
+        "403": { $ref: "#/components/responses/Error" }
+    post:
+      tags: [mail]
+      operationId: announce
+      summary: Mail a Markdown announcement to everyone, one flow, one cohort or a class's invitees
+      description: Reaches students with an active or paused internship. College admins only reach their own college. Request body limit is 1 MiB.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [subject, body, audience]
+              properties:
+                subject: { type: string, minLength: 3, maxLength: 120, description: Whitespace is normalized }
+                body: { type: string, minLength: 1, maxLength: 20000, description: Markdown; whitespace is kept }
+                audience: { $ref: "#/components/schemas/Audience" }
+                flow_id: { type: [string, "null"], format: uuid, description: Required for audience flow }
+                cohort_id: { type: [string, "null"], format: uuid, description: Required for audience cohort }
+                class_id: { type: [string, "null"], format: uuid, description: Required for audience class }
+      responses:
+        "201": { description: Sent, content: { application/json: { schema: { $ref: "#/components/schemas/Announcement" } } } }
+        "403": { $ref: "#/components/responses/Error" }
+        "413": { $ref: "#/components/responses/Error" }
+        "422": { $ref: "#/components/responses/Error" }
   /v1/admin/cohorts/{id}/flow:
     put:
       tags: [people]
@@ -1671,6 +1730,47 @@ components:
     TaskStatus: { type: string, enum: [todo, in_progress, in_review, changes_requested, done, cancelled] }
     EnrollmentStatus: { type: string, enum: [active, paused, completed, cancelled] }
     CalendarKind: { type: string, enum: [task, surprise, class] }
+    MailKind: { type: string, enum: [announcement, welcome, review, certificate, class] }
+    Audience: { type: string, enum: [all, flow, cohort, class] }
+    Mail:
+      type: object
+      required: [id, kind, subject, preview, body, from_name, persona_id, announcement_id, task_id, class_id, created_at, read]
+      properties:
+        id: { type: string, format: uuid }
+        kind: { $ref: "#/components/schemas/MailKind" }
+        subject: { type: string }
+        preview: { type: string, description: The first 160 characters of the body as plain text }
+        body: { type: [string, "null"], description: Markdown; only when a single letter is opened }
+        from_name: { type: string }
+        persona_id: { type: [string, "null"], format: uuid }
+        announcement_id: { type: [string, "null"], format: uuid }
+        task_id: { type: [string, "null"], format: uuid, description: The task a review letter is about }
+        class_id: { type: [string, "null"], format: uuid, description: The class a class letter is about }
+        created_at: { type: string, format: date-time }
+        read: { type: boolean }
+    MailPage:
+      type: object
+      required: [items, next_cursor, unread]
+      properties:
+        items: { type: array, items: { $ref: "#/components/schemas/Mail" } }
+        next_cursor: { type: [string, "null"] }
+        unread: { type: integer, minimum: 0 }
+    Announcement:
+      type: object
+      required: [id, subject, body, audience, flow_id, flow_name, cohort_id, cohort_name, sent_by_name, recipients, reads, created_at]
+      properties:
+        id: { type: string, format: uuid }
+        subject: { type: string }
+        body: { type: string }
+        audience: { $ref: "#/components/schemas/Audience" }
+        flow_id: { type: [string, "null"], format: uuid }
+        flow_name: { type: [string, "null"] }
+        cohort_id: { type: [string, "null"], format: uuid }
+        cohort_name: { type: [string, "null"] }
+        sent_by_name: { type: string }
+        recipients: { type: integer, minimum: 0 }
+        reads: { type: integer, minimum: 0 }
+        created_at: { type: string, format: date-time }
     CalendarEntry:
       type: object
       required: [kind, date, day, at, due_at, released, task_id, title, task_type, status, persona_id, class_id]
@@ -2141,9 +2241,10 @@ components:
       type: object
       required: [type]
       properties:
-        type: { type: string, enum: [ready, message, task] }
+        type: { type: string, enum: [ready, message, task, mail] }
         message: { $ref: "#/components/schemas/Message" }
         task: { $ref: "#/components/schemas/Task" }
+        mail: { $ref: "#/components/schemas/Mail", description: "A new letter (no body); refresh the mailbox" }
     Persona:
       type: object
       required: [id, name, title, color, auto_reply, archived, version]

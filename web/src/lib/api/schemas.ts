@@ -13,6 +13,8 @@ export const ROLES = ["student", "college_admin", "admin"] as const;
 export const TASK_TYPES = ["feature", "bug_fix", "dsa", "doc_reading", "quiz", "git_chore", "code_review", "standup", "blog"] as const;
 export const TASK_STATUSES = ["todo", "in_progress", "in_review", "changes_requested", "done", "cancelled"] as const;
 export const CALENDAR_KINDS = ["task", "surprise", "class"] as const;
+export const MAIL_KINDS = ["announcement", "welcome", "review", "certificate", "class"] as const;
+export const AUDIENCES = ["all", "flow", "cohort", "class"] as const;
 export const ENROLLMENT_STATUSES = ["active", "paused", "completed", "cancelled"] as const;
 export const REVIEW_MODES = ["manual", "self"] as const;
 export const PERSONA_COLORS = ["violet", "blue", "emerald", "amber", "rose", "cyan", "slate"] as const;
@@ -342,6 +344,8 @@ export const Frame = z.discriminatedUnion("type", [
   z.object({ type: z.literal("ready") }),
   z.object({ type: z.literal("message"), message: Message }),
   z.object({ type: z.literal("task"), task: Task }),
+  // A new letter (no body); the mailbox refetches.
+  z.object({ type: z.literal("mail"), mail: z.lazy(() => Mail) }),
 ]);
 export type Frame = z.output<typeof Frame>;
 
@@ -694,3 +698,41 @@ export const CalendarEntry = z.object({
 export type CalendarEntry = z.output<typeof CalendarEntry>;
 export const Calendar = z.object({ start_date: date, end_date: date, timezone: z.string(), items: z.array(CalendarEntry) });
 export type Calendar = z.output<typeof Calendar>;
+
+export const MailKind = z.enum(MAIL_KINDS);
+export type MailKind = z.output<typeof MailKind>;
+export const Audience = z.enum(AUDIENCES);
+export type Audience = z.output<typeof Audience>;
+export const Mail = z.object({
+  id: z.uuid(),
+  kind: MailKind,
+  subject: z.string(),
+  preview: z.string(),
+  body: z.string().nullable(),
+  from_name: z.string(),
+  persona_id: z.uuid().nullable(),
+  announcement_id: z.uuid().nullable(),
+  task_id: z.uuid().nullable(),
+  class_id: z.uuid().nullable(),
+  created_at: timestamp,
+  read: z.boolean(),
+});
+export type Mail = z.output<typeof Mail>;
+export const MailPage = z.object({ items: z.array(Mail), next_cursor: z.string().nullable(), unread: z.int().min(0) });
+export type MailPage = z.output<typeof MailPage>;
+export const Announcement = z.object({
+  id: z.uuid(),
+  subject: z.string(),
+  body: z.string(),
+  audience: Audience,
+  flow_id: z.uuid().nullable(),
+  flow_name: z.string().nullable(),
+  cohort_id: z.uuid().nullable(),
+  cohort_name: z.string().nullable(),
+  sent_by_name: z.string(),
+  recipients: z.int().min(0),
+  reads: z.int().min(0),
+  created_at: timestamp,
+});
+export type Announcement = z.output<typeof Announcement>;
+export const AnnouncementList = z.object({ items: z.array(Announcement) });
