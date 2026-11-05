@@ -1,6 +1,7 @@
 "use client";
 
 import { CircleAlert, Search, Send } from "lucide-react";
+import { newId } from "@/lib/uuid";
 import { useDeferredValue, useRef, useState } from "react";
 import { toast } from "sonner";
 
@@ -54,7 +55,7 @@ export function BroadcastDialog({
   const [formError, setFormError] = useState<string | null>(null);
   const [sending, setSending] = useState(false);
   // Kept across retries of the same message so a resend after a dropped connection never duplicates it.
-  const clientId = useRef<string>(crypto.randomUUID());
+  const clientId = useRef<string>(newId());
 
   const list = personas.data ?? [];
   const personaId = personaPick ?? (list.some((p) => p.id === DEFAULT_PERSONA_ID) ? DEFAULT_PERSONA_ID : (list[0]?.id ?? null));
@@ -67,7 +68,7 @@ export function BroadcastDialog({
     setRaw("");
     setErrors({});
     setFormError(null);
-    clientId.current = crypto.randomUUID();
+    clientId.current = newId();
   };
 
   const toggle = (s: Student) =>
@@ -103,7 +104,7 @@ export function BroadcastDialog({
       if (e instanceof ApiError && e.code === "validation_failed" && Object.keys(e.fields).length) setErrors(e.fields as Errors);
       else setFormError(messageFor(e));
       // A rejected request stored nothing; only a dropped connection might have, so keep the id then.
-      if (!(e instanceof NetworkError)) clientId.current = crypto.randomUUID();
+      if (!(e instanceof NetworkError)) clientId.current = newId();
     } finally {
       setSending(false);
     }

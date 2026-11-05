@@ -27,4 +27,7 @@ type Message struct {
 	TaskID       *uuid.UUID
 	ClientID     *uuid.UUID
 	SentAt       time.Time
+	// Automated is a persona message no admin wrote (scripted or AI reply, acknowledgement,
+	// announcement).
+	Automated bool
 }

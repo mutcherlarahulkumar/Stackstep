@@ -167,9 +167,9 @@ class _Bubble extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final t = ShadTheme.of(context);
     final c = t.colorScheme;
-    final (mine, body, taskId, outgoing) = switch (item) {
-      Delivered(:final message) => (target.isMine(message), message.body, message.taskId, null),
-      final Outgoing o => (true, o.body, null, o),
+    final (mine, body, taskId, outgoing, automated) = switch (item) {
+      Delivered(:final message) => (target.isMine(message), message.body, message.taskId, null, message.automated),
+      final Outgoing o => (true, o.body, null, o, false),
     };
     final failed = outgoing?.error != null;
     final sending = outgoing != null && !failed;
@@ -206,9 +206,11 @@ class _Bubble extends ConsumerWidget {
       ),
     );
 
+    // Honest personas: every reply no mentor wrote says so.
     final meta = switch ((sending, failed)) {
       (true, _) => 'Sending…',
       (_, true) => '${outgoing!.error} Tap to retry.',
+      _ when automated => '${timeLabel(item.at)} · Automatic reply',
       _ => showTime ? timeLabel(item.at) : null,
     };
 
@@ -216,7 +218,7 @@ class _Bubble extends ConsumerWidget {
       crossAxisAlignment: mine ? CrossAxisAlignment.end : CrossAxisAlignment.start,
       children: [
         Semantics(
-          label: '${mine ? 'You' : otherName}: $body',
+          label: '${mine ? 'You' : otherName}${automated ? ' (automatic reply)' : ''}: $body',
           button: failed,
           child: GestureDetector(
             onTap: failed ? () => ref.read(chatProvider(target).notifier).retry(outgoing!) : null,

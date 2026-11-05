@@ -94,7 +94,7 @@ Every row is covered by a test; the *Test* column names where.
 | C5 | Pagination `limit` outside 1–100 or bad cursor | 422 `fields.limit` / `fields.cursor` | backend |
 | C6 | Socket drops | client reconnects with backoff (1 s → 30 s cap, jitter) and refetches the latest page; no duplicates (dedupe by id) | web + mobile |
 | C7 | Socket opened without a valid bearer subprotocol | closed with 4401 | backend |
-| C8 | Student has no active enrollment | `/v1/me` returns `enrollment: null`; clients show a "No active internship" empty state; message/task routes return 409 `no_active_enrollment` | backend + E2E |
+| C8 | Student has no active enrollment | `/v1/me` returns `enrollment: null`; clients show the application flow (feature 15), never earlier cohorts' chats; message/task routes return 409 `no_active_enrollment` | backend + E2E |
 | U1 | Admin opens console on < 1024 px | desktop prompt; "Assign a task" stays usable | E2E `admin on a phone` |
 | U3 | Paused internship in the admin list | shown with a "Paused" badge; can't be picked on mobile, assign button disabled on web | mobile widget test, E2E |
 | U4 | API enum or field changes shape | client rejects the payload at the boundary (contract violation → "can't reach" state) and CI fails on enum drift | client tests, `contract.yml` |

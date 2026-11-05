@@ -7,7 +7,7 @@ import { Providers } from "@/components/providers";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: { default: "Stackstep — your internship, step by step", template: "%s · Stackstep" },
+  title: { default: "Stackstep, your internship step by step", template: "%s · Stackstep" },
   description:
     "A 30- or 60-day virtual internship with a team lead in your chats, real pull requests on your own GitHub, and a certificate anyone can verify.",
   applicationName: "Stackstep",

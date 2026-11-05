@@ -53,3 +53,14 @@ func ReusedLinkCheck(otherTasks int) *HandInCheck {
 	}
 	return &HandInCheck{Code: CheckReusedLink, Message: fmt.Sprintf("The same link was handed in for %d other %s.", otherTasks, s)}
 }
+
+// ReviewDecision is what an AI review draft suggests. The admin still decides.
+type ReviewDecision string
+
+const (
+	DecisionApprove        ReviewDecision = "approve"
+	DecisionRequestChanges ReviewDecision = "request_changes"
+)
+
+// Valid reports whether d is a known decision.
+func (d ReviewDecision) Valid() bool { return d == DecisionApprove || d == DecisionRequestChanges }

@@ -65,8 +65,10 @@ Using your own Postgres: set `DATABASE_URL` (and `DB_URL`/`TEST_DB_URL` for the 
 
 ## 4. The AI study helper (Groq)
 
-The only AI in Stackstep is the **student study helper**. Admin-side AI (review suggestions,
-an AI team lead) is shown as *coming soon*; team-lead replies and reviews are manual.
+Stackstep uses Groq in three places: the **student study helper**, the **AI team lead** (auto-reply
+personas answer with AI, labelled "Automatic reply", falling back to scripted replies) and **AI
+review drafts** for admins (suggestions the admin edits; a person always decides). One
+`GROQ_API_KEY` turns all three on; `AI_TEAM_LEAD` and `AI_REVIEW_DRAFTS` switch the last two off.
 
 1. Create a key at <https://console.groq.com/keys>.
 2. Set `GROQ_API_KEY` for the API (repo-root `.env` for Docker, `backend/.env` for `make api`).
@@ -87,7 +89,7 @@ For local testing without a key, run the fake Groq server used by CI:
 
 ```bash
 node e2e/scripts/fake-groq.mjs 8099 &
-GROQ_API_KEY=e2e GROQ_BASE_URL=http://localhost:8099 make api
+GROQ_API_KEY=e2e GROQ_BASE_URL=http://localhost:8099 GITHUB_API_BASE_URL=http://localhost:8099 make api
 ```
 
 ## 5. Real GitHub sign-in
@@ -153,6 +155,11 @@ every problem. Template: [`backend/.env.example`](../backend/.env.example).
 | `AI_FOLLOWUP_COOLDOWN` | `5m` | 0–2h | Time to try the hint before a follow-up. |
 | `AI_MAX_FOLLOWUPS` | `3` | 0–20 | Follow-ups per conversation. |
 | `AI_GLOBAL_PER_MINUTE` | `30` | 1–10000 | All students together; keep under your Groq plan's limit. |
+| `AI_TEAM_LEAD` | `on` | on/off | Auto-reply personas answer with AI (needs `GROQ_API_KEY`); off keeps scripted replies. |
+| `AI_LEAD_PER_MINUTE` | `20` | 1–10000 | AI team lead replies per minute, all students; over it, scripted replies. |
+| `AI_REVIEW_DRAFTS` | `on` | on/off | "Draft with AI" in Reviews (needs `GROQ_API_KEY`). |
+| `AI_REVIEW_DRAFTS_PER_DAY` | `60` | 1–10000 | Drafts per staff member per UTC day. |
+| `GITHUB_TOKEN` | empty | — | Optional read-only token; raises GitHub's rate limit when drafts read public PR diffs. |
 
 ## 7. Web settings
 

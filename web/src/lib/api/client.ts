@@ -55,6 +55,26 @@ export type FlowInput = { name: string; stream: string; description: string; day
 export type DraftItemInput = TemplateInput & { day: number; template_id: string | null };
 export type TemplateFilter = { q?: string; type?: S.TaskType | null; personaId?: string | null; includeArchived?: boolean };
 
+export type ApplicationInput = {
+  cohort_id: string;
+  full_name: string;
+  phone: string;
+  date_of_birth: string;
+  college: string;
+  course: string;
+  branch: string;
+  grad_year: number;
+};
+
+export type ApplicationDecisionInput = {
+  action: S.ApplicationDecision;
+  flag: S.ApplicationFlag | null;
+  note: string;
+  paid_inr: number | null;
+  flow_id: string | null;
+  expected_version: number;
+};
+
 type Method = "GET" | "POST" | "PUT" | "PATCH";
 export type PersonInput = { github_login: string; name?: string; email?: string };
 export type EnrollSettings = { cohort_id: string | null; program_slug?: string; start_date: string | null; timezone: string; flow_id: string | null };
@@ -68,7 +88,13 @@ export type CohortInput = {
   seats_total: number;
 };
 
-type SendOpts = { body?: unknown; query?: Record<string, string | null>; auth?: boolean; retried?: boolean };
+/** timeoutMs: per call (uploads take longer). Reads are retried once when the network drops. */
+type SendOpts = { body?: unknown; query?: Record<string, string | null>; auth?: boolean; retried?: boolean; timeoutMs?: number; attempt?: number };
+
+/** Long enough for a sleeping API host to wake up (free tiers take 20 to 50 s). The proxy gives up first, at 58 s. */
+const DEFAULT_TIMEOUT_MS = 60_000;
+/** Screenshots on a slow phone connection. */
+export const UPLOAD_TIMEOUT_MS = 90_000;
 
 type Options = { baseUrl?: string; fetch?: typeof fetch; now?: () => number; timeoutMs?: number };
 
@@ -92,7 +118,7 @@ export class ApiClient {
     this.base = opts.baseUrl ?? "/api";
     this.doFetch = opts.fetch ?? ((...args) => fetch(...args));
     this.now = opts.now ?? Date.now;
-    this.timeoutMs = opts.timeoutMs ?? 15_000;
+    this.timeoutMs = opts.timeoutMs ?? DEFAULT_TIMEOUT_MS;
   }
 
   get hasSession(): boolean {
@@ -255,6 +281,11 @@ export class ApiClient {
     return this.send("GET", "/v1/admin/reviews", S.ReviewQueue, { query: { persona_id: personaId } });
   }
 
+  /** An AI draft of a review (suggestion only; nothing changes until the admin reviews). */
+  reviewDraft(taskId: string) {
+    return this.send("POST", `/v1/admin/tasks/${seg(taskId)}/review-draft`, S.ReviewDraft);
+  }
+
   // ---- People ----
 
   async colleges() {
@@ -275,6 +306,75 @@ export class ApiClient {
 
   createCohort(input: CohortInput) {
     return this.send("POST", "/v1/admin/cohorts", S.Cohort, { body: input });
+  }
+
+  setCohortAdmissions(id: string, feeInr: number | null, open: boolean) {
+    return this.send("PATCH", `/v1/admin/cohorts/${seg(id)}/admissions`, S.Cohort, { body: { fee_inr: feeInr, applications_open: open } });
+  }
+
+  // ---- Applications and UPI payments (feature 15) ----
+
+  myApplication() {
+    return this.send("GET", "/v1/me/application", S.ApplicantView);
+  }
+
+  saveApplication(input: ApplicationInput, expectedVersion: number | null) {
+    return this.send("PUT", "/v1/me/application", S.ApplicantView, { body: { ...input, expected_version: expectedVersion } });
+  }
+
+  uploadProof(imageBase64: string, utr: string, amountInr: number, expectedVersion: number) {
+    return this.send("POST", "/v1/me/application/proofs", S.ApplicantView, {
+      body: { image_base64: imageBase64, utr, amount_inr: amountInr, expected_version: expectedVersion },
+      timeoutMs: UPLOAD_TIMEOUT_MS,
+    });
+  }
+
+  resubmitApplication(expectedVersion: number) {
+    return this.send("POST", "/v1/me/application/resubmit", S.ApplicantView, { body: { expected_version: expectedVersion } });
+  }
+
+  sendApplicationMessage(clientId: string, body: string) {
+    return this.send("POST", "/v1/me/application/messages", S.ApplicationMessage, { body: { client_id: clientId, body } });
+  }
+
+  myProofImage(id: string) {
+    return this.send("GET", `/v1/me/application/proofs/${seg(id)}/image`, S.ImageData);
+  }
+
+  paymentQR() {
+    return this.send("GET", "/v1/payment-qr", S.ImageData);
+  }
+
+  applications(status: S.ApplicationStatus | null) {
+    return this.send("GET", "/v1/admin/applications", S.ApplicationQueue, { query: { status } });
+  }
+
+  application(id: string) {
+    return this.send("GET", `/v1/admin/applications/${seg(id)}`, S.StaffApplication);
+  }
+
+  decideApplication(id: string, decision: ApplicationDecisionInput) {
+    return this.send("POST", `/v1/admin/applications/${seg(id)}/decision`, S.StaffApplication, { body: decision });
+  }
+
+  sendStaffApplicationMessage(id: string, clientId: string, body: string) {
+    return this.send("POST", `/v1/admin/applications/${seg(id)}/messages`, S.ApplicationMessage, { body: { client_id: clientId, body } });
+  }
+
+  applicationProofImage(id: string, proofId: string) {
+    return this.send("GET", `/v1/admin/applications/${seg(id)}/proofs/${seg(proofId)}/image`, S.ImageData);
+  }
+
+  paymentSettings() {
+    return this.send("GET", "/v1/admin/payment-settings", S.PaymentInfo);
+  }
+
+  savePaymentSettings(upiId: string, payeeName: string, note: string) {
+    return this.send("PUT", "/v1/admin/payment-settings", S.PaymentInfo, { body: { upi_id: upiId, payee_name: payeeName, note } });
+  }
+
+  savePaymentQR(imageBase64: string) {
+    return this.send("PUT", "/v1/admin/payment-settings/qr", S.PaymentInfo, { body: { image_base64: imageBase64 }, timeoutMs: UPLOAD_TIMEOUT_MS });
   }
 
   enroll(person: PersonInput, settings: EnrollSettings) {
@@ -543,12 +643,17 @@ export class ApiClient {
         body: opts.body === undefined ? undefined : JSON.stringify(opts.body),
         credentials: "same-origin",
         cache: "no-store",
-        signal: AbortSignal.timeout(this.timeoutMs),
+        signal: AbortSignal.timeout(opts.timeoutMs ?? this.timeoutMs),
       });
     } catch (e) {
+      // A read is safe to try again once; a write isn't (the caller checks whether it landed).
+      if (method === "GET" && (opts.attempt ?? 0) === 0) return this.send(method, path, schema as T, { ...opts, attempt: 1 });
       throw new NetworkError(e instanceof Error ? e.message : "fetch failed");
     }
 
+    if (method === "GET" && res.status >= 502 && res.status <= 504 && (opts.attempt ?? 0) === 0) {
+      return this.send(method, path, schema as T, { ...opts, attempt: 1 });
+    }
     if (res.status === 401 && auth && !opts.retried) {
       this.access = null;
       if (await this.refresh()) return this.send(method, path, schema as T, { ...opts, retried: true });

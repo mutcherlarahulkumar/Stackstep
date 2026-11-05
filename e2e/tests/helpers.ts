@@ -1,6 +1,6 @@
 import { expect, type APIRequestContext, type Page } from "@playwright/test";
 
-export type SeedUser = "asha-dev" | "ravi-dev" | "meera-dev" | "nora-dev" | "anits-tpo" | "admin-demo";
+export type SeedUser = "asha-dev" | "ravi-dev" | "meera-dev" | "nora-dev" | "neha-dev" | "anits-tpo" | "admin-demo";
 
 /**
  * Signs in a test account through the API's dev login (refused when APP_ENV=production), then

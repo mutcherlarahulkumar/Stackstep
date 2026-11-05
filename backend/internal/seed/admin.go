@@ -14,7 +14,7 @@ import (
 )
 
 // DemoLogins are every account the demo seed creates.
-var DemoLogins = []string{AdminLogin, CollegeAdminLogin, StudentLogin, Student2Login, IndieStudentLogin, PausedLogin, NoEnrollLogin}
+var DemoLogins = []string{AdminLogin, CollegeAdminLogin, StudentLogin, Student2Login, IndieStudentLogin, PausedLogin, NoEnrollLogin, ApplicantLogin}
 
 // FlushMode picks how much a flush removes.
 type FlushMode string
@@ -59,6 +59,13 @@ func flushDemo(ctx context.Context, q store.Q) error {
 		{`CREATE TEMP TABLE demo_users ON COMMIT DROP AS SELECT id FROM users WHERE lower(github_login) = ANY($1)`, []any{logins}},
 		{`CREATE TEMP TABLE demo_enr ON COMMIT DROP AS SELECT id FROM enrollments WHERE user_id IN (SELECT id FROM demo_users)`, nil},
 		{`CREATE TEMP TABLE demo_tasks ON COMMIT DROP AS SELECT id FROM tasks WHERE enrollment_id IN (SELECT id FROM demo_enr)`, nil},
+		// Feature 15: demo applicants' applications go; real ones only lose the demo admin's name.
+		{`DELETE FROM applications WHERE user_id IN (SELECT id FROM demo_users)`, nil},
+		{`UPDATE applications SET decided_by = NULL WHERE decided_by IN (SELECT id FROM demo_users)`, nil},
+		{`UPDATE application_messages SET sent_by = NULL WHERE sent_by IN (SELECT id FROM demo_users)`, nil},
+		{`UPDATE payment_settings SET updated_by = NULL WHERE updated_by IN (SELECT id FROM demo_users)`, nil},
+		// The seeded UPI details and sample QR are not real; clear them so nobody pays into them.
+		{`UPDATE payment_settings SET upi_id = '', payee_name = '', note = '', qr_image = NULL, qr_type = NULL WHERE upi_id = 'stackstep@okaxis'`, nil},
 		{`DELETE FROM credit_ledger WHERE enrollment_id IN (SELECT id FROM demo_enr)`, nil},
 		{`DELETE FROM points_ledger WHERE enrollment_id IN (SELECT id FROM demo_enr)`, nil},
 		{`DELETE FROM ai_messages WHERE enrollment_id IN (SELECT id FROM demo_enr)`, nil},
@@ -83,7 +90,8 @@ func flushDemo(ctx context.Context, q store.Q) error {
 		   AND NOT EXISTS (SELECT 1 FROM chat_threads th WHERE th.persona_id = p.id)
 		   AND NOT EXISTS (SELECT 1 FROM task_templates tt WHERE tt.persona_id = p.id)
 		   AND NOT EXISTS (SELECT 1 FROM flow_items fi WHERE fi.persona_id = p.id)`, []any{demoPersonas}},
-		{`DELETE FROM cohorts c WHERE c.name = 'ANITS Batch 1' AND NOT EXISTS (SELECT 1 FROM enrollments e WHERE e.cohort_id = c.id)`, nil},
+		{`DELETE FROM cohorts c WHERE c.name IN ('ANITS Batch 1', $1) AND NOT EXISTS (SELECT 1 FROM enrollments e WHERE e.cohort_id = c.id)
+		   AND NOT EXISTS (SELECT 1 FROM applications a WHERE a.cohort_id = c.id)`, []any{OpenCohortName}},
 		{`DELETE FROM colleges col WHERE col.name = 'ANITS'
 		   AND NOT EXISTS (SELECT 1 FROM cohorts c WHERE c.college_id = col.id)
 		   AND NOT EXISTS (SELECT 1 FROM users u WHERE u.college_id = col.id)`, nil},

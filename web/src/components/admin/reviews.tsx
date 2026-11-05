@@ -1,7 +1,7 @@
 "use client";
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Check, ClipboardCheck, Clock, MessageSquareWarning } from "lucide-react";
+import { Check, ClipboardCheck, Clock, MessageSquareWarning, Sparkles } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
 
@@ -16,6 +16,7 @@ import { firstName } from "@/lib/format";
 import { useSession } from "@/lib/session";
 import { cn } from "@/lib/utils";
 
+import { InfoNote } from "../app/info-note";
 import { PAGE, PageHeader } from "../app/page-header";
 import { stagger } from "../app/loading";
 import { EmptyState, ErrorState, ListSkeleton } from "../app/state";
@@ -46,9 +47,10 @@ function Reviews() {
   const personas = useAllPersonas();
   const byId = personaMap(personas.data);
   const [persona, setPersona] = useState(ALL);
-  const [noting, setNoting] = useState<{ task: Task; to: TaskStatus } | null>(null);
+  const [noting, setNoting] = useState<{ task: Task; to: TaskStatus; draft?: boolean } | null>(null);
   const key = ["reviews", persona];
-  const q = useQuery({ queryKey: key, queryFn: () => api.reviews(persona === ALL ? null : persona), refetchInterval: 60_000 });
+  // Always fresh on open: the nav badge shares this cache and may be up to a minute old.
+  const q = useQuery({ queryKey: key, queryFn: () => api.reviews(persona === ALL ? null : persona), refetchInterval: 60_000, refetchOnMount: "always" });
 
   const move = useMutation({
     mutationFn: ({ task, to, note, rubric }: { item: ReviewItem; task: Task; to: TaskStatus; note: string; rubric?: boolean[] | null }) =>
@@ -73,7 +75,7 @@ function Reviews() {
   return (
     <div className="min-h-0 flex-1 overflow-y-auto">
       <div className={cn(PAGE, "gap-6")}>
-        <PageHeader title="Reviews" description={<>Every hand-in waiting on you, oldest first. Aim to review within {q.data?.sla_hours ?? 24} hours — students are waiting to move on.</>}>
+        <PageHeader title="Reviews" description={<>Every hand-in waiting on you, oldest first. Aim to review within {q.data?.sla_hours ?? 24} hours, since students are waiting to move on.</>}>
           <Select value={persona} onValueChange={setPersona}>
             <SelectTrigger className="w-56" aria-label="Filter by persona">
               <SelectValue />
@@ -90,6 +92,9 @@ function Reviews() {
             </SelectContent>
           </Select>
         </PageHeader>
+        <InfoNote id="reviews" title="How reviewing works">
+          Every task a student hands in waits here, oldest first. Open it, check the work against the rubric, then Approve or Request changes with a note the student sees in chat. Draft with AI only suggests a review; nothing is sent until you press a button.
+        </InfoNote>
 
         {q.isPending ? (
           <ListSkeleton rows={4} className="h-28" />
@@ -142,6 +147,11 @@ function Reviews() {
                         <Button size="sm" variant="outline" onClick={() => setNoting({ task: item.task, to: "changes_requested" })} data-testid="review-changes">
                           <MessageSquareWarning data-icon="inline-start" aria-hidden /> Request changes
                         </Button>
+                        {q.data.ai_drafts ? (
+                          <Button size="sm" variant="ghost" onClick={() => setNoting({ task: item.task, to: "changes_requested", draft: true })} data-testid="review-draft">
+                            <Sparkles data-icon="inline-start" aria-hidden /> Draft with AI
+                          </Button>
+                        ) : null}
                       </div>
                     </CardContent>
                   </Card>
@@ -154,9 +164,11 @@ function Reviews() {
       <NoteDialog
         target={noting}
         busy={move.isPending}
+        aiDrafts={q.data?.ai_drafts ?? false}
+        autoDraft={noting?.draft ?? false}
         onCancel={() => setNoting(null)}
-        onConfirm={(note, rubric) => {
-          if (noting && noteItem) move.mutate({ item: noteItem, task: noting.task, to: noting.to, note, rubric });
+        onConfirm={(to, note, rubric) => {
+          if (noting && noteItem) move.mutate({ item: noteItem, task: noting.task, to, note, rubric });
         }}
       />
     </div>

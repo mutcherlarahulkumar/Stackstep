@@ -16,14 +16,16 @@ import { useProgress } from "@/lib/wallet-queries";
 import { ErrorState, ListSkeleton } from "../app/state";
 
 /** Header button: the internship day bar on wide screens, an award icon on phones. */
+/** The one progress control in the header: share of tasks done; points and the certificate inside. */
 export function ProgressButton({ enrollment }: { enrollment: Enrollment }) {
-  const days = Math.round((enrollment.day_number / enrollment.program.days) * 100);
+  const q = useProgress();
+  const pct = q.data?.completion_percent;
   return (
     <Sheet>
       <SheetTrigger asChild>
-        <Button variant="ghost" size="sm" className="gap-2 px-2" data-testid="open-progress" aria-label="Your progress and certificate">
-          <Award className="text-muted-foreground" aria-hidden />
-          <Progress value={days} className="hidden w-24 sm:block" aria-hidden />
+        <Button variant="outline" size="sm" className="gap-2 rounded-full" data-testid="open-progress" aria-label="Your progress and certificate">
+          <Award className="text-primary" aria-hidden />
+          {pct === undefined ? "Progress" : <span className="tabular-nums">{pct}% done</span>}
         </Button>
       </SheetTrigger>
       <SheetContent className="w-full overflow-y-auto sm:max-w-md">
@@ -118,7 +120,7 @@ export function ProgressDetails({ p }: { p: ProgressData }) {
         ) : (
           <p className="text-muted-foreground text-sm" data-testid="no-certificate">
             {p.meets_bar
-              ? "You're past the bar. Keep going — your team lead reviews your work and issues the certificate."
+              ? "You're past the bar. Keep going. Your team lead reviews your work and issues the certificate."
               : `Finish at least ${p.bar_percent}% of your tasks. Your team lead reviews your work and issues the certificate by hand.`}
           </p>
         )}

@@ -12,6 +12,7 @@ import { useStaffThreads, useStudentThreads } from "@/lib/inbox-queries";
 import { firstName } from "@/lib/format";
 import { cn } from "@/lib/utils";
 
+import { InfoNote } from "../app/info-note";
 import { PERSONA_DOT, PersonaAvatar, PersonAvatar } from "../app/persona-avatar";
 import { AIAvatar } from "../ai/ai-helper";
 import { EmptyState, ErrorState } from "../app/state";
@@ -134,6 +135,12 @@ export function StudentThreadList({ selected, onSelect, onAI }: { selected: stri
   }
   return (
     <ul className="flex flex-col gap-0.5" aria-label="Chats">
+      <li className="px-1 pb-2">
+        <InfoNote id="student-chats" title="Your team">
+          Each person here is part of your project team and posts your tasks. Message them like at work. The AI helper gives hints when
+          you&apos;re stuck and uses credits you earn by finishing tasks.
+        </InfoNote>
+      </li>
       {ai}
       {q.data.map((t, i) => (
         <li key={t.persona.id} className="animate-enter-stagger" style={stagger(i + 1)}>

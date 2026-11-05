@@ -28,7 +28,7 @@ Each has a spec with every edge case and the test that covers it, in [`docs/feat
    hints for students, paid in credits, rate limited, and it makes students explain the
    problem and try things themselves first.
 5. **Certificates** — progress against a 70% bar, issued by hand, public `/verify` page and a
-   printable certificate.
+   designed certificate (print, PDF, PNG).
 6. **Placement overview** — cohort table, CSV export and nudges for inactive students.
 7. **People** — enroll by GitHub login, roster CSV import, colleges, cohorts, internship status
    and staff roles.
@@ -41,18 +41,20 @@ Each has a spec with every edge case and the test that covers it, in [`docs/feat
     "This week" recap for students.
 13. **Notifications** — opt-in browser notifications while a tab is in the background, and an
     unread count in the tab title.
-14. **Task documents** — write or import Markdown lessons and read them inside the web or
+14. **Curriculum** — Stackstep's own 30-day frontend and 60-day full-stack flows, six personas
+    and 174 tasks, loaded by the "Database · seed curriculum" workflow.
+15. **Task documents** — write or import Markdown lessons and read them inside the web or
     mobile app, alongside the assignment and its review criteria.
 
-The React internship includes a progressive 30-day curriculum with original task lessons,
-practice, review checkpoints and a capstone. See [`docs/CURRICULUM.md`](docs/CURRICULUM.md)
-for the learning path and a safe way to add it to an existing installation.
+An additional guided 30-day React edition includes self-contained lessons, deliberate practice
+and recovery days. See [`docs/CURRICULUM.md`](docs/CURRICULUM.md) for its learning path
+and safe import instructions; existing 30-day and 60-day courses remain available.
 
 Also: a review queue with hand-in authenticity warnings, and hand-ins posted in the assigning
 persona's chat with an acknowledgement.
 
 Coming soon (labelled in the UI, nothing faked): Razorpay payments, GitHub PR checks,
-AI review suggestions, push notifications on phones, Orshot certificate artwork.
+push notifications on phones.
 
 ## Who uses what
 

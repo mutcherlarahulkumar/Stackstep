@@ -14,11 +14,11 @@ test("AI helper: explain it in one go, get hints in Markdown, wait before follow
     };
   });
   await signIn(student, "ravi-dev");
-  const chips = student.getByTestId("wallet-chips");
-  await expect(chips.getByLabel("20 credits")).toBeVisible();
-
   await student.getByRole("navigation", { name: "Chats" }).getByTestId("thread-ai").click();
   const helper = student.getByTestId("ai-helper");
+  // Credits live with the helper that spends them.
+  const chips = helper.getByTestId("ai-usage");
+  await expect(chips.getByLabel("20 credits")).toBeVisible();
   await expect(helper.getByText("Learn to write good prompts")).toBeVisible();
   await helper.getByTestId("ai-new").click();
 
@@ -30,6 +30,7 @@ test("AI helper: explain it in one go, get hints in Markdown, wait before follow
 
   await helper.getByLabel("What are you trying to do?").fill("Filter the task list by status without reloading the page.");
   await helper.getByLabel("What have you tried so far?").fill("I used Array.filter on the tasks array, but the list doesn't change when I pick a status.");
+  await helper.getByTestId("ai-extras").click();
   await helper.getByLabel("What happens instead? (optional)").fill("No error. The list stays the same.");
   await helper.getByLabel("Relevant code (optional)").fill("const shown = tasks.filter(t => t.status === status)");
   await helper.getByTestId("ai-ask").click();

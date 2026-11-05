@@ -2,12 +2,15 @@
 //
 //	dbadmin flush -mode demo|all -confirm FLUSH   remove the demo seed (or everything)
 //	dbadmin admins -logins alice,bob              make GitHub users platform admins
+//	dbadmin curriculum                            load or update the personas, task library and flows
+//	dbadmin curriculum -dump                      print the curriculum as JSON (no database needed)
 //
 // It needs only DATABASE_URL and applies pending migrations first.
 package main
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"flag"
 	"fmt"
@@ -15,6 +18,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/mutcherlarahulkumar/stackstep/backend/internal/curriculum"
 	"github.com/mutcherlarahulkumar/stackstep/backend/internal/db"
 	"github.com/mutcherlarahulkumar/stackstep/backend/internal/seed"
 	"github.com/mutcherlarahulkumar/stackstep/backend/internal/store"
@@ -22,7 +26,8 @@ import (
 
 const usage = `usage:
   dbadmin flush -mode demo|all -confirm FLUSH
-  dbadmin admins -logins alice,bob`
+  dbadmin admins -logins alice,bob
+  dbadmin curriculum [-dump]`
 
 func main() {
 	if err := run(os.Args[1:]); err != nil {
@@ -34,6 +39,9 @@ func main() {
 func run(args []string) error {
 	if len(args) == 0 {
 		return errors.New(usage)
+	}
+	if len(args) == 2 && args[0] == "curriculum" && args[1] == "-dump" {
+		return dumpCurriculum()
 	}
 	url := strings.TrimSpace(os.Getenv("DATABASE_URL"))
 	if url == "" {
@@ -77,6 +85,23 @@ func run(args []string) error {
 			}
 			return nil
 		}
+	case "curriculum":
+		job = func(q store.Q) error {
+			res, err := curriculum.Sync(ctx, q, time.Now().UTC())
+			if err != nil {
+				return err
+			}
+			fmt.Printf("personas: %d created, %d updated\n", res.PersonasCreated, res.PersonasUpdated)
+			fmt.Printf("task library: %d created, %d updated, %d unchanged\n", res.TemplatesCreated, res.TemplatesUpdated, res.TemplatesUnchanged)
+			for _, f := range res.Flows {
+				line := fmt.Sprintf("flow %q: %s, published version %d", f.Name, f.Status, f.Version)
+				if f.Note != "" {
+					line += " (" + f.Note + ")"
+				}
+				fmt.Println(line)
+			}
+			return nil
+		}
 	default:
 		return errors.New(usage)
 	}
@@ -90,4 +115,15 @@ func run(args []string) error {
 		return err
 	}
 	return store.New(pool).Tx(ctx, job)
+}
+
+// dumpCurriculum prints every task as JSON so scripts (like the DSA answer check) can read it.
+func dumpCurriculum() error {
+	items, err := curriculum.Templates()
+	if err != nil {
+		return err
+	}
+	enc := json.NewEncoder(os.Stdout)
+	enc.SetIndent("", "  ")
+	return enc.Encode(map[string]any{"personas": curriculum.Personas(), "flows": curriculum.Flows(), "tasks": items})
 }

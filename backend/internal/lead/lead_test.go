@@ -65,7 +65,7 @@ func TestHandInAndAcknowledge(t *testing.T) {
 		t.Fatalf("starting a task should be silent, got %q", got)
 	}
 	score := 90
-	if got := HandInMessage(task, domain.StatusInProgress, domain.StatusDone, nil, &score); got != "Finished the quiz “Build the navbar”: 90%." {
+	if got := HandInMessage(task, domain.StatusInProgress, domain.StatusDone, nil, &score); got != "Finished the quiz “Build the navbar” with 90%." {
 		t.Fatalf("quiz = %q", got)
 	}
 	done := Acknowledge(task, domain.StatusDone, "Asha Rao", nil)

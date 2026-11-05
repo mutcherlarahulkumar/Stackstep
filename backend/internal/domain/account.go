@@ -4,7 +4,7 @@ import "time"
 
 // TermsVersion is the current privacy notice and terms. Bump it when they change materially;
 // everyone is asked to accept again on their next visit.
-const TermsVersion = 1
+const TermsVersion = 3
 
 // Account holds per-user settings that aren't part of the profile.
 type Account struct {

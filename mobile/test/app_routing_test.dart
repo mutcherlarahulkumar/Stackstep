@@ -9,6 +9,7 @@ import 'package:stackstep/api/api_client.dart';
 import 'package:stackstep/api/realtime.dart';
 import 'package:stackstep/app.dart';
 import 'package:stackstep/core/providers.dart';
+import 'package:stackstep/shared/legal.dart';
 
 import 'fixtures.dart';
 
@@ -94,8 +95,13 @@ void main() {
     await tester.pumpAndSettle();
     await tester.scrollUntilVisible(find.text('Title is required.'), -300, scrollable: form);
     expect(find.text('Title is required.'), findsOneWidget);
+    // Persona, review, link and start time sit under "More options".
+    expect(find.byKey(const Key('persona-$managerId')), findsNothing);
+    await tester.scrollUntilVisible(find.byKey(const Key('assign-more')), 300, scrollable: form);
+    await tester.tap(find.byKey(const Key('assign-more')));
+    await tester.pumpAndSettle();
     // The persona picker defaults to the team lead and offers the managers.
-    await tester.scrollUntilVisible(find.byKey(const Key('persona-$managerId')), -300, scrollable: form);
+    await tester.scrollUntilVisible(find.byKey(const Key('persona-$managerId')), 300, scrollable: form);
     expect(find.byKey(const Key('persona-$managerId')), findsOneWidget);
     expect(find.byKey(const Key('review-self')), findsOneWidget);
 
@@ -138,7 +144,16 @@ void main() {
           ],
         }),
         '/v1/me/threads/$managerId/messages' => json({
-          'items': [messageJson(body: 'Today: two-pointer warmup.', personaId: managerId)],
+          'items': [
+            messageJson(
+              id: 'm-2',
+              body: 'Start with the brute force.',
+              personaId: managerId,
+              automated: true,
+              sentAt: '2026-11-04T04:35:00Z',
+            ),
+            messageJson(body: 'Today: two-pointer warmup.', personaId: managerId),
+          ],
           'next_cursor': null,
         }),
         '/v1/me/threads/$managerId/read' => http.Response('', 204),
@@ -157,6 +172,8 @@ void main() {
     await tester.tap(find.byKey(const Key('thread-$managerId')));
     await tester.pumpAndSettle();
     expect(find.text('Today: two-pointer warmup.'), findsOneWidget);
+    // Honest personas (AL1): automatic replies are labelled; a mentor's message is not.
+    expect(find.textContaining('Automatic reply'), findsOneWidget);
     expect(find.byKey(const Key('chat-input')), findsOneWidget);
     await tester.pageBack();
     await tester.pumpAndSettle();
@@ -173,19 +190,58 @@ void main() {
     expect(find.textContaining('From Priya Sharma'), findsOneWidget);
   });
 
-  testWidgets('student without an internship sees the empty state (C8)', (tester) async {
-    final client = MockClient(
-      (req) async => switch (req.url.path) {
-        '/v1/auth/refresh' => json(tokensJson()),
-        '/v1/me' => json({'user': userJson(login: 'nora-dev', name: 'Nora Das'), 'enrollment': null, 'account': accountJson()}),
-        _ => json({
-          'error': {'code': 'not_found', 'message': ''},
-        }, 404),
-      },
+  Map<String, Object?> applicantView({Map<String, Object?>? application, int openCohorts = 1}) => {
+    'application': application,
+    'cohort': null,
+    'proofs': <Object?>[],
+    'messages': <Object?>[],
+    'cohorts': [
+      for (var i = 0; i < openCohorts; i++) {'id': 'c$i'},
+    ],
+    'payment': <String, Object?>{},
+    'enrolled': false,
+  };
+
+  MockClient applicant(Map<String, Object?> view) => MockClient(
+    (req) async => switch (req.url.path) {
+      '/v1/auth/refresh' => json(tokensJson()),
+      '/v1/me' => json({'user': userJson(login: 'nora-dev', name: 'Nora Das'), 'enrollment': null, 'account': accountJson()}),
+      '/v1/me/application' => json(view),
+      _ => json({
+        'error': {'code': 'not_found', 'message': ''},
+      }, 404),
+    },
+  );
+
+  testWidgets('student without an internship is sent to apply on the web, never old chats (C8, AP1)', (tester) async {
+    await pumpApp(tester, applicant(applicantView()));
+    expect(find.text('Join an internship cohort'), findsOneWidget);
+    expect(find.byKey(const Key('apply-on-web')), findsOneWidget);
+    expect(find.text('Chats'), findsNothing);
+  });
+
+  testWidgets('a flagged application says what is wrong in plain words (AP6)', (tester) async {
+    await pumpApp(
+      tester,
+      applicant(
+        applicantView(
+          application: {
+            'status': 'flagged',
+            'flag': 'partial_payment',
+            'flag_note': '',
+            'fee_inr': 4999,
+            'paid_inr': 2000,
+            'due_inr': 2999,
+          },
+        ),
+      ),
     );
-    await pumpApp(tester, client);
-    expect(find.text('No active internship'), findsOneWidget);
-    expect(find.textContaining('@nora-dev'), findsOneWidget);
+    expect(find.text('We received ₹2,000 of ₹4,999. Pay the remaining ₹2,999.'), findsOneWidget);
+  });
+
+  testWidgets('no open cohort: admissions closed (AP1)', (tester) async {
+    await pumpApp(tester, applicant(applicantView(openCohorts: 0)));
+    expect(find.text('Admissions are closed right now'), findsOneWidget);
   });
 
   testWidgets('no stored session shows sign-in', (tester) async {
@@ -213,7 +269,7 @@ void main() {
           'account': accountJson(consentRequired: true, onboarded: false),
         }),
         '/v1/me/consent' => () {
-          expect(jsonDecode(req.body), {'version': 1});
+          expect(jsonDecode(req.body), {'version': termsVersion});
           consented = true;
           return json(accountJson(onboarded: false));
         }(),

@@ -19,6 +19,8 @@ test("quiz: admin writes it, the student retries and passes, the answer key show
   await admin.getByLabel("Question 1 option 1").fill("Creates a commit");
   await admin.getByLabel("Question 1 option 2").fill("Stages changes");
   await admin.getByRole("radiogroup", { name: "Right answer for question 1" }).getByLabel("Option 2 is right").check();
+  // The quiz errors above may already have unfolded the extra options.
+  if (await admin.getByTestId("assign-more").isVisible()) await admin.getByTestId("assign-more").click();
   await admin.getByRole("button", { name: "Add link" }).click();
   await admin.getByLabel("Link 1 name").fill("Pro Git: Recording changes");
   await admin.getByLabel("Link 1 address").fill("https://git-scm.com/book/en/v2/Git-Basics-Recording-Changes-to-the-Repository");

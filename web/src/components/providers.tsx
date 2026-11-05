@@ -7,6 +7,8 @@ import { useState, type ReactNode } from "react";
 import { Toaster } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { ApiError } from "@/lib/api/errors";
+
+import { CrashReporter } from "./app/crash-reporter";
 import { SessionProvider } from "@/lib/session";
 
 export function Providers({ children }: { children: ReactNode }) {
@@ -30,6 +32,7 @@ export function Providers({ children }: { children: ReactNode }) {
           <TooltipProvider delayDuration={300}>{children}</TooltipProvider>
         </SessionProvider>
         <Toaster position="bottom-right" richColors closeButton />
+        <CrashReporter />
       </QueryClientProvider>
     </ThemeProvider>
   );

@@ -5,6 +5,9 @@ import { type NextRequest } from "next/server";
  * token can be an HttpOnly, SameSite=Lax cookie and the browser never needs CORS.
  * The target is read at request time, so one build works in every environment.
  */
+/** Vercel stops a function after this many seconds; a sleeping API can take most of it to wake. */
+export const maxDuration = 60;
+
 const HOP_BY_HOP = new Set([
   "connection",
   "keep-alive",
@@ -58,7 +61,7 @@ async function proxy(req: NextRequest, ctx: { params: Promise<{ path: string[] }
       body: req.method === "GET" || req.method === "HEAD" ? undefined : await req.arrayBuffer(),
       redirect: "manual", // OAuth redirects go back to the browser untouched
       cache: "no-store",
-      signal: AbortSignal.timeout(20_000),
+      signal: AbortSignal.timeout(58_000),
     });
   } catch {
     return Response.json({ error: { code: "internal", message: "API unavailable." } }, { status: 502 });

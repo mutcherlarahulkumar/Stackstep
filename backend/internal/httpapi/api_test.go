@@ -643,3 +643,15 @@ func TestClientIPFromProxy(t *testing.T) {
 		t.Fatalf("garbage = %s", got)
 	}
 }
+
+// The web app's crash reports are accepted without sign-in, checked strictly and size-capped.
+func TestClientErrorReport(t *testing.T) {
+	e := newEnv(t)
+	body := map[string]any{"where": "page", "message": "TypeError: x is undefined", "stack": "at Apply", "path": "/workspace", "digest": "", "release": "test"}
+	e.expect(e.do("POST", "/v1/client-errors", "", body), 204)
+	body["extra"] = "nope"
+	e.expect(e.do("POST", "/v1/client-errors", "", body), 400)
+	delete(body, "extra")
+	body["stack"] = strings.Repeat("x", 20<<10)
+	e.expect(e.do("POST", "/v1/client-errors", "", body), 413)
+}

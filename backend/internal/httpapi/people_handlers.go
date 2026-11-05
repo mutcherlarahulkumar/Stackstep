@@ -36,13 +36,16 @@ type cohortDTO struct {
 	StartDate   string            `json:"start_date"`
 	SeatsTotal  int               `json:"seats_total"`
 	SeatsUsed   int               `json:"seats_used"`
+	// Feature 15: the fee and whether the cohort takes applications.
+	FeeINR           *int `json:"fee_inr"`
+	ApplicationsOpen bool `json:"applications_open"`
 }
 
 func toCohort(r store.CohortRow) cohortDTO {
 	p := r.Cohort.Program
 	return cohortDTO{ID: r.Cohort.ID, Kind: r.Cohort.Kind, Name: r.Cohort.Name, CollegeID: r.Cohort.CollegeID, CollegeName: r.CollegeName,
 		Program: programDTO{Slug: p.Slug, Days: p.Days, Track: p.Track}, StartDate: r.Cohort.StartDate.Format(time.DateOnly),
-		SeatsTotal: r.Cohort.SeatsTotal, SeatsUsed: r.SeatsUsed}
+		SeatsTotal: r.Cohort.SeatsTotal, SeatsUsed: r.SeatsUsed, FeeINR: r.Cohort.FeeINR, ApplicationsOpen: r.Cohort.ApplicationsOpen}
 }
 
 type staffDTO struct {

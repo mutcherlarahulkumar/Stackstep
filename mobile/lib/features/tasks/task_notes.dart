@@ -104,7 +104,7 @@ class _EditorState extends ConsumerState<_Editor> {
     final t = ShadTheme.of(context);
     final saved = widget.saved;
     final status = _tooLong
-        ? '${_body.text.runes.length} / ${TaskNote.maxLength} characters — too long'
+        ? '${_body.text.runes.length} / ${TaskNote.maxLength} characters, too long'
         : _dirty
         ? 'Unsaved changes'
         : saved.updatedAt == null
@@ -247,7 +247,7 @@ class RubricCard extends StatelessWidget {
               Semantics(
                 header: true,
                 child: Text(
-                  ticks == null ? 'What your reviewer checks' : 'Review: $met of ${criteria.length} met',
+                  ticks == null ? 'What your reviewer checks' : '$met of ${criteria.length} checks met',
                   style: t.textTheme.small.copyWith(fontWeight: FontWeight.w600),
                 ),
               ),

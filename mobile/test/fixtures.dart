@@ -59,6 +59,7 @@ Json messageJson({
   String? clientId,
   String personaId = leadId,
   String enrollmentId = 'e-1',
+  bool automated = false,
 }) => {
   'id': id,
   'enrollment_id': enrollmentId,
@@ -68,6 +69,7 @@ Json messageJson({
   'task_id': null,
   'client_id': clientId,
   'sent_at': sentAt,
+  'automated': automated,
 };
 
 const leadId = '00000000-0000-4000-8000-000000000001';
@@ -98,7 +100,7 @@ Json tokensJson({String access = 'access-1', String refresh = 'refresh-1', Strin
 };
 
 Map<String, Object?> accountJson({bool consentRequired = false, bool onboarded = true}) => {
-  'terms_version': 1,
+  'terms_version': 3,
   'consent_required': consentRequired,
   'onboarded': onboarded,
 };

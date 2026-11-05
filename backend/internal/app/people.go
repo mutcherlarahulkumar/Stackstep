@@ -177,6 +177,19 @@ func (w *Workspace) Enroll(ctx context.Context, u domain.User, in EnrollInput) (
 	now := w.Clock.Now()
 	var res EnrollResult
 	err = w.Store.Tx(ctx, func(q store.Q) error {
+		var e error
+		res, e = w.enrollTx(ctx, q, u, in, only, person, errs, loc, now)
+		return e
+	})
+	return res, err
+}
+
+// enrollTx creates the internship inside the caller's transaction (staff enrollment and
+// approved applications share it).
+func (w *Workspace) enrollTx(ctx context.Context, q store.Q, u domain.User, in EnrollInput, only *uuid.UUID, person domain.PersonInput,
+	errs map[string]string, loc *time.Location, now time.Time) (EnrollResult, error) {
+	var res EnrollResult
+	err := func() error {
 		var cohort *store.CohortRow
 		var programID uuid.UUID
 		var program domain.Program
@@ -287,7 +300,7 @@ func (w *Workspace) Enroll(ctx context.Context, u domain.User, in EnrollInput) (
 		}
 		res.Student = store.StudentRow{User: student, Enrollment: e}
 		return nil
-	})
+	}()
 	return res, err
 }
 

@@ -47,5 +47,35 @@ func (s *Server) reviews(c *gin.Context) {
 			late++
 		}
 	}
-	c.JSON(http.StatusOK, gin.H{"items": items, "overdue": late, "sla_hours": domain.ReviewSLAHours})
+	c.JSON(http.StatusOK, gin.H{"items": items, "overdue": late, "sla_hours": domain.ReviewSLAHours, "ai_drafts": s.drafter.Enabled()})
+}
+
+type reviewDraftDTO struct {
+	Decision domain.ReviewDecision `json:"decision"`
+	Summary  string                `json:"summary"`
+	Note     string                `json:"note"`
+	Rubric   []bool                `json:"rubric"` // null when there is no rubric or no usable ticks
+	ReadPR   bool                  `json:"read_pr"`
+}
+
+func (s *Server) reviewDraft(c *gin.Context) {
+	id, err := pathUUID(c, "id")
+	if err != nil {
+		s.fail(c, err)
+		return
+	}
+	if s.drafter == nil {
+		s.fail(c, apperr.New(apperr.CodeNotConfigured, "AI review drafts aren't set up."))
+		return
+	}
+	d, err := s.drafter.Draft(c.Request.Context(), currentUser(c), id)
+	if err != nil {
+		s.fail(c, err)
+		return
+	}
+	decision := domain.DecisionRequestChanges
+	if d.Approve {
+		decision = domain.DecisionApprove
+	}
+	c.JSON(http.StatusOK, reviewDraftDTO{Decision: decision, Summary: d.Summary, Note: d.Note, Rubric: d.Rubric, ReadPR: d.ReadPR})
 }

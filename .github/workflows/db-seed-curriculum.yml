@@ -1,0 +1,55 @@
+name: Database · seed curriculum
+
+# Loads Stackstep's own course content into a deployed database: six personas, the task
+# library and two published flows (Frontend · 30 days and Full-stack · 60 days). Safe to
+# re-run: unchanged content is left alone, changed content updates the library and publishes
+# a new flow version (students already on a flow keep theirs). Needs at least one platform
+# admin, so run "Database · seed admins" first.
+on:
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: GitHub environment whose DATABASE_URL secret to use
+        type: environment
+        required: true
+        default: production
+
+permissions:
+  contents: read
+
+concurrency:
+  group: database-${{ inputs.environment }}
+  cancel-in-progress: false
+
+jobs:
+  curriculum:
+    name: Seed curriculum
+    runs-on: ubuntu-24.04
+    environment: ${{ inputs.environment }}
+    defaults:
+      run:
+        working-directory: backend
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-go@v7
+        with:
+          go-version-file: backend/go.mod
+          cache-dependency-path: backend/go.sum
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+      - name: Check every DSA answer before loading
+        run: |
+          go run ./cmd/dbadmin curriculum -dump > "$RUNNER_TEMP/curriculum.json"
+          node ../scripts/check-dsa.mjs "$RUNNER_TEMP/curriculum.json"
+      - name: Load the curriculum
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+        run: |
+          if [ -z "$DATABASE_URL" ]; then echo "::error::Add a DATABASE_URL secret to the '${{ inputs.environment }}' environment."; exit 1; fi
+          {
+            echo "### Curriculum"
+            echo '```'
+            go run ./cmd/dbadmin curriculum
+            echo '```'
+          } | tee -a "$GITHUB_STEP_SUMMARY"

@@ -96,7 +96,11 @@ callback.
    - **Branch**: `main`
    - **Health check path**: `/readyz`
    - **Instance type**: the free tier sleeps when idle (the first request takes ~50 s and live
-     chat drops). Use at least the smallest paid instance for real students.
+     chat drops). Use at least the smallest paid instance for real students. While you're
+     on the free tier, set the repository variable `API_URL` (GitHub → Settings → Secrets and
+     variables → Actions → Variables) to your Render URL: the **API · keep awake** workflow then
+     pings it every 10 minutes. The web app also waits up to a minute for a waking API and checks
+     whether a save went through before showing an error.
 3. **Environment variables** (Render → your service → Environment):
 
 | Variable | Value | Notes |
@@ -113,11 +117,12 @@ callback.
 | `ALLOWED_ORIGINS` | `<WEB_URL>` | Exact origin: `https://`, no trailing slash. Comma-separate extra domains (e.g. a custom domain) |
 | `PROXY_SHARED_SECRET` | from step 0 | Same value as on Vercel. Rate limits then count each student instead of the proxy |
 | `BOOTSTRAP_ADMIN_GITHUB_LOGINS` | your GitHub username | Optional; this account becomes admin on first sign-in. Or use the workflow in step 6 |
-| `GROQ_API_KEY` | `gsk_...` | Optional. Without it the AI helper shows "not available"; nothing else changes |
+| `GROQ_API_KEY` | `gsk_...` | Optional. Turns on the AI helper, the AI team lead and AI review drafts. Without it the helper shows "not available", the team lead uses scripted replies and reviews are manual |
 
    Optional tuning (sensible defaults, leave them out unless needed): `GROQ_MODEL`,
    `AI_DAILY_QUESTIONS` (8), `AI_QUESTION_COOLDOWN` (2m), `AI_FOLLOWUP_COOLDOWN` (5m),
-   `AI_MAX_FOLLOWUPS` (3), `AI_GLOBAL_PER_MINUTE` (30), `LEAD_REPLY_DELAY` (45s),
+   `AI_MAX_FOLLOWUPS` (3), `AI_GLOBAL_PER_MINUTE` (30), `AI_TEAM_LEAD` (on), `AI_LEAD_PER_MINUTE` (20),
+   `AI_REVIEW_DRAFTS` (on), `AI_REVIEW_DRAFTS_PER_DAY` (60), `GITHUB_TOKEN` (empty), `LEAD_REPLY_DELAY` (45s),
    `AUTH_RATE_PER_MINUTE` (30), `MOBILE_REDIRECT_URL` (`stackstep://auth`). Every setting is
    listed in [`SETUP.md`](SETUP.md).
 
@@ -244,7 +249,17 @@ real data depends on demo data", a real student is on the demo flow or has tasks
 
 Each run summary says, per login, `created` (they'll be linked on first GitHub sign-in),
 `promoted` (an existing user became admin) or `already admin`. It creates nothing else: you set
-up personas, the task library, flows, colleges and cohorts yourself from the admin console.
+up colleges and cohorts yourself from the admin console.
+
+**Load the curriculum:** Actions → **Database · seed curriculum** → **Run workflow**:
+- environment: `production`
+
+Run it after **seed admins**. It loads six personas, the task library (174 tasks) and two
+published flows, **Frontend Internship · 30 days** and **Full-stack Internship · 60 days**. It
+first checks every DSA answer, and the run summary lists what was created, updated or left
+unchanged. Re-running is safe: changed content publishes a new flow version, and students keep
+the version they started on. Then pick these flows when you create cohorts, approve
+applications or enroll students. Details: `docs/features/17-curriculum.md`.
 
 You can also run the same tool from a laptop:
 
@@ -252,6 +267,7 @@ You can also run the same tool from a laptop:
 cd backend
 DATABASE_URL='<NEON_DIRECT_URL>' go run ./cmd/dbadmin admins -logins alice,bob
 DATABASE_URL='<NEON_DIRECT_URL>' go run ./cmd/dbadmin flush -mode demo -confirm FLUSH
+DATABASE_URL='<NEON_DIRECT_URL>' go run ./cmd/dbadmin curriculum
 ```
 
 **Never run `make seed` against production.** It loads test fixtures for automated tests and
@@ -303,7 +319,8 @@ which is already registered in the Android and iOS projects.
    refresh**. If it only shows after a refresh, see Troubleshooting.
 6. Hand it in as the student → **Reviews** shows it → approve.
 7. Install the APK, sign in with GitHub, and check the same chat and board.
-8. If you set `GROQ_API_KEY`: ask the AI helper a question as the student.
+8. If you set `GROQ_API_KEY`: ask the AI helper a question as the student, send the Team Lead
+   a message (the reply says "Automatic reply"), and as admin open Reviews → **Draft with AI**.
 
 ---
 
@@ -315,6 +332,7 @@ which is already registered in the Android and iOS projects.
 | GitHub says "redirect_uri is not associated" | `GITHUB_REDIRECT_URL` on Render differs from the OAuth app's callback URL. They must match exactly. |
 | After GitHub, "sign-in didn't complete" | `WEB_BASE_URL` points somewhere else, or the browser blocked the cookie. Use the same domain throughout. |
 | "Too many attempts" for many students at once | Set `PROXY_SHARED_SECRET` to the same value on Render and Vercel. |
+| "Something went wrong" or "hit a problem" on a page | The web app reports every crash to the API. In Render, open the API service logs and search for `client error`: each line has the message, the page, the stack and the browser. The crash screen also has **Error details** with a Copy button. |
 | Web shows "API unavailable" | `API_INTERNAL_URL` is wrong, or the API is asleep or crashing (check Render logs). |
 | App says it can't reach Stackstep | `MOBILE_API_BASE_URL` was wrong when the app was built. Fix the variable and rebuild. |
 | AI helper says it's not available | `GROQ_API_KEY` is missing or invalid on Render. |

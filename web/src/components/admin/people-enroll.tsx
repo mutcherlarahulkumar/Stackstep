@@ -15,11 +15,14 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Spinner } from "@/components/ui/spinner";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Textarea } from "@/components/ui/textarea";
+import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { type EnrollSettings } from "@/lib/api/client";
 import { type Cohort, type ImportResult, type Me } from "@/lib/api/schemas";
 import { MAX_IMPORT_ROWS, normalizeLogin, parseRoster, TIMEZONES, todayISO, validLogin, type ImportRow } from "@/lib/people";
+import { itemErrorMessage } from "@/lib/api/errors";
 import { useSession } from "@/lib/session";
 
+import { choiceItem } from "../app/choice";
 import { DatePicker } from "../app/date-picker";
 import { FileDrop } from "../app/file-drop";
 import { ListSkeleton } from "../app/state";
@@ -181,7 +184,7 @@ function SettingsFields({
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value={NONE}>No flow yet — assign tasks by hand</SelectItem>
+            <SelectItem value={NONE}>No flow yet, assign tasks by hand</SelectItem>
             {flowChoices.map((f) => (
               <SelectItem key={f.id} value={f.id}>
                 {f.name} · {f.days} days
@@ -208,10 +211,32 @@ export function EnrollPanel({ me }: { me: Me }) {
       </Alert>
     );
   }
+  return <EnrollModes me={me} cohorts={list} />;
+}
+
+/** One student at a time by default; a whole class from a CSV on request. */
+function EnrollModes({ me, cohorts }: { me: Me; cohorts: readonly Cohort[] }) {
+  const [mode, setMode] = useState<"one" | "csv">("one");
   return (
-    <div className="grid gap-6 xl:grid-cols-2">
-      <EnrollOne me={me} cohorts={list} />
-      <ImportRoster me={me} cohorts={list} />
+    <div className="flex max-w-2xl flex-col gap-4">
+      <ToggleGroup
+        type="single"
+        variant="outline"
+        value={mode}
+        onValueChange={(v) => {
+          if (v === "one" || v === "csv") setMode(v);
+        }}
+        aria-label="How to enroll"
+        className="justify-start"
+      >
+        <ToggleGroupItem value="one" className={choiceItem} data-testid="enroll-mode-one">
+          One student
+        </ToggleGroupItem>
+        <ToggleGroupItem value="csv" className={choiceItem} data-testid="enroll-mode-csv">
+          A class from a CSV
+        </ToggleGroupItem>
+      </ToggleGroup>
+      {mode === "one" ? <EnrollOne me={me} cohorts={cohorts} /> : <ImportRoster me={me} cohorts={cohorts} />}
     </div>
   );
 }
@@ -230,7 +255,7 @@ function EnrollOne({ me, cohorts }: { me: Me; cohorts: readonly Cohort[] }) {
 
   const submit = async () => {
     const e: Record<string, string | undefined> = {};
-    if (!validLogin(login)) e.github_login = "Enter a GitHub username: letters, digits and single hyphens.";
+    if (!validLogin(login)) e.github_login = "Enter a GitHub username using letters, digits and single hyphens.";
     if (settings.cohortId === NONE && !settings.programSlug) e.program_slug = "Pick a program.";
     if (settings.cohortId === NONE && !settings.startDate) e.start_date = "Pick a start date.";
     setErrors(e);
@@ -264,7 +289,7 @@ function EnrollOne({ me, cohorts }: { me: Me; cohorts: readonly Cohort[] }) {
         <CardTitle className="flex items-center gap-2">
           <UserPlus className="size-4" aria-hidden /> Enroll a student
         </CardTitle>
-        <CardDescription>By GitHub username. They don&apos;t need to have signed in yet — access is linked the first time they do.</CardDescription>
+        <CardDescription>By GitHub username. They don&apos;t need to have signed in yet. Access is linked the first time they do.</CardDescription>
       </CardHeader>
       <CardContent>
         <form
@@ -482,7 +507,7 @@ function ImportResults({ result }: { result: ImportResult }) {
               <TableCell className="font-mono text-xs">@{r.github_login}</TableCell>
               <TableCell>
                 {r.error ? (
-                  <span className="text-destructive text-sm">{Object.values(r.error.fields ?? {})[0] ?? r.error.message}</span>
+                  <span className="text-destructive text-sm">{Object.values(r.error.fields ?? {})[0] ?? itemErrorMessage(r.error)}</span>
                 ) : (
                   <span className="inline-flex items-center gap-1.5 text-sm">
                     <CircleCheck className="text-success size-4" aria-hidden /> Enrolled
