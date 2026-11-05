@@ -1,16 +1,23 @@
 import { expect, test, type Page } from "@playwright/test";
 
-import { expectToast, signIn, unique } from "./helpers";
+import { api, apiToken, expectToast, signIn, unique } from "./helpers";
+
+type PublishedFlow = { published: { id: string; number: number; items: unknown[] } | null };
+const REACT_FLOW = "/v1/admin/flows/00000000-0000-4000-8000-0000000000f1";
 
 async function pick(page: Page, label: string, option: string | RegExp) {
   await page.getByLabel(label, { exact: true }).click();
   await page.getByRole("option", { name: option }).click();
 }
 
-test("flows: duplicate, add a task, publish and assign; the student gets it from the right persona (F5, F6, G2)", async ({ browser }) => {
+test("flows: duplicate, add a task, publish and assign; the student gets it from the right persona (F5, F6, G2)", async ({ browser, request }) => {
   const admin = await (await browser.newContext({ viewport: { width: 1440, height: 900 } })).newPage();
   const name = unique("Angular Frontend · 30 days");
   const task = unique("Angular signals store");
+  const token = await apiToken(request, "admin-demo");
+  const original = await api<PublishedFlow>(request, token, "GET", REACT_FLOW);
+  const originalCount = original.published?.items.length ?? 0;
+  expect(originalCount).toBeGreaterThan(0);
 
   await signIn(admin, "admin-demo");
   await admin.getByRole("link", { name: "Flows" }).click();
@@ -22,7 +29,7 @@ test("flows: duplicate, add a task, publish and assign; the student gets it from
   await admin.getByLabel("Stream").fill("Angular");
   await admin.getByTestId("dup-save").click();
   await expect(admin.getByRole("heading", { name })).toBeVisible();
-  await expect(admin.getByText(/· 11 tasks/)).toBeVisible();
+  await expect(admin.getByText(new RegExp(`· ${originalCount} tasks`))).toBeVisible();
 
   // Today is day 3 for the seeded students; a 00:00 item releases right away.
   await admin.getByTestId("day-3").click();
@@ -45,7 +52,9 @@ test("flows: duplicate, add a task, publish and assign; the student gets it from
 
   // The React flow is unchanged by the copy.
   await admin.getByRole("link", { name: "All flows" }).click();
-  await expect(admin.getByTestId("flow-row-React Frontend · 30 days")).toContainText("11");
+  await expect(admin.getByTestId("flow-row-React Frontend · 30 days").getByRole("cell").nth(2)).toHaveText(String(originalCount));
+  const unchanged = await api<PublishedFlow>(request, token, "GET", REACT_FLOW);
+  expect(unchanged.published).toEqual(original.published);
 
   await admin.getByRole("link", { name }).click();
   await admin.getByTestId("open-assign-flow").click();

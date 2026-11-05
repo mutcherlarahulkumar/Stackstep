@@ -24,6 +24,7 @@ export type CreateTaskInput = {
 /** Example tests are edited as JSON text and parsed when sent (see wireContent). */
 export type PracticeDraft = { function_name: string; starter: string; tests: { args: string; expected: string }[] };
 export type ContentInput = {
+  documents?: S.TaskDocument[];
   resources: S.Resource[];
   quiz: { questions: { prompt: string; options: string[]; answer: number }[]; pass_percent: number } | null;
   practice: PracticeDraft | null;

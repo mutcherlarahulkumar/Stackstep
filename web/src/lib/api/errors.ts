@@ -40,8 +40,9 @@ export function messageFor(error: unknown): string {
   if (!(error instanceof ApiError)) return "Something went wrong. Please try again.";
   switch (error.code) {
     case "bad_request":
-    case "payload_too_large":
       return "That request couldn't be processed.";
+    case "payload_too_large":
+      return "This content is too large. Shorten the documents or save fewer tasks at once.";
     case "unauthenticated":
       return "Your session expired. Please sign in again.";
     case "forbidden":

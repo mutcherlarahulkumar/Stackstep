@@ -4,7 +4,6 @@ package seed
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"time"
 
@@ -12,6 +11,7 @@ import (
 
 	"github.com/mutcherlarahulkumar/stackstep/backend/internal/app"
 	"github.com/mutcherlarahulkumar/stackstep/backend/internal/domain"
+	curriculum "github.com/mutcherlarahulkumar/stackstep/backend/internal/guidedcurriculum"
 	"github.com/mutcherlarahulkumar/stackstep/backend/internal/store"
 )
 
@@ -162,19 +162,7 @@ var (
 	ReactFlowID          = uuid.MustParse("00000000-0000-4000-8000-0000000000f1")
 )
 
-type seedTask struct {
-	day          int
-	typ          domain.TaskType
-	title, brief string
-	persona      uuid.UUID
-	review       domain.ReviewMode
-	release      string
-	dueMinutes   int
-	window       int
-	content      domain.TaskContent
-}
-
-// seedCatalog creates the default personas, a small task library and a published
+// seedCatalog creates the default personas, the complete guided task library and a published
 // "React Frontend · 30 days" flow whose tasks come from three different managers.
 func seedCatalog(ctx context.Context, q store.Q, admin uuid.UUID, now time.Time) error {
 	if _, err := q.Exec(ctx, `INSERT INTO personas (id, name, title, color, auto_reply) VALUES
@@ -189,37 +177,12 @@ func seedCatalog(ctx context.Context, q store.Q, admin uuid.UUID, now time.Time)
 	if err := q.QueryRow(ctx, "SELECT EXISTS (SELECT 1 FROM flows WHERE id = $1)", ReactFlowID).Scan(&exists); err != nil || exists {
 		return err
 	}
-	tasks := []seedTask{
-		{1, domain.TaskStandup, "Introduce yourself to the team", "Post a short intro: your college, what you want to build, and one thing you want to learn.", domain.DefaultPersonaID, domain.ReviewSelf, "10:00", 240, 0, domain.TaskContent{}},
-		{1, domain.TaskGitChore, "Set up Git and open your first PR", "Clone the starter repo, add your name to README.md on branch `chore/intro`, and open a PR.", DeliveryManagerID, domain.ReviewManual, "11:00", 480, 0, domain.TaskContent{}},
-		{2, domain.TaskDSA, "Two Sum", "Solve Two Sum in O(n). Explain your approach in two sentences.", EngineeringManagerID, domain.ReviewManual, "10:30", 360, 0,
-			domain.TaskContent{Practice: practice("twoSum", "function twoSum(nums, target) {\n  // Return the indices of the two numbers that add up to target.\n}\n",
-				"[[2,7,11,15],9]", "[0,1]", "[[3,2,4],6]", "[1,2]", "[[3,3],6]", "[0,1]")}},
-		{2, domain.TaskFeature, "Build the portfolio hero section", "Name, title, a short bio and links. Mobile first. Branch: `feat/hero`.", DeliveryManagerID, domain.ReviewManual, "11:00", 1440, 0,
-			domain.TaskContent{Rubric: []string{"Looks right at 360px wide", "Links open in a new tab", "Work is on feat/hero with a PR"}}},
-		{3, domain.TaskDocReading, "Read MDN: Flexbox", "Read the MDN Flexbox guide and note three properties you will use this week.", DeliveryManagerID, domain.ReviewSelf, "09:30", 240, 0,
-			domain.TaskContent{Resources: []domain.Resource{{Title: "MDN: Basic concepts of flexbox", URL: "https://developer.mozilla.org/en-US/docs/Web/CSS/CSS_flexible_box_layout/Basic_concepts_of_flexbox"}}}},
-		{4, domain.TaskQuiz, "Git basics quiz", "Five quick questions on the commands you used this week.", DeliveryManagerID, domain.ReviewSelf, "16:00", 240, 0,
-			domain.TaskContent{Quiz: &domain.Quiz{PassPercent: 60, Questions: []domain.QuizQuestion{
-				{Prompt: "What does `git add` do?", Options: []string{"Creates a commit", "Stages changes for the next commit", "Uploads to GitHub"}, Answer: 1},
-				{Prompt: "Which command shares your commits with the remote?", Options: []string{"git push", "git fetch", "git stash"}, Answer: 0},
-				{Prompt: "Where should new work happen?", Options: []string{"Directly on main", "On a feature branch", "In a fork of a fork"}, Answer: 1},
-				{Prompt: "What does a pull request ask for?", Options: []string{"A review before merging", "A copy of the repo", "Admin access"}, Answer: 0},
-				{Prompt: "What does `git status` show?", Options: []string{"Commit history", "Changed and staged files", "Remote branches"}, Answer: 1},
-			}}}},
-		{3, domain.TaskDSA, "Valid Anagram", "Use a frequency map. Mention the time and space complexity.", EngineeringManagerID, domain.ReviewManual, "12:00", 360, 0,
-			domain.TaskContent{Practice: practice("isAnagram", "function isAnagram(s, t) {\n  // true when t uses exactly the letters of s.\n}\n",
-				`["anagram","nagaram"]`, "true", `["rat","car"]`, "false", `["a","ab"]`, "false")}},
-		{3, domain.TaskBlog, "Write: what I learned in week one", "300–500 words on your setup, your first PR and one mistake you fixed. Publish on Hashnode or dev.to.", ContentLeadID, domain.ReviewManual, "15:00", 2880, 0, domain.TaskContent{}},
-		{4, domain.TaskFeature, "Projects grid with filters", "Show your projects as cards with tag filters. Branch: `feat/projects`.", DeliveryManagerID, domain.ReviewManual, "10:00", 1440, 0,
-			domain.TaskContent{Rubric: []string{"Filters combine (tag and search)", "Empty state when nothing matches", "Cards are keyboard reachable"}}},
-		{4, domain.TaskDSA, "Best Time to Buy and Sell Stock", "One pass, constant space.", EngineeringManagerID, domain.ReviewManual, "12:00", 360, 0,
-			domain.TaskContent{Practice: practice("maxProfit", "function maxProfit(prices) {\n  // Best profit from one buy and one later sell, or 0.\n}\n",
-				"[[7,1,5,3,6,4]]", "5", "[[7,6,4,3,1]]", "0", "[[2,4,1]]", "2")}},
-		{5, domain.TaskStandup, "Friday standup", "What shipped this week, what's blocked, what's next.", domain.DefaultPersonaID, domain.ReviewSelf, "15:00", 120, 120, domain.TaskContent{}},
+	tasks, err := curriculum.Entries(curriculum.Personas{Lead: domain.DefaultPersonaID, Engineering: EngineeringManagerID, Delivery: DeliveryManagerID, Content: ContentLeadID})
+	if err != nil {
+		return err
 	}
 	if _, err := q.Exec(ctx, `INSERT INTO flows (id, name, stream, description, days, created_by, created_at, updated_at)
-		VALUES ($1, 'React Frontend · 30 days', 'React', 'Portfolio site, two React projects and a capstone, with daily DSA and writing.', 30, $2, $3, $3)`,
+		VALUES ($1, 'React Frontend · 30 days', 'React', 'Build a portfolio, a tested product explorer and a capstone with in-app lessons, spaced practice and review.', 30, $2, $3, $3)`,
 		ReactFlowID, admin, now); err != nil {
 		return err
 	}
@@ -231,31 +194,14 @@ func seedCatalog(ctx context.Context, q store.Q, admin uuid.UUID, now time.Time)
 	items := make([]domain.FlowItem, 0, len(tasks))
 	perDay := map[int]int{}
 	for _, t := range tasks {
-		release, ok := domain.ParseClockTime(t.release)
-		if !ok {
-			return fmt.Errorf("bad seed time %q", t.release)
-		}
-		spec := domain.TaskSpec{Type: t.typ, Title: t.title, Brief: t.brief, PersonaID: t.persona, ReviewMode: t.review, ReleaseTime: release,
-			DueMinutes: t.dueMinutes, ReleaseWindow: t.window, Content: t.content}
-		if spec.Content.Resources == nil {
-			spec.Content.Resources = []domain.Resource{}
-		}
+		spec := t.Spec
 		tpl, err := store.InsertTemplate(ctx, q, spec, admin, now)
 		if err != nil {
 			return err
 		}
 		id := tpl.ID
-		items = append(items, domain.FlowItem{Day: t.day, Position: perDay[t.day], TemplateID: &id, Spec: spec})
-		perDay[t.day]++
+		items = append(items, domain.FlowItem{Day: t.Day, Position: perDay[t.Day], TemplateID: &id, Spec: spec})
+		perDay[t.Day]++
 	}
 	return store.InsertFlowItems(ctx, q, versionID, items)
-}
-
-// practice builds a seeded practice pad from (args, expected) JSON pairs.
-func practice(fn, starter string, pairs ...string) *domain.Practice {
-	p := &domain.Practice{FunctionName: fn, Starter: starter}
-	for i := 0; i+1 < len(pairs); i += 2 {
-		p.Tests = append(p.Tests, domain.PracticeTest{Args: json.RawMessage(pairs[i]), Expected: json.RawMessage(pairs[i+1])})
-	}
-	return p
 }

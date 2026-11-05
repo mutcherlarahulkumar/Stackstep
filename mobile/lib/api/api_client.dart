@@ -274,7 +274,7 @@ final class ApiClient {
     return Page(items: j.list('items', StudentRow.fromJson), nextCursor: j.stringOrNull('next_cursor'));
   }
 
-  Future<Task> createTask(String enrollmentId, CreateTaskInput input) async => Task.fromJson(
+  Future<Task> createTask(String enrollmentId, CreateTaskInput input, {List<TaskDocument> documents = const []}) async => Task.fromJson(
     asObject(
       await _send(
         'POST',
@@ -288,6 +288,9 @@ final class ApiClient {
           'scheduled_for': input.scheduledFor?.toUtc().toIso8601String(),
           'due_at': input.dueAt.toUtc().toIso8601String(),
           'content': {
+            'documents': [
+              for (final document in documents) {'title': document.title, 'body': document.body},
+            ],
             'resources': [
               for (final r in input.resources) {'title': r.title, 'url': r.url},
             ],

@@ -520,6 +520,7 @@ function ItemCard({
               {durationLabel(row.due_minutes)} to finish
             </span>
             {row.content.quiz ? <span>{row.content.quiz.questions.length} questions</span> : null}
+            {row.content.documents?.length ? <span>{row.content.documents.length} {row.content.documents.length === 1 ? "guide" : "guides"}</span> : null}
             {row.content.resources.length ? <span>{row.content.resources.length} {row.content.resources.length === 1 ? "link" : "links"}</span> : null}
             <span>{row.review_mode === "self" ? "Student marks done" : "Admin reviews"}</span>
             {error ? <span className="text-destructive font-medium">Needs fixing</span> : null}
@@ -573,6 +574,7 @@ function ItemSheet({
   const [rowDay, setRowDay] = useState(current?.day ?? day);
   const [errors, setErrors] = useState<SpecErrors & { day?: string }>(serverErrors);
   const [templateId, setTemplateId] = useState<string | null>(current?.template_id ?? null);
+  const [importingDocument, setImportingDocument] = useState(false);
   const toLibrary = useMutation({
     mutationFn: () => api.createTemplate(cleanSpec(spec)),
     onSuccess: (t) => {
@@ -584,6 +586,7 @@ function ItemSheet({
   });
 
   const submit = () => {
+    if (importingDocument) return;
     const next: SpecErrors & { day?: string } = validateSpec(spec, (id) => personas.some((p) => p.id === id));
     const others = rows.filter((r) => r.key !== current?.key);
     const dayFull = addBlocked(others, rowDay);
@@ -628,12 +631,12 @@ function ItemSheet({
               </Select>
               {errors.day ? <FieldError>{errors.day}</FieldError> : null}
             </Field>
-            <SpecFields value={spec} onChange={setSpec} errors={errors} personas={personas} idPrefix="item" />
+            <SpecFields onImportingChange={setImportingDocument} value={spec} onChange={setSpec} errors={errors} personas={personas} idPrefix="item" />
           </fieldset>
         </form>
         {!readOnly ? (
           <SheetFooter className="flex-row flex-wrap gap-2">
-            <Button type="submit" form="item-form" data-testid="item-save">
+            <Button type="submit" form="item-form" disabled={importingDocument} data-testid="item-save">
               {current ? "Apply" : "Add to day"}
             </Button>
             <Button variant="outline" onClick={onClose}>
@@ -643,7 +646,7 @@ function ItemSheet({
               <Button
                 variant="ghost"
                 className="ml-auto"
-                disabled={toLibrary.isPending}
+                disabled={toLibrary.isPending || importingDocument}
                 onClick={() => {
                   const e = validateSpec(spec, (id) => personas.some((p) => p.id === id));
                   setErrors(e);

@@ -34,7 +34,7 @@ class ResourceLinks extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         const SizedBox(height: Space.xl),
-        Text('Links', style: t.textTheme.small.copyWith(fontWeight: FontWeight.w600)),
+        Text('External references', style: t.textTheme.small.copyWith(fontWeight: FontWeight.w600)),
         const SizedBox(height: Space.xs),
         for (final r in resources)
           ShadButton.link(

@@ -9,8 +9,10 @@ import 'package:stackstep/api/models.dart';
 import 'package:stackstep/api/validation.dart';
 import 'package:stackstep/core/providers.dart';
 import 'package:stackstep/core/theme.dart';
+import 'package:stackstep/features/ai/markdown_view.dart';
 import 'package:stackstep/features/chat/inbox_controller.dart';
 import 'package:stackstep/features/tasks/board_controller.dart';
+import 'package:stackstep/features/tasks/task_documents.dart';
 import 'package:stackstep/features/tasks/task_notes.dart';
 import 'package:stackstep/features/tasks/task_work.dart';
 import 'package:stackstep/shared/errors.dart';
@@ -367,7 +369,8 @@ class _TaskSheetState extends ConsumerState<TaskSheet> {
           if (task.brief.isEmpty)
             Text('No brief for this one. Ask ${persona?.name ?? 'your lead'} in chat if anything is unclear.', style: t.textTheme.muted)
           else
-            SelectableText(task.brief, style: t.textTheme.p.copyWith(height: 1.55)),
+            SelectionArea(child: MarkdownView(task.brief)),
+          TaskDocuments(documents: task.content.documents),
           ResourceLinks(resources: task.content.resources),
           if (task.content.rubric.isNotEmpty) RubricCard(criteria: task.content.rubric, ticks: task.submission?.rubric),
           if (task.submission case final sub?) SubmissionCard(submission: sub),

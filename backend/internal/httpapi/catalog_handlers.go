@@ -130,7 +130,7 @@ func decodeCursorUnchecked(raw string) (*store.Cursor, error) { return store.Dec
 
 func (s *Server) createTemplate(c *gin.Context) {
 	var req templateReq
-	if err := decode(c, &req); err != nil {
+	if err := decodeLimit(c, &req, MaxContentBodyBytes); err != nil {
 		s.fail(c, err)
 		return
 	}
@@ -149,7 +149,7 @@ func (s *Server) updateTemplate(c *gin.Context) {
 		return
 	}
 	var req templateReq
-	if err := decode(c, &req); err != nil {
+	if err := decodeLimit(c, &req, MaxContentBodyBytes); err != nil {
 		s.fail(c, err)
 		return
 	}
@@ -240,7 +240,7 @@ func (s *Server) saveDraft(c *gin.Context) {
 		return
 	}
 	var req draftReq
-	if err := decode(c, &req); err != nil {
+	if err := decodeLimit(c, &req, MaxFlowDraftBodyBytes); err != nil {
 		s.fail(c, err)
 		return
 	}

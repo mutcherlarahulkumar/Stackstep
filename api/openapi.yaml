@@ -663,6 +663,7 @@ paths:
       tags: [admin]
       operationId: createTask
       summary: Assign a task to a student
+      description: Request body limit is 1 MiB, including inline Markdown documents.
       parameters: [{ $ref: "#/components/parameters/Id" }]
       requestBody:
         required: true
@@ -684,6 +685,7 @@ paths:
       responses:
         "201": { description: Created, content: { application/json: { schema: { $ref: "#/components/schemas/Task" } } } }
         "404": { $ref: "#/components/responses/Error" }
+        "413": { $ref: "#/components/responses/Error" }
         "422": { $ref: "#/components/responses/Error" }
   /v1/admin/enrollments/{id}/flow:
     put:
@@ -772,6 +774,7 @@ paths:
       responses:
         "201": { description: Created, content: { application/json: { schema: { $ref: "#/components/schemas/TaskTemplate" } } } }
         "403": { $ref: "#/components/responses/Error" }
+        "413": { $ref: "#/components/responses/Error" }
         "422": { $ref: "#/components/responses/Error" }
   /v1/admin/task-templates/{id}:
     patch:
@@ -784,6 +787,7 @@ paths:
         "200": { description: Updated, content: { application/json: { schema: { $ref: "#/components/schemas/TaskTemplate" } } } }
         "404": { $ref: "#/components/responses/Error" }
         "409": { $ref: "#/components/responses/Error" }
+        "413": { $ref: "#/components/responses/Error" }
         "422": { $ref: "#/components/responses/Error" }
   /v1/admin/flows:
     get:
@@ -830,6 +834,7 @@ paths:
       tags: [catalog]
       operationId: saveFlowDraft
       summary: Replace the draft's items. expected_revision 0 starts a new draft from the published version.
+      description: Request body limit is 8 MiB for the complete draft, including all inline Markdown documents.
       parameters: [{ $ref: "#/components/parameters/Id" }]
       requestBody:
         required: true
@@ -845,6 +850,7 @@ paths:
       responses:
         "200": { $ref: "#/components/responses/FlowDetail" }
         "409": { $ref: "#/components/responses/Error" }
+        "413": { $ref: "#/components/responses/Error" }
         "422": { $ref: "#/components/responses/Error" }
   /v1/admin/flows/{id}/publish:
     post:
@@ -1252,6 +1258,7 @@ components:
               expected_version: { type: integer, minimum: 1, description: Required on update }
     TaskTemplate:
       required: true
+      description: Request body limit is 1 MiB, including inline Markdown documents.
       content:
         application/json:
           schema:
@@ -1442,10 +1449,24 @@ components:
       properties:
         questions: { type: array, minItems: 1, maxItems: 20, items: { $ref: "#/components/schemas/QuizQuestion" } }
         pass_percent: { type: integer, minimum: 1, maximum: 100, description: Defaults to 70 when sent as 0 }
+    TaskDocument:
+      description: An authored lesson displayed inside the task. Raw HTML is not rendered; Markdown images are not loaded.
+      type: object
+      additionalProperties: false
+      required: [title, body]
+      properties:
+        title: { type: string, minLength: 1, maxLength: 80, description: Whitespace is normalized; control characters are rejected }
+        body: { type: string, minLength: 1, maxLength: 20000, description: "Nonblank Markdown; whitespace is preserved. Invalid UTF-8 and control characters other than tabs and line endings are rejected." }
     TaskContent:
       type: object
       required: [resources, quiz]
       properties:
+        documents:
+          description: Optional authored lessons on any task type. Older content may omit this field; responses always include an array (empty when absent). Documents are copied into published flows and assigned tasks.
+          type: array
+          default: []
+          maxItems: 5
+          items: { $ref: "#/components/schemas/TaskDocument" }
         resources: { type: array, maxItems: 5, items: { $ref: "#/components/schemas/Resource" } }
         quiz: { oneOf: [{ $ref: "#/components/schemas/Quiz" }, { type: "null" }], description: Only (and always) on quiz tasks }
         rubric:

@@ -44,6 +44,9 @@ phone) and the mobile app (Chats and Tasks tabs).
   arrive live. Quick replies like "PR ready for review" help shy students start.
 - **Task board.** Today · In review · Changes requested · Done. Each task has a brief, links,
   who assigned it, the due time and a "Next step" hint.
+- **Lessons inside the task.** Open an attached document to read its Markdown lesson without
+  leaving the app. Headings, examples, code, tables and checklists stay with the assignment;
+  returning takes you back to the same task. Supplemental external links stay separate.
 - **Task flow.** To do → In progress → hand in for review → done (or changes requested). Some
   tasks are self-checks the student marks done.
 - **Hand-ins in chat.** When a student starts, hands in or finishes, their note and PR link
@@ -101,6 +104,9 @@ phone) and the mobile app (Chats and Tasks tabs).
   student's time zone, and "surprise" tasks land at a random time in a window.
 - **Task library.** Reusable tasks to add to flows. Flows keep their own copy, so editing the
   library never changes a published flow.
+  Tasks can include authored Markdown documents. Write and preview a lesson, or import a
+  `.md` file in the web editor; its contents are saved with the task instead of depending on
+  an external document viewer.
 - **Personas.** The team characters: name, title, colour, and whether they auto-acknowledge
   messages.
 - **People.**
@@ -144,6 +150,7 @@ colleges and cohorts, and grant staff access.
 | Persona tags, AI privacy note | ✓ | ✓ |
 | AI helper | ✓ | ✓ |
 | Task notes (write, share) | ✓ | ✓ |
+| Task documents and Markdown briefs | in-app reader | in-app reader |
 | Rubric (see criteria and results) | ✓ | ✓ |
 | Quiz answer key with "Your answer" | ✓ | ✓ |
 | Progress, certificate, "This week" | ✓ | ✓ |

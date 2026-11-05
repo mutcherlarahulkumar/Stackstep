@@ -200,6 +200,7 @@ export function TemplateDialog({ editing, onClose, onSaved }: { editing: TaskTem
   const [archived, setArchived] = useState(current?.archived ?? false);
   const [errors, setErrors] = useState<SpecErrors>({});
   const [formError, setFormError] = useState<string | null>(null);
+  const [importingDocument, setImportingDocument] = useState(false);
 
   const save = useMutation({
     mutationFn: (s: SpecDraft) => (current ? api.updateTemplate(current.id, { ...s, archived }, current.version) : api.createTemplate(s)),
@@ -229,6 +230,7 @@ export function TemplateDialog({ editing, onClose, onSaved }: { editing: TaskTem
           className="flex flex-col gap-5"
           onSubmit={(e) => {
             e.preventDefault();
+            if (importingDocument) return;
             const next = validateSpec(spec, (id) => active.some((p) => p.id === id));
             setErrors(next);
             setFormError(null);
@@ -242,7 +244,7 @@ export function TemplateDialog({ editing, onClose, onSaved }: { editing: TaskTem
               <AlertDescription>{formError}</AlertDescription>
             </Alert>
           ) : null}
-          <SpecFields value={spec} onChange={setSpec} errors={errors} personas={active} idPrefix="tpl" />
+          <SpecFields onImportingChange={setImportingDocument} value={spec} onChange={setSpec} errors={errors} personas={active} idPrefix="tpl" />
           {current ? (
             <Field orientation="horizontal">
               <Switch id="tpl-archived" checked={archived} onCheckedChange={setArchived} />
@@ -257,7 +259,7 @@ export function TemplateDialog({ editing, onClose, onSaved }: { editing: TaskTem
           <Button variant="outline" onClick={onClose}>
             Cancel
           </Button>
-          <Button type="submit" form="template-form" disabled={save.isPending} data-testid="template-save">
+          <Button type="submit" form="template-form" disabled={save.isPending || importingDocument} data-testid="template-save">
             {save.isPending ? <Spinner data-icon="inline-start" /> : null} {current ? "Save" : "Add to library"}
           </Button>
         </DialogFooter>

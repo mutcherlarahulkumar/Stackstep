@@ -118,6 +118,11 @@ type resourceDTO struct {
 	URL   string `json:"url"`
 }
 
+type documentDTO struct {
+	Title string `json:"title"`
+	Body  string `json:"body"`
+}
+
 type quizQuestionDTO struct {
 	Prompt  string   `json:"prompt"`
 	Options []string `json:"options"`
@@ -131,6 +136,7 @@ type quizDTO struct {
 }
 
 type contentDTO struct {
+	Documents []documentDTO `json:"documents"`
 	Resources []resourceDTO `json:"resources"`
 	Quiz      *quizDTO      `json:"quiz"`
 	Practice  *practiceDTO  `json:"practice"`
@@ -171,9 +177,12 @@ func (p *practiceDTO) input() *domain.Practice {
 }
 
 func toContent(c domain.TaskContent, showAnswers bool) contentDTO {
-	out := contentDTO{Resources: make([]resourceDTO, len(c.Resources)), Practice: toPractice(c.Practice), Rubric: append([]string{}, c.Rubric...)}
+	out := contentDTO{Documents: make([]documentDTO, len(c.Documents)), Resources: make([]resourceDTO, len(c.Resources)), Practice: toPractice(c.Practice), Rubric: append([]string{}, c.Rubric...)}
 	for i, r := range c.Resources {
 		out.Resources[i] = resourceDTO(r)
+	}
+	for i, d := range c.Documents {
+		out.Documents[i] = documentDTO(d)
 	}
 	if c.Quiz != nil {
 		q := &quizDTO{PassPercent: c.Quiz.PassPercent, Questions: make([]quizQuestionDTO, len(c.Quiz.Questions))}
@@ -191,9 +200,12 @@ func toContent(c domain.TaskContent, showAnswers bool) contentDTO {
 
 // input converts a request body; a missing answer becomes -1 so validation flags it.
 func (c contentDTO) input() domain.TaskContent {
-	out := domain.TaskContent{Resources: make([]domain.Resource, len(c.Resources)), Practice: c.Practice.input(), Rubric: c.Rubric}
+	out := domain.TaskContent{Documents: make([]domain.TaskDocument, len(c.Documents)), Resources: make([]domain.Resource, len(c.Resources)), Practice: c.Practice.input(), Rubric: c.Rubric}
 	for i, r := range c.Resources {
 		out.Resources[i] = domain.Resource(r)
+	}
+	for i, d := range c.Documents {
+		out.Documents[i] = domain.TaskDocument(d)
 	}
 	if c.Quiz != nil {
 		q := &domain.Quiz{PassPercent: c.Quiz.PassPercent, Questions: make([]domain.QuizQuestion, len(c.Quiz.Questions))}

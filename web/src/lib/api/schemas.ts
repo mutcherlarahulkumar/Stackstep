@@ -121,7 +121,13 @@ export const Practice = z.object({
 });
 export type Practice = z.output<typeof Practice>;
 
-export const TaskContent = z.object({ resources: z.array(Resource).max(5), quiz: Quiz.nullable(), practice: Practice.nullable().default(null), rubric: z.array(z.string()).max(8).default([]) });
+export const TaskDocument = z.object({
+  title: z.string().refine((s) => s.trim().length > 0 && [...s].length <= 80 && !/[\u0000-\u0008\u000B\u000C\u000E-\u001F\u007F-\u009F\u2028\u2029]|[\uD800-\uDFFF]/u.test(s)),
+  body: z.string().refine((s) => s.trim().length > 0 && [...s].length <= 20_000 && !/[\u0000-\u0008\u000B\u000C\u000E-\u001F\u007F-\u009F\u2028\u2029]|[\uD800-\uDFFF]/u.test(s)),
+});
+export type TaskDocument = z.output<typeof TaskDocument>;
+
+export const TaskContent = z.object({ documents: z.array(TaskDocument).max(5).nullish().transform((docs) => docs ?? []), resources: z.array(Resource).max(5), quiz: Quiz.nullable(), practice: Practice.nullable().default(null), rubric: z.array(z.string()).max(8).default([]) });
 export type TaskContent = z.output<typeof TaskContent>;
 
 export const HAND_IN_CHECK_CODES = ["foreign_repo", "reused_link"] as const;

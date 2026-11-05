@@ -292,7 +292,7 @@ func (s *Server) createTask(c *gin.Context) {
 		return
 	}
 	var req createTaskReq
-	if err := decode(c, &req); err != nil {
+	if err := decodeLimit(c, &req, MaxContentBodyBytes); err != nil {
 		s.fail(c, err)
 		return
 	}

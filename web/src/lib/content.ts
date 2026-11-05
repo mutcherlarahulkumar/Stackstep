@@ -4,6 +4,10 @@ import { type ReviewMode, type TaskContent, type TaskType } from "./api/schemas"
 import { normalizeLine, runeLength } from "./validation";
 
 export const ContentBounds = {
+  documents: 5,
+  documentTitleMax: 80,
+  documentBodyMax: 20_000,
+  documentFileBytesMax: 80_000,
   resources: 5,
   resourceTitleMax: 80,
   urlMax: 2048,
@@ -25,7 +29,7 @@ export const ContentBounds = {
   rubricItemMax: 120,
 } as const;
 
-export const emptyContent = (): ContentInput => ({ resources: [], quiz: null, practice: null, rubric: [] });
+export const emptyContent = (): ContentInput => ({ documents: [], resources: [], quiz: null, practice: null, rubric: [] });
 
 export const blankPractice = (): PracticeDraft => ({ function_name: "solve", starter: "function solve(input) {\n  \n}\n", tests: [{ args: "[]", expected: "null" }] });
 
@@ -50,6 +54,7 @@ export const blankQuestion = () => ({ prompt: "", options: ["", ""], answer: 0 }
 /** Staff always receive answers; a missing one becomes -1 so validation flags it. */
 export function contentForEdit(c: TaskContent): ContentInput {
   return {
+    documents: c.documents.map((document) => ({ ...document })),
     resources: c.resources.map((r) => ({ ...r })),
     quiz: c.quiz ? { pass_percent: c.quiz.pass_percent, questions: c.quiz.questions.map((q) => ({ prompt: q.prompt, options: [...q.options], answer: q.answer ?? -1 })) } : null,
     rubric: [...c.rubric],
@@ -93,7 +98,7 @@ export function needsLink(t: TaskType): boolean {
 
 /** Errors keyed like the server: "resources[0].url", "quiz.questions[1].options". */
 export function validateContent(c: ContentInput, type: TaskType, review: ReviewMode = "manual"): Record<string, string> {
-  const e: Record<string, string> = {};
+  const e: Record<string, string> = validateDocuments(c.documents ?? []);
   if (c.resources.length > ContentBounds.resources) e.resources = `Add at most ${ContentBounds.resources} links.`;
   c.resources.forEach((r, i) => {
     const title = normalizeLine(r.title);
@@ -158,6 +163,7 @@ export function validateContent(c: ContentInput, type: TaskType, review: ReviewM
 
 export function cleanContent(c: ContentInput): ContentInput {
   return {
+    documents: (c.documents ?? []).map((document) => ({ title: normalizeLine(document.title), body: document.body })),
     resources: c.resources.map((r) => ({ title: normalizeLine(r.title), url: r.url.trim() })),
     quiz: c.quiz
       ? { pass_percent: c.quiz.pass_percent, questions: c.quiz.questions.map((q) => ({ prompt: q.prompt.trim(), options: q.options.map(normalizeLine), answer: q.answer })) }
@@ -188,4 +194,22 @@ export function releaseLabel(time: string, window: number): string {
   const end = h * 60 + m + window;
   const pad = (n: number) => String(n).padStart(2, "0");
   return `${time}–${pad(Math.floor(end / 60))}:${pad(end % 60)}`;
+}
+
+/** Authored Markdown is kept verbatim; validation never removes indentation or code. */
+export function validateDocuments(documents: NonNullable<ContentInput["documents"]>): Record<string, string> {
+  const errors: Record<string, string> = {};
+  const badControl = /[\u0000-\u0008\u000B\u000C\u000E-\u001F\u007F-\u009F\u2028\u2029]/;
+  const invalidUnicode = /[\uD800-\uDFFF]/u;
+  if (documents.length > ContentBounds.documents) errors.documents = `Add at most ${ContentBounds.documents} documents.`;
+  documents.forEach((document, i) => {
+    const title = normalizeLine(document.title);
+    if (!title) errors[`documents[${i}].title`] = "Give the document a title.";
+    else if (runeLength(title) > ContentBounds.documentTitleMax) errors[`documents[${i}].title`] = `Document titles can be at most ${ContentBounds.documentTitleMax} characters.`;
+    else if (badControl.test(document.title) || invalidUnicode.test(document.title)) errors[`documents[${i}].title`] = "Document title contains characters that can't be displayed.";
+    if (!document.body.trim()) errors[`documents[${i}].body`] = "Write the document in Markdown or import a .md file.";
+    else if (runeLength(document.body) > ContentBounds.documentBodyMax) errors[`documents[${i}].body`] = `Documents can be at most ${ContentBounds.documentBodyMax.toLocaleString()} characters.`;
+    else if (badControl.test(document.body) || invalidUnicode.test(document.body)) errors[`documents[${i}].body`] = "Document contains characters that can't be displayed.";
+  });
+  return errors;
 }

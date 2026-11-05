@@ -352,6 +352,15 @@ final class Resource {
   final String url;
 }
 
+/// Authored reading stored with a task, so opening it needs no external website.
+final class TaskDocument {
+  const TaskDocument({required this.title, required this.body});
+  factory TaskDocument.fromJson(JsonReader j) => TaskDocument(title: j.string('title'), body: j.string('body'));
+
+  final String title;
+  final String body;
+}
+
 final class QuizQuestion {
   const QuizQuestion({required this.prompt, required this.options, required this.answer});
   factory QuizQuestion.fromJson(JsonReader j) =>
@@ -372,9 +381,10 @@ final class Quiz {
 }
 
 final class TaskContent {
-  const TaskContent({required this.resources, required this.quiz, this.practice, this.rubric = const []});
+  const TaskContent({required this.resources, required this.quiz, this.practice, this.rubric = const [], this.documents = const []});
   factory TaskContent.fromJson(JsonReader j) => TaskContent(
     resources: j.list('resources', Resource.fromJson),
+    documents: j.raw['documents'] == null ? const [] : j.list('documents', TaskDocument.fromJson),
     quiz: switch (j.objectOrNull('quiz')) {
       final q? => Quiz.fromJson(q),
       null => null,
@@ -386,6 +396,7 @@ final class TaskContent {
     rubric: j.valuesOrNull<String>('rubric') ?? const [],
   );
   final List<Resource> resources;
+  final List<TaskDocument> documents;
   final Quiz? quiz;
 
   /// DSA example tests. The app shows them; running code happens in the web app.

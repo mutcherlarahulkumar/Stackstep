@@ -17,6 +17,8 @@ import { dateTimeLabel, dueLabel, isOverdue, taskTimeLabel } from "@/lib/format"
 import { cn } from "@/lib/utils";
 import { studentMoves } from "@/lib/validation";
 
+import { DocumentMarkdown } from "../app/document-markdown";
+import { TaskDocuments } from "./task-documents";
 import { choiceItem } from "../app/choice";
 import { PersonaAvatar } from "../app/persona-avatar";
 import { EmptyState, ErrorState } from "../app/state";
@@ -236,10 +238,11 @@ function TaskSheet({
               </Alert>
               <h3 className="mt-6 mb-2 text-sm font-medium">Brief</h3>
               {task.brief ? (
-                <p className="text-sm leading-relaxed whitespace-pre-wrap">{task.brief}</p>
+                <DocumentMarkdown>{task.brief}</DocumentMarkdown>
               ) : (
                 <p className="text-muted-foreground text-sm">No brief for this one. Ask {persona?.name ?? "your lead"} in chat if anything is unclear.</p>
               )}
+              <TaskDocuments key={task.id} documents={task.content.documents} />
               <ResourceList resources={task.content.resources} />
               <RubricView criteria={task.content.rubric} submission={task.submission} />
               {task.submission ? <SubmissionCard submission={task.submission} title="Your hand-in" /> : null}
