@@ -549,7 +549,7 @@ function DetailsStep({
                         <FieldContent>
                           <FieldTitle>{c.name}</FieldTitle>
                           <FieldDescription>
-                            {c.program.days} days · starts {c.start_date}
+                            {c.program.days} days · day 1 is the day after you&apos;re approved
                             <br />
                             <span className="text-foreground font-semibold">
                               {c.fee_inr ? inr(c.fee_inr) : "No fee"}
@@ -1043,9 +1043,7 @@ function Summary({ app, view }: { app: Application; view: ApplicantView }) {
       </div>
       <div>
         <dt className="text-xs">Starts</dt>
-        <dd className="text-foreground tabular-nums">
-          {view.cohort?.start_date ?? "Not set"}
-        </dd>
+        <dd className="text-foreground">The day after approval</dd>
       </div>
     </dl>
   );
@@ -1178,9 +1176,9 @@ function Approved({
     >
       <p className="text-sm">
         You&apos;re enrolled in{" "}
-        <strong>{view.cohort?.name ?? "your cohort"}</strong>
-        {view.cohort ? <> starting {view.cohort.start_date}</> : null}. Your
-        team lead is waiting in your workspace.
+        <strong>{view.cohort?.name ?? "your cohort"}</strong>. Your first
+        working day is tomorrow. Your team lead is waiting in your workspace
+        with the time your first task arrives.
       </p>
       <Button
         className="w-fit"

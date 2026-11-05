@@ -80,8 +80,7 @@ type CohortInput struct {
 	Name        string
 	CollegeID   *uuid.UUID
 	ProgramSlug string
-	StartDate   time.Time
-	Timezone    string
+	FlowID      *uuid.UUID // the flow students follow; set now or later
 	SeatsTotal  int
 }
 
@@ -106,12 +105,6 @@ func (w *Workspace) CreateCohort(ctx context.Context, u domain.User, in CohortIn
 	if in.SeatsTotal < 1 || in.SeatsTotal > domain.MaxSeats {
 		errs["seats_total"] = fmt.Sprintf("Seats must be 1 to %d.", domain.MaxSeats)
 	}
-	loc, msg := domain.LoadTimezone(in.Timezone)
-	if msg != "" {
-		errs["timezone"] = msg
-	} else if msg := domain.ValidateStartDate(in.StartDate, loc, w.Clock.Now()); msg != "" {
-		errs["start_date"] = msg
-	}
 	var out store.CohortRow
 	err := w.Store.Tx(ctx, func(q store.Q) error {
 		p, err := store.ProgramBySlug(ctx, q, in.ProgramSlug)
@@ -129,10 +122,17 @@ func (w *Workspace) CreateCohort(ctx context.Context, u domain.User, in CohortIn
 				errs["college_id"] = "That college doesn't exist."
 			}
 		}
+		if in.FlowID != nil && errs["program_slug"] == "" {
+			if msg, err := cohortFlowProblem(ctx, q, *in.FlowID, p.Program); err != nil {
+				return err
+			} else if msg != "" {
+				errs["flow_id"] = msg
+			}
+		}
 		if len(errs) > 0 {
 			return apperr.Validation(errs)
 		}
-		id, err := store.InsertCohort(ctx, q, domain.Cohort{Kind: in.Kind, Name: name, CollegeID: in.CollegeID, StartDate: in.StartDate, SeatsTotal: in.SeatsTotal}, p.ID, w.Clock.Now())
+		id, err := store.InsertCohort(ctx, q, domain.Cohort{Kind: in.Kind, Name: name, CollegeID: in.CollegeID, FlowID: in.FlowID, SeatsTotal: in.SeatsTotal}, p.ID, w.Clock.Now())
 		if err != nil {
 			return err
 		}
@@ -147,9 +147,9 @@ type EnrollInput struct {
 	Person      domain.PersonInput
 	CohortID    *uuid.UUID
 	ProgramSlug string     // required without a cohort; must match the cohort's program otherwise
-	StartDate   *time.Time // defaults to the cohort's start date
+	StartDate   *time.Time // defaults to the day after enrolling (FirstWorkingDay)
 	Timezone    string
-	FlowID      *uuid.UUID
+	FlowID      *uuid.UUID // defaults to the cohort's flow
 }
 
 // EnrollResult is a created internship.
@@ -220,19 +220,21 @@ func (w *Workspace) enrollTx(ctx context.Context, q store.Q, u domain.User, in E
 			}
 			programID, program = p.ID, p.Program
 		}
+		// Everyone starts the day after they join, unless staff pick a date on purpose.
 		var start time.Time
-		switch {
-		case in.StartDate != nil:
+		if in.StartDate != nil {
 			start = *in.StartDate
-		case cohort != nil:
-			start = cohort.Cohort.StartDate
-		default:
-			errs["start_date"] = "Pick a start date."
-		}
-		if errs["start_date"] == "" && loc != nil {
-			if msg := domain.ValidateStartDate(start, loc, now); msg != "" {
-				errs["start_date"] = msg
+			if loc != nil {
+				if msg := domain.ValidateStartDate(start, loc, now); msg != "" {
+					errs["start_date"] = msg
+				}
 			}
+		} else if loc != nil {
+			start = domain.FirstWorkingDay(now, loc)
+		}
+		flowID := in.FlowID
+		if flowID == nil && cohort != nil {
+			flowID = cohort.Cohort.FlowID
 		}
 		if len(errs) > 0 {
 			return apperr.Validation(errs)
@@ -283,16 +285,16 @@ func (w *Workspace) enrollTx(ctx context.Context, q store.Q, u domain.User, in E
 		if err != nil {
 			return err
 		}
-		if err := w.welcome(ctx, q, u, e, student, now); err != nil {
-			return err
-		}
-		if in.FlowID != nil {
-			if _, err := ApplyFlow(ctx, q, e, *in.FlowID, u.ID, now); err != nil {
+		if flowID != nil {
+			if _, err := ApplyFlow(ctx, q, e, *flowID, u.ID, now); err != nil {
 				return err
 			}
 			if e, err = store.GetEnrollment(ctx, q, id); err != nil {
 				return err
 			}
+		}
+		if err := w.welcome(ctx, q, u, e, student, now); err != nil {
+			return err
 		}
 		student, err = store.GetUser(ctx, q, student.ID)
 		if err != nil {
@@ -306,16 +308,16 @@ func (w *Workspace) enrollTx(ctx context.Context, q store.Q, u domain.User, in E
 
 // welcome has the team lead greet the student when their internship opens.
 func (w *Workspace) welcome(ctx context.Context, q store.Q, actor domain.User, e domain.Enrollment, student domain.User, now time.Time) error {
-	opens, _ := e.Window()
-	deliver := now
-	if opens.After(now) {
-		deliver = opens.Add(9 * time.Hour) // 9 AM local on day 1
+	// The welcome arrives straight away and says when day 1 starts, so nobody joins to silence.
+	first, err := FirstDayNote(ctx, q, e, now)
+	if err != nil {
+		return err
 	}
 	by := actor.ID
-	_, _, err := store.InsertMessage(ctx, q, store.NewMessage{
-		EnrollmentID: e.ID, PersonaID: domain.DefaultPersonaID, SentBy: &by, Author: domain.AuthorPersona, DeliverAt: deliver,
-		Body: fmt.Sprintf("Welcome to Stackstep, %s. I'm your team lead for the next %d days. Each morning I'll post a standup and drop tickets on your board. Ask me anything here.",
-			firstNameOf(student.Name), e.Program.Days),
+	_, _, err = store.InsertMessage(ctx, q, store.NewMessage{
+		EnrollmentID: e.ID, PersonaID: domain.DefaultPersonaID, SentBy: &by, Author: domain.AuthorPersona, DeliverAt: now,
+		Body: fmt.Sprintf("Welcome to Stackstep, %s. I'm your team lead for the next %d days. %s Each morning I'll post a standup and drop tickets on your board. Ask me anything here.",
+			firstNameOf(student.Name), e.Program.Days, first),
 	}, now)
 	return err
 }
@@ -568,4 +570,58 @@ func (w *Workspace) staffRow(ctx context.Context, q store.Q, id uuid.UUID) (stor
 		}
 	}
 	return r, nil
+}
+
+// cohortFlowProblem says why a flow can't be a cohort's flow, or "" when it can.
+func cohortFlowProblem(ctx context.Context, q store.Q, flowID uuid.UUID, p domain.Program) (string, error) {
+	f, err := store.GetFlow(ctx, q, flowID, false)
+	switch {
+	case errors.Is(err, store.ErrNotFound):
+		return "That flow doesn't exist.", nil
+	case err != nil:
+		return "", err
+	case f.ArchivedAt != nil:
+		return "This flow is archived.", nil
+	case f.Days != p.Days:
+		return fmt.Sprintf("This flow lasts %d days but the program lasts %d.", f.Days, p.Days), nil
+	}
+	if _, err := store.FlowVersionByStatus(ctx, q, flowID, domain.FlowPublished); errors.Is(err, store.ErrNotFound) {
+		return "Publish this flow first.", nil
+	} else if err != nil {
+		return "", err
+	}
+	return "", nil
+}
+
+// SetCohortFlow picks the flow a cohort's new students follow (platform admins only). Students
+// already enrolled keep theirs; nil clears it.
+func (w *Workspace) SetCohortFlow(ctx context.Context, u domain.User, id uuid.UUID, flowID *uuid.UUID) (store.CohortRow, error) {
+	if u.Role != domain.RoleAdmin {
+		return store.CohortRow{}, errPlatformAdmin
+	}
+	var out store.CohortRow
+	err := w.Store.Tx(ctx, func(q store.Q) error {
+		c, err := store.GetCohort(ctx, q, id, true)
+		if errors.Is(err, store.ErrNotFound) {
+			return apperr.New(apperr.CodeNotFound, "Cohort not found.")
+		}
+		if err != nil {
+			return err
+		}
+		if flowID != nil {
+			msg, err := cohortFlowProblem(ctx, q, *flowID, c.Cohort.Program)
+			if err != nil {
+				return err
+			}
+			if msg != "" {
+				return apperr.Validation(map[string]string{"flow_id": msg})
+			}
+		}
+		if err := store.SetCohortFlow(ctx, q, id, flowID); err != nil {
+			return err
+		}
+		out, err = store.GetCohort(ctx, q, id, false)
+		return err
+	})
+	return out, err
 }

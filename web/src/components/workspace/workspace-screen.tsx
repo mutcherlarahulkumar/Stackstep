@@ -11,6 +11,7 @@ import { useState } from "react";
 
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { startsCaption } from "@/lib/people";
 import { type Enrollment, type Me, type Persona } from "@/lib/api/schemas";
 import { personaTag, totalUnread } from "@/lib/inbox";
 import { useStudentThreads } from "@/lib/inbox-queries";
@@ -54,7 +55,7 @@ export function WorkspaceScreen() {
 
 function dayCaption(e: Enrollment): string {
   if (e.status === "paused") return "Internship paused";
-  if (e.day_number === 0) return `Starts ${e.start_date}`;
+  if (e.day_number === 0) return startsCaption(e.start_date);
   return `Day ${e.day_number} of ${e.program.days}`;
 }
 

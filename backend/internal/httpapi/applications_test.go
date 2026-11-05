@@ -4,7 +4,6 @@ import (
 	"encoding/base64"
 	"strings"
 	"testing"
-	"time"
 
 	"github.com/google/uuid"
 
@@ -177,11 +176,14 @@ func TestApplicationHappyPathWithPartialPayment(t *testing.T) {
 	if sv.Application.Status != "approved" || sv.Application.EnrollmentID == nil {
 		t.Fatalf("approved = %+v", sv.Application)
 	}
-	if me := e.me(e.login(seed.NoEnrollLogin)); me.Enrollment == nil || me.Enrollment.Status != "active" {
-		t.Fatalf("not enrolled: %+v", me)
+	// RS2: they start tomorrow on the cohort's flow, and the confirmation says when.
+	if me := e.me(e.login(seed.NoEnrollLogin)); me.Enrollment == nil || me.Enrollment.Status != "active" ||
+		me.Enrollment.StartDate != "2026-11-05" || me.Enrollment.DayNumber != 0 || me.Enrollment.Flow == nil {
+		t.Fatalf("not enrolled for tomorrow: %+v", me.Enrollment)
 	}
 	v = e.myApp(nora)
-	if !v.Enrolled || !strings.Contains(v.Messages[len(v.Messages)-1].Body, "You're enrolled") {
+	if last := v.Messages[len(v.Messages)-1].Body; !v.Enrolled || !strings.Contains(last, "You're enrolled") ||
+		!strings.Contains(last, "Your first working day is tomorrow, Thursday 5 November. Your first task arrives at ") {
 		t.Fatalf("view after approval = %+v", v)
 	}
 	// AP8: a decided application can't be decided again; enrolled students can't apply.
@@ -203,8 +205,7 @@ func TestApplicationIssues(t *testing.T) {
 		ID uuid.UUID `json:"id"`
 	}
 	e.expect(e.do("POST", "/v1/admin/cohorts", adm, map[string]any{
-		"kind": "group", "name": "Weekend Cohort", "program_slug": "frontend-30", "start_date": testNow.AddDate(0, 0, 21).Format(time.DateOnly),
-		"timezone": "Asia/Kolkata", "seats_total": 50,
+		"kind": "group", "name": "Weekend Cohort", "program_slug": "frontend-30", "seats_total": 50,
 	}), 201).json(t, &cheap)
 	e.expectCode(e.do("PATCH", "/v1/admin/cohorts/"+cheap.ID.String()+"/admissions", adm, map[string]any{"fee_inr": nil, "applications_open": true}), 422, "validation_failed")
 	e.expect(e.do("PATCH", "/v1/admin/cohorts/"+cheap.ID.String()+"/admissions", e.login(seed.CollegeAdminLogin), map[string]any{"fee_inr": 2999, "applications_open": true}), 403)

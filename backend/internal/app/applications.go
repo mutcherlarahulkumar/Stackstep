@@ -56,10 +56,9 @@ func (a *Admissions) Mine(ctx context.Context, u domain.User) (ApplicantView, er
 		return ApplicantView{}, errAppStudents
 	}
 	q := a.ws.Store.Pool
-	now := a.now()
 	v := ApplicantView{Proofs: []store.ProofMeta{}, Messages: []store.AppMessage{}}
 	var err error
-	if v.Cohorts, err = store.OpenCohorts(ctx, q, now); err != nil {
+	if v.Cohorts, err = store.OpenCohorts(ctx, q); err != nil {
 		return v, err
 	}
 	if v.Payment, err = store.GetPaymentSettings(ctx, q); err != nil {
@@ -126,7 +125,7 @@ func (a *Admissions) Save(ctx context.Context, u domain.User, in ApplicationInpu
 		cohort, err := store.GetCohort(ctx, q, in.CohortID, false)
 		var cohortErr string
 		switch {
-		case errors.Is(err, store.ErrNotFound) || err == nil && !admitting(cohort, now):
+		case errors.Is(err, store.ErrNotFound) || err == nil && !admitting(cohort):
 			cohortErr = "Pick a cohort that's taking applications."
 		case err != nil:
 			return err
@@ -198,11 +197,10 @@ func (a *Admissions) Save(ctx context.Context, u domain.User, in ApplicationInpu
 	return a.Mine(ctx, u)
 }
 
-// admitting reports whether a cohort takes applications now.
-func admitting(c store.CohortRow, now time.Time) bool {
-	y, m, d := now.UTC().Date()
-	today := time.Date(y, m, d, 0, 0, 0, 0, time.UTC)
-	return c.Cohort.ApplicationsOpen && c.Cohort.FeeINR != nil && !c.Cohort.StartDate.Before(today.AddDate(0, 0, -7))
+// admitting reports whether a cohort takes applications. Students start the day after they
+// are approved, so there is no start date to miss.
+func admitting(c store.CohortRow) bool {
+	return c.Cohort.ApplicationsOpen && c.Cohort.FeeINR != nil
 }
 
 // ProofInput is an uploaded payment screenshot.
@@ -444,7 +442,7 @@ func (a *Admissions) Application(ctx context.Context, u domain.User, id uuid.UUI
 	if err != nil {
 		return StaffView{}, err
 	}
-	if v.Cohorts, err = store.OpenCohorts(ctx, q, a.now()); err != nil {
+	if v.Cohorts, err = store.OpenCohorts(ctx, q); err != nil {
 		return StaffView{}, err
 	}
 	applicant, err := store.GetUser(ctx, q, app.UserID)
@@ -570,12 +568,8 @@ func (a *Admissions) approve(ctx context.Context, q store.Q, u domain.User, app 
 	}
 	person, errs := domain.ValidatePerson(domain.PersonInput{GitHubLogin: applicant.GitHubLogin, Name: app.Details.FullName, Email: email})
 	loc, _ := domain.LoadTimezone(domain.DefaultTimezone)
+	// The student starts tomorrow on the reviewer's flow, else the cohort's.
 	in := EnrollInput{Person: person, CohortID: &cohort.Cohort.ID, Timezone: domain.DefaultTimezone, FlowID: d.FlowID}
-	// A cohort that started a little while ago still takes this student, from today.
-	if y, m, day := now.In(loc).Date(); cohort.Cohort.StartDate.Before(time.Date(y, m, day, 0, 0, 0, 0, time.UTC)) {
-		today := time.Date(y, m, day, 0, 0, 0, 0, time.UTC)
-		in.StartDate = &today
-	}
 	res, err := a.ws.enrollTx(ctx, q, u, in, only, person, errs, loc, now)
 	if err != nil {
 		var ae *apperr.Error
@@ -594,7 +588,11 @@ func (a *Admissions) approve(ctx context.Context, q store.Q, u domain.User, app 
 	if err := store.SetDecidedBy(ctx, q, app.ID, u.ID); err != nil {
 		return err
 	}
-	msg := fmt.Sprintf("Payment of %s confirmed. You're enrolled in %s. Open your workspace to meet your team.", domain.INR(paid), cohort.Cohort.Name)
+	first, err := FirstDayNote(ctx, q, res.Student.Enrollment, now)
+	if err != nil {
+		return err
+	}
+	msg := fmt.Sprintf("Payment of %s confirmed. You're enrolled in %s. %s", domain.INR(paid), cohort.Cohort.Name, first)
 	if err := a.system(ctx, q, app.ID, msg, now); err != nil {
 		return err
 	}

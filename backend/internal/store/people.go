@@ -113,26 +113,27 @@ type CohortRow struct {
 }
 
 const cohortSelect = `
-	SELECT co.id, co.kind, co.name, co.college_id, p.id, p.slug, p.days, p.track, co.start_date, co.seats_total, co.created_at, cl.name,
+	SELECT co.id, co.kind, co.name, co.college_id, p.id, p.slug, p.days, p.track, co.flow_id, f.name, co.seats_total, co.created_at, cl.name,
 	       co.fee_inr, co.applications_open,
 	       (SELECT count(*) FROM enrollments e WHERE e.cohort_id = co.id AND e.status IN ('active', 'paused'))::int
 	FROM cohorts co
 	JOIN programs p ON p.id = co.program_id
-	LEFT JOIN colleges cl ON cl.id = co.college_id`
+	LEFT JOIN colleges cl ON cl.id = co.college_id
+	LEFT JOIN flows f ON f.id = co.flow_id`
 
 func scanCohort(row interface{ Scan(...any) error }) (CohortRow, error) {
 	var r CohortRow
 	var kind string
 	err := row.Scan(&r.Cohort.ID, &kind, &r.Cohort.Name, &r.Cohort.CollegeID, &r.ProgramID, &r.Cohort.Program.Slug, &r.Cohort.Program.Days,
-		&r.Cohort.Program.Track, &r.Cohort.StartDate, &r.Cohort.SeatsTotal, &r.Cohort.CreatedAt, &r.CollegeName,
+		&r.Cohort.Program.Track, &r.Cohort.FlowID, &r.Cohort.FlowName, &r.Cohort.SeatsTotal, &r.Cohort.CreatedAt, &r.CollegeName,
 		&r.Cohort.FeeINR, &r.Cohort.ApplicationsOpen, &r.SeatsUsed)
 	r.Cohort.Kind = domain.CohortKind(kind)
 	return r, notFound(err)
 }
 
-// ListCohorts returns cohorts, newest start first, optionally for one college.
+// ListCohorts returns cohorts, newest first, optionally for one college.
 func ListCohorts(ctx context.Context, q Q, college *uuid.UUID) ([]CohortRow, error) {
-	rows, err := q.Query(ctx, cohortSelect+` WHERE $1::uuid IS NULL OR co.college_id = $1 ORDER BY co.start_date DESC, lower(co.name), co.id`, college)
+	rows, err := q.Query(ctx, cohortSelect+` WHERE $1::uuid IS NULL OR co.college_id = $1 ORDER BY co.created_at DESC, lower(co.name), co.id`, college)
 	if err != nil {
 		return nil, fmt.Errorf("list cohorts: %w", err)
 	}
@@ -161,8 +162,8 @@ func GetCohort(ctx context.Context, q Q, id uuid.UUID, forUpdate bool) (CohortRo
 // InsertCohort adds a cohort.
 func InsertCohort(ctx context.Context, q Q, c domain.Cohort, programID uuid.UUID, now time.Time) (uuid.UUID, error) {
 	var id uuid.UUID
-	err := q.QueryRow(ctx, `INSERT INTO cohorts (kind, name, college_id, program_id, start_date, seats_total, created_at, fee_inr, applications_open)
-		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9) RETURNING id`, string(c.Kind), c.Name, c.CollegeID, programID, c.StartDate, c.SeatsTotal, now,
+	err := q.QueryRow(ctx, `INSERT INTO cohorts (kind, name, college_id, program_id, flow_id, seats_total, created_at, fee_inr, applications_open)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9) RETURNING id`, string(c.Kind), c.Name, c.CollegeID, programID, c.FlowID, c.SeatsTotal, now,
 		c.FeeINR, c.ApplicationsOpen).Scan(&id)
 	return id, err
 }
@@ -176,10 +177,20 @@ func SetCohortAdmissions(ctx context.Context, q Q, id uuid.UUID, fee *int, open 
 	return err
 }
 
-// OpenCohorts are cohorts taking applications that haven't started more than a week ago.
-func OpenCohorts(ctx context.Context, q Q, now time.Time) ([]CohortRow, error) {
-	rows, err := q.Query(ctx, cohortSelect+` WHERE co.applications_open AND co.fee_inr IS NOT NULL AND co.start_date >= ($1::date - 7)
-		ORDER BY co.start_date, lower(co.name), co.id`, now)
+// SetCohortFlow sets the flow a cohort's new students follow.
+func SetCohortFlow(ctx context.Context, q Q, id uuid.UUID, flow *uuid.UUID) error {
+	tag, err := q.Exec(ctx, `UPDATE cohorts SET flow_id = $2 WHERE id = $1`, id, flow)
+	if err == nil && tag.RowsAffected() == 0 {
+		return ErrNotFound
+	}
+	return err
+}
+
+// OpenCohorts are cohorts taking applications. Students start the day after they join, so
+// a cohort stays open for as long as the admins keep it open.
+func OpenCohorts(ctx context.Context, q Q) ([]CohortRow, error) {
+	rows, err := q.Query(ctx, cohortSelect+` WHERE co.applications_open AND co.fee_inr IS NOT NULL
+		ORDER BY lower(co.name), co.id`)
 	if err != nil {
 		return nil, fmt.Errorf("open cohorts: %w", err)
 	}

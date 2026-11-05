@@ -78,6 +78,8 @@ func flushDemo(ctx context.Context, q store.Q) error {
 		{`DELETE FROM task_events WHERE task_id IN (SELECT id FROM demo_tasks)`, nil},
 		{`DELETE FROM tasks WHERE id IN (SELECT id FROM demo_tasks)`, nil},
 		{`DELETE FROM enrollments WHERE id IN (SELECT id FROM demo_enr)`, nil},
+		// Real cohorts that followed a demo flow keep going without one until an admin picks another.
+		{`UPDATE cohorts SET flow_id = NULL WHERE flow_id IN (SELECT id FROM flows WHERE id = $1 OR created_by IN (SELECT id FROM demo_users))`, []any{ReactFlowID}},
 		{`DELETE FROM flow_versions WHERE flow_id IN (SELECT id FROM flows WHERE id = $1 OR created_by IN (SELECT id FROM demo_users))`, []any{ReactFlowID}},
 		{`DELETE FROM flows WHERE id = $1 OR created_by IN (SELECT id FROM demo_users)`, []any{ReactFlowID}},
 		{`DELETE FROM task_templates WHERE created_by IN (SELECT id FROM demo_users)`, nil},

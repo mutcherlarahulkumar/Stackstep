@@ -129,6 +129,10 @@ func Run(ctx context.Context, q store.Q, now time.Time) error {
 	if err := seedCatalog(ctx, q, ids[AdminLogin], now); err != nil {
 		return fmt.Errorf("catalog: %w", err)
 	}
+	// Students approved into the open cohort start on the React flow the next day.
+	if _, err := q.Exec(ctx, `UPDATE cohorts SET flow_id = $1 WHERE name = $2 AND flow_id IS NULL`, ReactFlowID, OpenCohortName); err != nil {
+		return fmt.Errorf("open cohort flow: %w", err)
+	}
 	meera, err := store.OpenEnrollmentForUser(ctx, q, ids[IndieStudentLogin])
 	if err != nil {
 		return fmt.Errorf("load meera: %w", err)

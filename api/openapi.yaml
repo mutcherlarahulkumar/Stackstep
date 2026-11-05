@@ -1089,6 +1089,7 @@ paths:
       tags: [people]
       operationId: createCohort
       summary: Add a cohort (platform admins)
+      description: Cohorts have no start date. Each student starts the day after they join, on the cohort's flow.
       requestBody:
         required: true
         content:
@@ -1096,14 +1097,13 @@ paths:
             schema:
               type: object
               additionalProperties: false
-              required: [kind, name, program_slug, start_date, seats_total]
+              required: [kind, name, program_slug, seats_total]
               properties:
                 kind: { $ref: "#/components/schemas/CohortKind" }
                 name: { type: string, minLength: 2, maxLength: 200 }
                 college_id: { type: [string, "null"], format: uuid, description: "Required for college cohorts, absent for groups" }
                 program_slug: { type: string }
-                start_date: { type: string, format: date, description: "Within 30 days ago and a year ahead, in timezone" }
-                timezone: { type: string, description: IANA zone; defaults to Asia/Kolkata }
+                flow_id: { type: [string, "null"], format: uuid, description: "Published, unarchived flow as long as the program; new students follow it" }
                 seats_total: { type: integer, minimum: 1, maximum: 100000 }
       responses:
         "201": { description: Created, content: { application/json: { schema: { $ref: "#/components/schemas/Cohort" } } } }
@@ -1114,7 +1114,7 @@ paths:
       tags: [people]
       operationId: enroll
       summary: Enroll a GitHub login (created if they haven't signed in yet; linked on first GitHub sign-in)
-      description: College admins must pick one of their college's cohorts. The team lead welcomes the student when the internship opens.
+      description: College admins must pick one of their college's cohorts. The team lead welcomes the student straight away and says when day 1 starts.
       requestBody:
         required: true
         content:
@@ -1512,6 +1512,28 @@ paths:
               properties:
                 fee_inr: { oneOf: [{ type: integer, minimum: 1, maximum: 10000000 }, { type: "null" }] }
                 applications_open: { type: boolean }
+      responses:
+        "200": { description: Saved, content: { application/json: { schema: { $ref: "#/components/schemas/Cohort" } } } }
+        "403": { $ref: "#/components/responses/Error" }
+        "404": { $ref: "#/components/responses/Error" }
+        "422": { $ref: "#/components/responses/Error" }
+  /v1/admin/cohorts/{id}/flow:
+    put:
+      tags: [people]
+      operationId: setCohortFlow
+      summary: Pick the flow a cohort's new students follow (platform admins; null clears it)
+      description: Students already enrolled keep their flow.
+      parameters: [{ $ref: "#/components/parameters/Id" }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [flow_id]
+              properties:
+                flow_id: { type: [string, "null"], format: uuid }
       responses:
         "200": { description: Saved, content: { application/json: { schema: { $ref: "#/components/schemas/Cohort" } } } }
         "403": { $ref: "#/components/responses/Error" }
@@ -2292,7 +2314,7 @@ components:
         created_at: { type: string, format: date-time }
     Cohort:
       type: object
-      required: [id, kind, name, college_id, college_name, program, start_date, seats_total, seats_used, fee_inr, applications_open]
+      required: [id, kind, name, college_id, college_name, program, flow_id, flow_name, seats_total, seats_used, fee_inr, applications_open]
       properties:
         id: { type: string, format: uuid }
         kind: { $ref: "#/components/schemas/CohortKind" }
@@ -2300,7 +2322,8 @@ components:
         college_id: { type: [string, "null"], format: uuid }
         college_name: { type: [string, "null"] }
         program: { $ref: "#/components/schemas/Program" }
-        start_date: { type: string, format: date }
+        flow_id: { type: [string, "null"], format: uuid, description: The flow new students follow from their first day }
+        flow_name: { type: [string, "null"] }
         seats_total: { type: integer, minimum: 1 }
         seats_used: { type: integer, minimum: 0, description: Active or paused internships }
         fee_inr: { type: [integer, "null"], description: "Fee for applicants, in rupees" }
@@ -2317,9 +2340,9 @@ components:
       properties:
         cohort_id: { type: [string, "null"], format: uuid, description: Required for college admins }
         program_slug: { type: string, description: Required without a cohort; must match the cohort's program otherwise }
-        start_date: { type: [string, "null"], format: date, description: Defaults to the cohort's start date }
+        start_date: { type: [string, "null"], format: date, description: "Defaults to the day after enrolling, in timezone. Every internship starts on a fresh day." }
         timezone: { type: string, description: IANA zone; defaults to Asia/Kolkata }
-        flow_id: { type: [string, "null"], format: uuid, description: Optional published flow to schedule }
+        flow_id: { type: [string, "null"], format: uuid, description: Published flow to schedule; defaults to the cohort's flow }
     StaffMember:
       type: object
       required: [user, college_name, signed_in]

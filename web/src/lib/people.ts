@@ -121,3 +121,23 @@ export function todayISO(now = new Date()): string {
   const p = (n: number) => String(n).padStart(2, "0");
   return `${now.getFullYear()}-${p(now.getMonth() + 1)}-${p(now.getDate())}`;
 }
+
+/**
+ * Day 1 for someone joining now: the next calendar day in their time zone, e.g. "Thursday 5
+ * November". Mirrors domain.FirstWorkingDay on the server.
+ */
+export function firstWorkingDay(timeZone: string, now = new Date()): string {
+  const ymd = new Intl.DateTimeFormat("en-CA", { timeZone, year: "numeric", month: "2-digit", day: "2-digit" }).format(now);
+  const [y, m, d] = ymd.split("-").map(Number);
+  const next = new Date(Date.UTC(y ?? 1970, (m ?? 1) - 1, (d ?? 1) + 1, 12));
+  return new Intl.DateTimeFormat("en-GB", { timeZone: "UTC", weekday: "long", day: "numeric", month: "long" }).format(next);
+}
+
+/** "Starts tomorrow" or "Starts Thu 5 Nov" for an internship that hasn't begun (start is YYYY-MM-DD). */
+export function startsCaption(start: string, now = new Date()): string {
+  const [y, m, d] = start.split("-").map(Number);
+  const day = new Date(y ?? 1970, (m ?? 1) - 1, d ?? 1);
+  const tomorrow = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1);
+  if (day.getTime() === tomorrow.getTime()) return "Starts tomorrow";
+  return `Starts ${day.toLocaleDateString("en-GB", { weekday: "short", day: "numeric", month: "short" })}`;
+}

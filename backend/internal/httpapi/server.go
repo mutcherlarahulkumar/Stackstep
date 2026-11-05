@@ -160,6 +160,7 @@ func (s *Server) Handler() http.Handler {
 	admin.GET("/cohorts", s.listCohorts)
 	admin.POST("/cohorts", s.createCohort)
 	admin.PATCH("/cohorts/:id/admissions", s.setCohortAdmissions)
+	admin.PUT("/cohorts/:id/flow", s.setCohortFlow)
 	admin.GET("/applications", s.listApplications)
 	admin.GET("/applications/:id", s.getApplication)
 	admin.POST("/applications/:id/decision", s.decideApplication)

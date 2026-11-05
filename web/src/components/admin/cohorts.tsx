@@ -17,17 +17,16 @@ import { Spinner } from "@/components/ui/spinner";
 import { Switch } from "@/components/ui/switch";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { ApiError, messageFor } from "@/lib/api/errors";
-import { type Cohort, type CohortKind, type Me } from "@/lib/api/schemas";
+import { type Cohort, type CohortKind, type FlowSummary, type Me } from "@/lib/api/schemas";
 import { applyErrorMessage, inr } from "@/lib/apply";
-import { TIMEZONES, todayISO } from "@/lib/people";
 import { useSession } from "@/lib/session";
 import { cn } from "@/lib/utils";
 
-import { DatePicker } from "../app/date-picker";
 import { InfoNote } from "../app/info-note";
 import { PAGE, PageHeader } from "../app/page-header";
 import { EmptyState, ErrorState, ListSkeleton } from "../app/state";
 import { AdminShell } from "./admin-shell";
+import { useFlows } from "./catalog-queries";
 import { splitError } from "./form-errors";
 import { useCohorts, useColleges, usePrograms } from "./people-enroll";
 
@@ -42,7 +41,7 @@ function Cohorts({ me }: { me: Me }) {
   return (
     <div className="min-h-0 flex-1 overflow-y-auto">
       <div className={cn(PAGE, "gap-6")}>
-        <PageHeader title="Cohorts" description="Batches of students who start together.">
+        <PageHeader title="Cohorts" description="Batches of students who follow the same flow.">
           {isAdmin ? (
             <Button onClick={() => setAdding(true)} data-testid="open-new-cohort">
               <Plus data-icon="inline-start" aria-hidden /> Add cohort
@@ -50,9 +49,10 @@ function Cohorts({ me }: { me: Me }) {
           ) : null}
         </PageHeader>
         <InfoNote id="cohorts" title="What a cohort is">
-          A cohort is one batch of students on one program (30 or 60 days) with a start date and a seat limit. It can belong to a college or be
-          an independent group. Give it a fee and switch on &quot;Taking applications&quot; to let students apply and pay for it from the
-          application form. Students you enroll by hand (Setup, then People) don&apos;t pay through Stackstep.
+          A cohort is one batch of students on one program (30 or 60 days) with a seat limit and the flow they follow. There is no start date.
+          Every student starts on day 1 the day after they join, so nobody misses a morning. It can belong to a college or be an independent
+          group. Give it a fee and switch on &quot;Taking applications&quot; to let students apply and pay for it from the application form.
+          Students you enroll by hand (Setup, then People) don&apos;t pay through Stackstep.
         </InfoNote>
         {cohorts.isPending ? (
           <ListSkeleton rows={3} className="h-12" />
@@ -69,7 +69,7 @@ function Cohorts({ me }: { me: Me }) {
                 <TableRow>
                   <TableHead>Cohort</TableHead>
                   <TableHead>Program</TableHead>
-                  <TableHead>Starts</TableHead>
+                  <TableHead className="w-60">Flow</TableHead>
                   <TableHead className="w-48">Seats</TableHead>
                   <TableHead className="w-36">Fee (₹)</TableHead>
                   <TableHead className="w-28">Applications</TableHead>
@@ -125,7 +125,7 @@ function CohortRow({ cohort: c, editable }: { cohort: Cohort; editable: boolean 
         ) : null}
       </TableCell>
       <TableCell>{c.program.days} days</TableCell>
-      <TableCell className="whitespace-nowrap tabular-nums">{c.start_date}</TableCell>
+      <TableCell>{editable ? <CohortFlowSelect cohort={c} /> : <span>{c.flow_name ?? "No flow yet"}</span>}</TableCell>
       <TableCell>
         <div className="flex items-center gap-2">
           <Progress value={pct} className="w-20" aria-label={`${c.seats_used} of ${c.seats_total} seats used`} />
@@ -160,6 +160,45 @@ function CohortRow({ cohort: c, editable }: { cohort: Cohort; editable: boolean 
   );
 }
 
+/** Published, unarchived flows as long as the program, the only ones a cohort can follow. */
+function fitting(flows: FlowSummary[] | undefined, days: number) {
+  return (flows ?? []).filter((f) => !f.archived && f.published_version !== null && f.days === days);
+}
+
+const NO_FLOW = "none";
+
+/** Saves as soon as a flow is picked; students already enrolled keep theirs. */
+function CohortFlowSelect({ cohort: c }: { cohort: Cohort }) {
+  const { api } = useSession();
+  const qc = useQueryClient();
+  const flows = useFlows();
+  const save = useMutation({
+    mutationFn: (flowId: string | null) => api.setCohortFlow(c.id, flowId),
+    onSuccess: (x) => {
+      toast.success(x.flow_name ? `New students in ${x.name} follow ${x.flow_name}` : `${x.name} has no flow now`);
+      void qc.invalidateQueries({ queryKey: ["cohorts"] });
+    },
+    onError: (e) => toast.error(e instanceof ApiError && e.code === "validation_failed" ? (Object.values(e.fields)[0] ?? messageFor(e)) : messageFor(e)),
+  });
+  const options = fitting(flows.data, c.program.days);
+  return (
+    <Select value={c.flow_id ?? NO_FLOW} onValueChange={(v) => save.mutate(v === NO_FLOW ? null : v)} disabled={save.isPending}>
+      <SelectTrigger className="h-8 w-full" aria-label={`Flow for ${c.name}`} data-testid="cohort-flow">
+        <SelectValue placeholder={flows.isPending ? "Loading…" : "Pick a flow"} />
+      </SelectTrigger>
+      <SelectContent>
+        <SelectItem value={NO_FLOW}>No flow yet</SelectItem>
+        {options.map((f) => (
+          <SelectItem key={f.id} value={f.id}>
+            {f.name}
+          </SelectItem>
+        ))}
+        {c.flow_id && !options.some((f) => f.id === c.flow_id) ? <SelectItem value={c.flow_id}>{c.flow_name ?? "Current flow"}</SelectItem> : null}
+      </SelectContent>
+    </Select>
+  );
+}
+
 function NewCohortDialog({ open, onClose }: { open: boolean; onClose: () => void }) {
   const { api } = useSession();
   const qc = useQueryClient();
@@ -170,8 +209,8 @@ function NewCohortDialog({ open, onClose }: { open: boolean; onClose: () => void
   const [name, setName] = useState("");
   const [collegeId, setCollegeId] = useState("");
   const [program, setProgram] = useState("");
-  const [start, setStart] = useState(todayISO());
-  const [timezone, setTimezone] = useState("Asia/Kolkata");
+  const flows = useFlows();
+  const [flowId, setFlowId] = useState(NO_FLOW);
   const [seats, setSeats] = useState("60");
   const [fee, setFee] = useState("");
   const [open_, setOpen] = useState(false);
@@ -184,7 +223,6 @@ function NewCohortDialog({ open, onClose }: { open: boolean; onClose: () => void
     if (name.trim().length < 2) e.name = "Give the cohort a name (at least 2 characters).";
     if (kind === "college" && !collegeId) e.college_id = "Pick the college.";
     if (!program) e.program_slug = "Pick a program.";
-    if (!start) e.start_date = "Pick a start date.";
     if (!Number.isInteger(n) || n < 1 || n > 100000) e.seats_total = "Seats must be 1 to 100000.";
     const feeN = Number(fee);
     if (fee.trim() && (!Number.isInteger(feeN) || feeN < 1)) e.fee_inr = "Enter the fee in whole rupees, or leave it empty.";
@@ -199,8 +237,7 @@ function NewCohortDialog({ open, onClose }: { open: boolean; onClose: () => void
         name: name.trim(),
         college_id: kind === "college" ? collegeId : null,
         program_slug: program,
-        start_date: start,
-        timezone,
+        flow_id: flowId === NO_FLOW ? null : flowId,
         seats_total: n,
       });
       // The fee and admissions are saved right after the cohort itself.
@@ -222,7 +259,7 @@ function NewCohortDialog({ open, onClose }: { open: boolean; onClose: () => void
       <DialogContent className="sm:max-w-lg">
         <DialogHeader>
           <DialogTitle>Add a cohort</DialogTitle>
-          <DialogDescription>A batch of students on one program, with a seat limit. Enrollments default to its start date.</DialogDescription>
+          <DialogDescription>A batch of students on one program, with a seat limit. Each student starts the day after they join, on the flow you pick.</DialogDescription>
         </DialogHeader>
         <form
           id={`${id}-f`}
@@ -280,7 +317,13 @@ function NewCohortDialog({ open, onClose }: { open: boolean; onClose: () => void
             <div className="grid gap-4 sm:grid-cols-2">
               <Field data-invalid={!!errors.program_slug}>
                 <FieldLabel htmlFor={`${id}-program`}>Program</FieldLabel>
-                <Select value={program} onValueChange={setProgram}>
+                <Select
+                  value={program}
+                  onValueChange={(v) => {
+                    setProgram(v);
+                    setFlowId(NO_FLOW);
+                  }}
+                >
                   <SelectTrigger id={`${id}-program`} className="w-full" aria-invalid={!!errors.program_slug}>
                     <SelectValue placeholder="Pick a program" />
                   </SelectTrigger>
@@ -300,29 +343,27 @@ function NewCohortDialog({ open, onClose }: { open: boolean; onClose: () => void
                 {errors.seats_total ? <FieldError>{errors.seats_total}</FieldError> : null}
               </Field>
             </div>
-            <div className="grid gap-4 sm:grid-cols-2">
-              <Field data-invalid={!!errors.start_date}>
-                <FieldLabel htmlFor={`${id}-start`}>Start date</FieldLabel>
-                <DatePicker id={`${id}-start`} value={start} onChange={setStart} invalid={!!errors.start_date} />
-                {errors.start_date ? <FieldError>{errors.start_date}</FieldError> : null}
-              </Field>
-              <Field data-invalid={!!errors.timezone}>
-                <FieldLabel htmlFor={`${id}-tz`}>Time zone</FieldLabel>
-                <Select value={timezone} onValueChange={setTimezone}>
-                  <SelectTrigger id={`${id}-tz`} className="w-full">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {TIMEZONES.map((z) => (
-                      <SelectItem key={z} value={z}>
-                        {z}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-                {errors.timezone ? <FieldError>{errors.timezone}</FieldError> : <FieldDescription>Used to check the start date.</FieldDescription>}
-              </Field>
-            </div>
+            <Field data-invalid={!!errors.flow_id}>
+              <FieldLabel htmlFor={`${id}-flow`}>Flow</FieldLabel>
+              <Select value={flowId} onValueChange={setFlowId} disabled={!program}>
+                <SelectTrigger id={`${id}-flow`} className="w-full" aria-invalid={!!errors.flow_id} data-testid="new-cohort-flow">
+                  <SelectValue placeholder="Pick a flow" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value={NO_FLOW}>Pick one later</SelectItem>
+                  {fitting(flows.data, (programs.data ?? []).find((p) => p.slug === program)?.days ?? 0).map((f) => (
+                    <SelectItem key={f.id} value={f.id}>
+                      {f.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              {errors.flow_id ? (
+                <FieldError>{errors.flow_id}</FieldError>
+              ) : (
+                <FieldDescription>{program ? "Published flows as long as the program. Students start it the day after they join." : "Pick the program first."}</FieldDescription>
+              )}
+            </Field>
             <div className="grid gap-4 sm:grid-cols-2">
               <Field data-invalid={!!errors.fee_inr}>
                 <FieldLabel htmlFor={`${id}-fee`}>Fee in rupees (optional)</FieldLabel>

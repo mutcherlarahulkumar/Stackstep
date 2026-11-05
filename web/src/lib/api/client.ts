@@ -83,8 +83,7 @@ export type CohortInput = {
   name: string;
   college_id: string | null;
   program_slug: string;
-  start_date: string;
-  timezone: string;
+  flow_id: string | null;
   seats_total: number;
 };
 
@@ -306,6 +305,10 @@ export class ApiClient {
 
   createCohort(input: CohortInput) {
     return this.send("POST", "/v1/admin/cohorts", S.Cohort, { body: input });
+  }
+
+  setCohortFlow(id: string, flowId: string | null) {
+    return this.send("PUT", `/v1/admin/cohorts/${seg(id)}/flow`, S.Cohort, { body: { flow_id: flowId } });
   }
 
   setCohortAdmissions(id: string, feeInr: number | null, open: boolean) {

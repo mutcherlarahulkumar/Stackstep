@@ -162,3 +162,10 @@ func CancelUnreleasedFlowTasks(ctx context.Context, q Q, enrollmentID, actor uui
 	}
 	return len(ids), nil
 }
+
+// FirstTaskAt is when an internship's earliest open task arrives, or nil when it has none.
+func FirstTaskAt(ctx context.Context, q Q, enrollmentID uuid.UUID) (*time.Time, error) {
+	var at *time.Time
+	err := q.QueryRow(ctx, `SELECT min(scheduled_for) FROM tasks WHERE enrollment_id = $1 AND status <> 'cancelled'`, enrollmentID).Scan(&at)
+	return at, err
+}

@@ -52,6 +52,9 @@ test("people: colleges, cohorts, enroll by login, roster import, internship stat
   await choose(admin, dialog, "College", college);
   await choose(admin, dialog, "Program", /frontend-30/);
   await dialog.getByLabel("Seats").fill("2");
+  // RS1: no start date, a flow instead; students start it the day after they join.
+  await expect(dialog.getByLabel("Start date")).toHaveCount(0);
+  await choose(admin, dialog, "Flow", /React Frontend/);
   // Taking applications needs a fee.
   await dialog.getByTestId("cohort-open").click();
   await dialog.getByTestId("cohort-save").click();
@@ -60,6 +63,7 @@ test("people: colleges, cohorts, enroll by login, roster import, internship stat
   await dialog.getByTestId("cohort-save").click();
   await expectToast(admin, `Added ${cohort}`);
   await expect(admin.getByTestId(`cohort-${cohort}`)).toContainText("0/2");
+  await expect(admin.getByTestId(`cohort-${cohort}`).getByTestId("cohort-flow")).toContainText("React Frontend");
 
   await admin.getByTestId("nav-setup").filter({ visible: true }).click();
   await admin.getByRole("menuitem", { name: /^People/ }).click();
@@ -73,7 +77,9 @@ test("people: colleges, cohorts, enroll by login, roster import, internship stat
   await one.getByLabel("GitHub username").fill(`@${login}`);
   await one.getByLabel("Name (optional)").fill("Eesha Test");
   await choose(admin, one, "Cohort", new RegExp(cohort));
-  await choose(admin, one, "Flow (optional)", /React Frontend/);
+  // RS3: day 1 is tomorrow and the cohort's flow is the default.
+  await expect(admin.getByTestId("enroll-starts")).toContainText("Tomorrow, ");
+  await expect(one.getByLabel("Flow (optional)")).toContainText("The cohort's flow, React Frontend");
   await admin.getByTestId("enroll-submit").click();
   await expectToast(admin, `Enrolled @${login}`);
 
@@ -107,6 +113,8 @@ test("people: colleges, cohorts, enroll by login, roster import, internship stat
   await openChat(student, "Sam Rivera");
   await expect(student.getByTestId("persona-tag")).toBeVisible();
   await expect(student.getByRole("region", { name: "Conversation" }).getByText(/Welcome to Stackstep, Eesha/)).toBeVisible();
+  await expect(student.getByRole("region", { name: "Conversation" }).getByText(/Your first working day is tomorrow, /)).toBeVisible();
+  await expect(student.getByText("Starts tomorrow").first()).toBeVisible();
 
   // Pause from the student detail; the student sees it.
   await admin.goto("/admin");

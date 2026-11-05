@@ -15,6 +15,7 @@ import 'package:stackstep/features/progress/progress_screen.dart';
 import 'package:stackstep/features/tasks/board_screen.dart';
 import 'package:stackstep/features/tasks/task_work.dart';
 import 'package:stackstep/shared/brand_mark.dart';
+import 'package:stackstep/shared/format.dart';
 
 class _AccountMenu extends ConsumerWidget {
   const _AccountMenu({required this.user});
@@ -108,7 +109,7 @@ class _StudentShellState extends ConsumerState<StudentShell> {
                     e.status == EnrollmentStatus.paused
                         ? 'Internship paused'
                         : e.dayNumber == 0
-                        ? 'Starts ${e.startDate}'
+                        ? startsCaption(e.startDate, DateTime.now())
                         : 'Day ${e.dayNumber} of ${e.program.days}',
                     style: t.textTheme.muted.copyWith(fontSize: 12),
                   ),
