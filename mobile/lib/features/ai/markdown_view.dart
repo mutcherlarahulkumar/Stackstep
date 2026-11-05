@@ -158,7 +158,6 @@ class _MarkdownViewState extends State<MarkdownView> {
         scrollDirection: Axis.horizontal,
         child: Table(
           defaultColumnWidth: const IntrinsicColumnWidth(),
-          defaultVerticalAlignment: TableCellVerticalAlignment.top,
           border: TableBorder.all(color: color.border),
           children: [
             for (final row in cells)

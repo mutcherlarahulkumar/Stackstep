@@ -5,9 +5,8 @@ import 'package:stackstep/core/theme.dart';
 import 'package:stackstep/features/ai/markdown_view.dart';
 
 /// Opens stored reading in the app, preserving the task underneath it.
-Future<void> openTaskDocument(BuildContext context, TaskDocument document) => Navigator.of(context).push<void>(
-  MaterialPageRoute<void>(builder: (_) => TaskDocumentScreen(document: document)),
-);
+Future<void> openTaskDocument(BuildContext context, TaskDocument document) =>
+    Navigator.of(context).push<void>(MaterialPageRoute<void>(builder: (_) => TaskDocumentScreen(document: document)));
 
 class TaskDocuments extends StatelessWidget {
   const TaskDocuments({required this.documents, super.key});
@@ -29,14 +28,18 @@ class TaskDocuments extends StatelessWidget {
               padding: const EdgeInsets.only(bottom: Space.sm),
               child: ShadCard(
                 padding: EdgeInsets.zero,
-                child: ListTile(
-                  key: Key('task-document-$index'),
-                  leading: Icon(LucideIcons.bookOpen, color: t.colorScheme.primary),
-                  title: Text(document.title, style: t.textTheme.small.copyWith(fontWeight: FontWeight.w600)),
-                  subtitle: Text('Read guide', style: t.textTheme.muted),
-                  trailing: const Icon(LucideIcons.chevronRight, size: 18),
-                  contentPadding: const EdgeInsets.symmetric(horizontal: Space.md, vertical: Space.xs),
-                  onTap: () => openTaskDocument(context, document),
+                // ListTile paints its ink on the nearest Material; the card's own background would hide it.
+                child: Material(
+                  type: MaterialType.transparency,
+                  child: ListTile(
+                    key: Key('task-document-$index'),
+                    leading: Icon(LucideIcons.bookOpen, color: t.colorScheme.primary),
+                    title: Text(document.title, style: t.textTheme.small.copyWith(fontWeight: FontWeight.w600)),
+                    subtitle: Text('Read guide', style: t.textTheme.muted),
+                    trailing: const Icon(LucideIcons.chevronRight, size: 18),
+                    contentPadding: const EdgeInsets.symmetric(horizontal: Space.md, vertical: Space.xs),
+                    onTap: () => openTaskDocument(context, document),
+                  ),
                 ),
               ),
             ),

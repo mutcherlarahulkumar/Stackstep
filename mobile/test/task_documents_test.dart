@@ -69,7 +69,7 @@ void main() {
     expect(validateDocument(title: 'A\u0085guide', body: 'Text').title, isNotNull);
     expect(validateDocument(title: 'A\u2028guide', body: 'Text').title, isNotNull);
     expect(validateDocument(title: 'A\n\tguide', body: 'Text').title, isNull);
-    expect(validateDocument(title: 'A guide', body: ' ' + 'x' * 20000).body, isNotNull);
+    expect(validateDocument(title: 'A guide', body: ' ${'x' * 20000}').body, isNotNull);
     expect(validateDocument(title: 'A guide', body: '\u0001Text').body, isNotNull);
     expect(validateDocument(title: '  A   guide  ', body: '\n    indented code\n'), (title: null, body: null));
   });
@@ -159,6 +159,7 @@ void main() {
     Future<void> enter(String key, String value) async {
       await tester.scrollUntilVisible(find.byKey(Key(key)), 250, scrollable: scroll);
       await tester.enterText(find.descendant(of: find.byKey(Key(key)), matching: find.byType(EditableText)), value);
+      await tester.pump();
     }
 
     await enter('task-title', 'Build a useful filter');

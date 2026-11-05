@@ -260,6 +260,8 @@ class _AssignTaskScreenState extends ConsumerState<AssignTaskScreen> {
       );
       if (!mounted) return;
       unawaited(HapticFeedback.mediumImpact());
+      // The task is saved: stop the button's spinner before the dialog opens over it.
+      setState(() => _submitting = false);
       await _showSuccess(task);
     } on ApiException catch (e) {
       if (!mounted) return;
@@ -282,6 +284,9 @@ class _AssignTaskScreenState extends ConsumerState<AssignTaskScreen> {
       context: context,
       builder: (ctx) => ShadDialog(
         title: const Text('Task assigned'),
+        // Two long labels never fit side by side on a phone, so the actions always stack.
+        actionsAxis: Axis.vertical,
+        actionsMainAxisSize: MainAxisSize.min,
         description: Text(
           '${widget.student.user.firstName} sees “${task.title}” on their board, and ${_personaName(task.personaId)} announced it in chat. ${dueLabel(task.dueAt, _now)}.',
         ),
