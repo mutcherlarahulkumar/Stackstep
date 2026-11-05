@@ -4,7 +4,7 @@
 
 **Problem:** “Saved!” is a promise. If storage fails while a student adds a topic, the app must not lose their writing or show an unconfirmed item as permanently saved.
 
-## Specify the operation · 15 minutes
+## Core work: Specify the operation · 15 minutes
 
 Create `feat/capstone-recoverable-save` from the reviewed baseline. For Study Queue, Add topic accepts a trimmed nonblank title of at most 80 characters. A successful add receives a stable id and status `open`; duplicate titles may be allowed, but ids stay unique. Document your choice. Define the title limit and validation in one place.
 
@@ -40,8 +40,12 @@ Try whitespace-only input, a title above the limit, a valid title and two rapid 
 
 Reload after success: the confirmed item returns. Reload during a pending write: state exactly what survives. Losing an unsaved draft on reload is acceptable if clearly documented; do not claim offline sync or draft recovery you have not built. If a late response overwrites newer work, trace request identity and confirmed versus pending state.
 
-## Submit and ask for a failure review · 20 minutes
+## Hand-in and feedback: Submit and ask for a failure review · 20 minutes
 
 Run the recorded tests/build checks. Open a focused PR containing slice two, its adapter tests and the documented recovery policy. Include success, failure, retry and reload steps plus one screenshot of retained text after failure. Submit the PR link. Ask a reviewer to interrupt a save and challenge whether every displayed claim remains true.
 
-**Done:** slice two passes its acceptance checks; errors are actionable; invalid input never saves; failed saves preserve recoverable work. **Reflection:** what is the difference between visible, pending and durably saved data in this local demo?
+## Done checks
+
+ slice two passes its acceptance checks; errors are actionable; invalid input never saves; failed saves preserve recoverable work. **Reflection:** what is the difference between visible, pending and durably saved data in this local demo?
+
+**Optional stretch:** Repeat the journey with a deliberately rejected save and explain why retry cannot duplicate work. Skip this when the core timebox is used.

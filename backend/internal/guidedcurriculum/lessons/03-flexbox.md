@@ -2,7 +2,7 @@
 
 **Estimated effort:** 35 minutes. **Prerequisite:** the hero's HTML/CSS. This guide contains the core lesson; the MDN link is optional deeper reference.
 
-## The useful model
+## Core work: The useful model
 Flexbox lays out a container's direct children along a **main axis** and a perpendicular **cross axis**. `flex-direction: row` uses the inline direction as the main axis; `column` changes the axes. `justify-content` distributes spare space along the main axis. `align-items` aligns children across it.
 
 ```css

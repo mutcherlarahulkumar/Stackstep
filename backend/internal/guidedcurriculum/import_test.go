@@ -13,6 +13,7 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 
 	"github.com/mutcherlarahulkumar/stackstep/backend/internal/db"
+	"github.com/mutcherlarahulkumar/stackstep/backend/internal/domain"
 	"github.com/mutcherlarahulkumar/stackstep/backend/internal/store"
 )
 
@@ -74,8 +75,8 @@ func TestImportPreservesAssignmentsAndIsIdempotent(t *testing.T) {
 		t.Fatal(err)
 	}
 	var assigned uuid.UUID
-	if err := pool.QueryRow(ctx, `INSERT INTO tasks (enrollment_id, type, title, brief, status, scheduled_for, due_at, created_by, created_at, updated_at)
-		VALUES ($1, 'feature', 'Existing student assignment', 'Keep this exact brief', 'todo', now(), now()+interval '1 day', $2, now(), now()) RETURNING id`, enrollment, admin).Scan(&assigned); err != nil {
+	if err := pool.QueryRow(ctx, `INSERT INTO tasks (enrollment_id, persona_id, type, title, brief, status, scheduled_for, due_at, created_by, created_at, updated_at)
+		VALUES ($1, $3, 'feature', 'Existing student assignment', 'Keep this exact brief', 'todo', now(), now()+interval '1 day', $2, now(), now()) RETURNING id`, enrollment, admin, domain.DefaultPersonaID).Scan(&assigned); err != nil {
 		t.Fatal(err)
 	}
 	var created ImportResult

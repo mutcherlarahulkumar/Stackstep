@@ -4,7 +4,7 @@
 
 **Problem:** finishing a project can lead to an oversized plan that never survives the first busy week. Choose a small practice loop that addresses weaknesses you have actually observed.
 
-## Compare the beginning and end · 8 minutes
+## Core work: Compare the beginning and end · 8 minutes
 
 Open your first README/hero PR and a recent capstone PR side by side. Note two concrete changes in how you explain, test or structure work. Then identify two weaknesses using evidence: a review comment, a failing test you struggled to diagnose or an interview explanation you could not defend.
 
@@ -21,10 +21,14 @@ For each growth area, write a weekly action, a check and a feedback source. For 
 
 Choose two or three short sessions a week that fit your real availability. Reserve catch-up time. Define a smaller fallback for a busy week, such as tracing one race on paper for 15 minutes. Do not turn a missed session into an accumulated backlog.
 
-## Commit to checkpoints · 10 minutes
+## Hand-in and feedback: Commit to checkpoints · 10 minutes
 
 Write `docs/capstone/next-30-days.md` or put the plan in your task notes. Set week-two and week-four reviews: which evidence will show improvement, and what will you change if the routine is too large? A self-review checkpoint is valid when a mentor is unavailable; label it honestly.
 
 Post a final update with one improvement, two priorities, your first scheduled action and one question for your lead. A documentation commit/PR is optional for this standup task. Ask for feedback on whether your checks measure the skill rather than time spent.
 
-**Done:** two goals follow observed gaps, practice fits your week and each goal has a visible check plus a feedback date. **Troubleshoot:** if a goal names only a technology, rewrite it as a behaviour you cannot yet perform reliably. **Reflection:** what will you deliberately stop doing to make room for the practice?
+## Done checks
+
+ two goals follow observed gaps, practice fits your week and each goal has a visible check plus a feedback date. **Troubleshoot:** if a goal names only a technology, rewrite it as a behaviour you cannot yet perform reliably. **Reflection:** what will you deliberately stop doing to make room for the practice?
+
+**Optional stretch:** Write a tiny week-two self-assessment using the same evidence you plan to collect. Skip this when the core timebox is used.

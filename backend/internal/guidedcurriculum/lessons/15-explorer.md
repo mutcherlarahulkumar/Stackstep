@@ -20,7 +20,7 @@ Use a checked-in fixture so learning does not depend on an external service or k
 ## Done checks
 The project runs from documented commands. Prices do not use floating-point dollars as the source of truth. Stable ids drive list identity. The empty response differs from a rejected or invalid response. No outside API is necessary for the core journey.
 
-## Debug and hand-in
+## Hand-in and feedback: Debug and hand-in
 If the shape changes, reject or adapt it at one boundary rather than sprinkling optional fields across the UI. Submit the PR, contract and one tested journey. Ask the reviewer to give you a malformed response to handle.
 
 **Retrieval:** which state is essential, and which value can be derived? **Optional stretch:** type the adapter's output using the project's existing TypeScript setup.

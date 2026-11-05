@@ -4,7 +4,7 @@
 
 **Problem:** a user should accomplish something with your capstone before every screen exists. For the Study Queue fallback, they can load topics and narrow the list to unfinished work.
 
-## Protect the baseline · 15 minutes
+## Core work: Protect the baseline · 15 minutes
 
 ```sh
 git status --short
@@ -40,8 +40,12 @@ Use ordinary links for navigation and buttons for actions. Tab through every con
 
 Using the test framework already installed on day 19, render the fixture, select Open through its accessible label and assert that Array methods and Async requests appear while Accessible forms does not. Then test the empty fixture manually. Record the exact command and result in the PR. If the count disagrees with the cards, check whether both use the same derived array.
 
-## Submit the smallest reviewable change · 15 minutes
+## Hand-in and feedback: Submit the smallest reviewable change · 15 minutes
 
 Inspect `git diff`, stage only the fixture, UI, relevant test and brief update, then commit and push this branch. Open a PR with the starting command, fixture, four reproduction steps, test result and screenshot. State which two slices remain intentionally unfinished. Submit the PR link as the hand-in; ask the reviewer to try an empty fixture and find one unclear label.
 
-**Done:** a user completes slice one; the data contract is explicit; an automated behaviour check passes; no unrelated features obscure the diff. **Reflection:** which part of your explorer experience transferred, and which assumption needed changing? Stop at the timebox and document a reduced but complete slice if necessary.
+## Done checks
+
+ a user completes slice one; the data contract is explicit; an automated behaviour check passes; no unrelated features obscure the diff. **Reflection:** which part of your explorer experience transferred, and which assumption needed changing? Stop at the timebox and document a reduced but complete slice if necessary.
+
+**Optional stretch:** Add one test for a boundary value that is plausible for your chosen user. Skip this when the core timebox is used.

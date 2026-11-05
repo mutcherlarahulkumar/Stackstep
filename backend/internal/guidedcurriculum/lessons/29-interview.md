@@ -4,7 +4,7 @@
 
 **Problem:** a polished script can hide a weak mental model. Practise explaining the why, then change an assumption and see whether the explanation still holds.
 
-## Give an eight-minute walkthrough · 15 minutes
+## Core work: Give an eight-minute walkthrough · 15 minutes
 
 Without reading your case-study draft, explain the user problem, demonstrate the main journey, trace one action through UI/state/adapter and describe one failure path. For Study Queue: what changes immediately when Save is pressed, and what changes only after storage confirms success?
 
@@ -31,4 +31,12 @@ Choose Two Sum, balanced brackets, binary search insertion or interval merging. 
 
 Write `docs/capstone/explanation-practice.md` with what you attempted, where your explanation broke, one corrected explanation and one targeted practice step. Post the useful summary in your task note; a small docs commit is optional for this self-check task. Ask your lead to challenge the assumption you found hardest to defend.
 
-**Done:** one journey was explained aloud, follow-ups exposed real trade-offs, an earlier problem was attempted without notes and the gap log names a next action. **Troubleshoot:** if you freeze, trace a single concrete input before returning to abstractions. **Reflection:** which explanation improved because you admitted what you had not tested?
+## Done checks
+
+ one journey was explained aloud, follow-ups exposed real trade-offs, an earlier problem was attempted without notes and the gap log names a next action. **Troubleshoot:** if you freeze, trace a single concrete input before returning to abstractions. **Reflection:** which explanation improved because you admitted what you had not tested?
+
+## Hand-in and feedback
+
+Submit the required artifact or note with the checks you ran and one decision you can explain. Ask your reviewer one focused question; incorporate the answer before adding optional scope.
+
+**Optional stretch:** Answer one follow-up about a trade-off using a concrete file or test rather than a memorized phrase. Skip this when the core timebox is used.

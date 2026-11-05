@@ -17,7 +17,7 @@ UI returns to confirmed=false and explains how to retry
 ## Done checks
 Rapid clicks cannot create conflicting writes for the same item. Failed writes do not display a false saved state. Reload restores confirmed favourites. Corrupted local storage does not crash the app. The UI remains usable without assuming local storage is always available.
 
-## Debug and hand-in
+## Hand-in and feedback: Debug and hand-in
 Trace desired, pending and confirmed state for one failure. If state flips twice unexpectedly, check whether the event was submitted twice or stale asynchronous work was accepted. Submit the PR with success, failure, retry and reload evidence.
 
 **Retrieval:** compare this write path with the contact-form submit state. Ask a reviewer which state the user should see during failure. **Optional stretch:** test two tabs and document the synchronization policy; do not claim cross-device persistence.

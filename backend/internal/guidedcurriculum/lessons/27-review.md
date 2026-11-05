@@ -4,7 +4,7 @@
 
 **Problem:** “Looks good?” makes a reviewer reverse-engineer your intent. Give them an exact journey, then use their observations to improve the product rather than defend every decision.
 
-## Prepare a runnable review · 15 minutes
+## Core work: Prepare a runnable review · 15 minutes
 
 Use your current capstone PR or create `fix/capstone-review-feedback`. Describe the user problem, changes and exclusions. Include the exact working directory, lockfile install command, start command, test command and starting data. For the Study Queue example:
 
@@ -36,8 +36,12 @@ If you disagree, restate the concern, explain your constraint and offer evidence
 
 Fix the highest-impact issue in one focused commit. Run the affected check, then the relevant existing suite. For a self-review, preserve the same finding → change → verification chain.
 
-## Submit and reflect · 15 minutes
+## Hand-in and feedback: Submit and reflect · 15 minutes
 
 Push the follow-up commit and submit the PR link with the log. Summarize resolved blockers, deferred items and their rationale. Ask the reviewer to retry the original reproduction rather than merely inspect the new code.
 
-**Done:** another person can run the change, evidence supports triage, and every blocking comment has a fix or explicit resolution. **Troubleshoot:** if feedback is vague, request an example and expected outcome before changing code. **Reflection:** name one review comment that changed your reasoning, even if you retained the original implementation.
+## Done checks
+
+ another person can run the change, evidence supports triage, and every blocking comment has a fix or explicit resolution. **Troubleshoot:** if feedback is vague, request an example and expected outcome before changing code. **Reflection:** name one review comment that changed your reasoning, even if you retained the original implementation.
+
+**Optional stretch:** Identify one pattern repeated across review comments and turn it into a personal pre-review check. Skip this when the core timebox is used.

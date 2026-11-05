@@ -4,7 +4,7 @@
 
 **Problem:** a list of technologies says little about your decisions. Help a reader verify what problem you addressed, what you contributed and what the evidence actually supports.
 
-## Gather the evidence · 15 minutes
+## Core work: Gather the evidence · 15 minutes
 
 Create `docs/capstone-case-study` as a branch. Collect three to five real links: planning PR, a representative implementation diff, a regression test, the release checklist and a demo image/video if available. Keep screenshots under a reasonable size and free of personal data. If an artifact is private, label that limitation rather than creating a broken public promise.
 
@@ -29,8 +29,12 @@ Follow each link and run the documented demo/check command from the release guid
 
 If evidence contradicts your draft, correct the claim instead of changing the test to match the story. If a third slice was reduced, describe the actual shipped scope and why.
 
-## Submit and request an evidence review · 15 minutes
+## Hand-in and feedback: Submit and request an evidence review · 15 minutes
 
 Inspect and commit the document and any intended assets, push the branch and open a PR. Submit its link as the blog task hand-in; you do not need an external article URL. Ask a reviewer to identify one unsupported claim and one decision they can now explain back to you. Respond with a correction or evidence and keep the discussion attached to the PR.
 
-**Done:** the case study links real work, separates individual contribution from assistance and states limitations plainly. **Reflection:** which claim became smaller and more credible when you checked its evidence?
+## Done checks
+
+ the case study links real work, separates individual contribution from assistance and states limitations plainly. **Reflection:** which claim became smaller and more credible when you checked its evidence?
+
+**Optional stretch:** Add a short accessible transcript of the project demonstration so its evidence does not depend on watching a video. Skip this when the core timebox is used.

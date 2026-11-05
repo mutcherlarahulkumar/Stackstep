@@ -4,7 +4,7 @@
 
 **Problem:** adding one last feature can make the overall journey worse if focus disappears, a small screen overflows or a delayed operation looks complete too soon.
 
-## Complete the planned slice · 40 minutes
+## Core work: Complete the planned slice · 40 minutes
 
 Create `feat/capstone-final-slice`. Re-read the third acceptance check from day 22. For Study Queue, complete a topic and allow Undo: both actions persist confirmed state, communicate failure and remain usable with the keyboard. Reuse yesterday's save adapter and pending/failure policy instead of inventing another write path.
 
@@ -24,8 +24,12 @@ Choose one interaction, such as filtering 500 synthetic topics. Use the browser'
 
 Investigate the trace before optimizing. Remove an observed unnecessary recomputation or reduce expensive repeated rendering, then repeat the same scenario. If there is no demonstrated bottleneck, retain the simpler code and record “no optimization justified.” Do not claim a percentage improvement from unrelated runs or add memoization everywhere. A documented decision to avoid speculative optimization is a valid trade-off.
 
-## Verify and submit · 20 minutes
+## Hand-in and feedback: Verify and submit · 20 minutes
 
 Run the existing regression suite and add one check for completion/undo. Open a focused PR with the third acceptance scenario, keyboard/narrow/slow evidence and the measurement setup/results. Submit its link; ask the reviewer to complete a topic while Open is selected and explain where focus lands.
 
-**Done:** all three planned slices work; the difficult interaction is reachable and recoverable; any performance claim has comparable evidence. **Troubleshoot:** if the list jumps, check stable ids and focus handling before adding animation. **Reflection:** which polish change removed friction, and which attractive feature did you deliberately leave out?
+## Done checks
+
+ all three planned slices work; the difficult interaction is reachable and recoverable; any performance claim has comparable evidence. **Troubleshoot:** if the list jumps, check stable ids and focus handling before adding animation. **Reflection:** which polish change removed friction, and which attractive feature did you deliberately leave out?
+
+**Optional stretch:** Document why you chose not to optimize one interaction when its measured cost was already small. Skip this when the core timebox is used.

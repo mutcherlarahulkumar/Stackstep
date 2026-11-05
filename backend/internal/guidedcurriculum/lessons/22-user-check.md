@@ -4,7 +4,7 @@
 
 **Problem:** a design can sound clear while hiding the next action. Test whether the primary task makes sense before spending tomorrow implementing it.
 
-## Prepare a five-minute attempt · 5 minutes
+## Core work: Prepare a five-minute attempt · 5 minutes
 
 Draw two or three screens on paper or write a text prototype in `docs/capstone/user-check.md`. For Study Queue, show an empty list, an Add topic form and a list with Open/Completed filters. Include actual labels and plausible data, not decorative boxes.
 
@@ -34,3 +34,13 @@ Change a label, remove a step or tighten an acceptance check in the brief. Recor
 Post a short task note: method, attempted task, hesitation, decision and remaining uncertainty. If using Git, include the log in the planning PR or a small follow-up commit. Ask your lead to attempt the same task without an explanation.
 
 **Done checks:** the task tests an outcome; assistance is recorded; evidence and interpretation are separate; the changed acceptance check can be demonstrated tomorrow. **Troubleshoot:** if a participant asks what a button means, record that before teaching them. If your own familiarity hides problems, try an empty list or an interrupted save. **Retrieval:** how does observing behaviour differ from asking someone whether they like an idea?
+
+## Done checks
+
+Verify the required artifact against this task’s visible reviewer criteria and the examples above. Record the result of each check you actually ran.
+
+## Hand-in and feedback
+
+Submit the required artifact or note with the checks you ran and one decision you can explain. Ask your reviewer one focused question; incorporate the answer before adding optional scope.
+
+**Optional stretch:** Repeat the same observation with a second person, if available, and compare the findings without claiming that two people represent everyone. Skip this when the core timebox is used.

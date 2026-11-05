@@ -1,4 +1,4 @@
-# Feature 14 — Task documents inside the app
+# Feature 18 — Task documents inside the app
 
 Task documents are authored Markdown stored with a task, library template, or flow item.
 Students read them inside the web or mobile app. They do not need an external Markdown
@@ -49,3 +49,13 @@ payload; the server does not fetch arbitrary URLs to produce previews.
 
 The native Flutter tests must be run with the pinned SDK before claiming mobile runtime
 verification. Web browser emulation is not evidence that the native app passed its tests.
+
+## UI examples
+
+Desktop reader (light theme):
+
+![Desktop in-app task guide](../images/task-documents/desktop.png)
+
+Phone reader (dark theme):
+
+![Phone in-app task guide](../images/task-documents/phone-dark.png)

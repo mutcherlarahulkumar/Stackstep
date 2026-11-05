@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"net/http/httptest"
+	"reflect"
 	"strings"
 	"testing"
 	"time"
@@ -252,18 +253,23 @@ func TestFlowPublish(t *testing.T) {
 func TestFlowDuplicate(t *testing.T) {
 	e := newEnv(t)
 	adm := e.login(seed.AdminLogin)
+	var original flowDetailResp
+	e.expect(e.do("GET", "/v1/admin/flows/"+seed.ReactFlowID.String(), adm, nil), 200).json(t, &original)
+	if original.Published == nil || len(original.Published.Items) == 0 {
+		t.Fatal("source must contain a published curriculum")
+	}
 	var dup flowDetailResp
 	e.expect(e.do("POST", "/v1/admin/flows/"+seed.ReactFlowID.String()+"/duplicate", adm,
 		map[string]any{"name": "Angular Frontend · 30 days", "stream": "Angular"}), 201).json(t, &dup)
-	if dup.Draft == nil || len(dup.Draft.Items) != 11 || dup.Published != nil {
+	if dup.Draft == nil || len(dup.Draft.Items) != len(original.Published.Items) || dup.Published != nil {
 		t.Fatalf("duplicate = %+v", dup)
 	}
 	// Changing the copy leaves the source alone.
 	e.expect(e.saveDraft(adm, dup.Flow.ID, dup.Draft.Revision, []map[string]any{}), 200)
 	var src flowDetailResp
 	e.expect(e.do("GET", "/v1/admin/flows/"+seed.ReactFlowID.String(), adm, nil), 200).json(t, &src)
-	if len(src.Published.Items) != 11 {
-		t.Fatalf("source changed: %d items", len(src.Published.Items))
+	if !reflect.DeepEqual(src.Published, original.Published) {
+		t.Fatal("editing the copy changed the source's published task/document snapshot")
 	}
 	e.expect(e.do("POST", "/v1/admin/flows/"+seed.ReactFlowID.String()+"/duplicate", adm,
 		map[string]any{"name": "React Frontend · 30 days", "stream": "React"}), 422) // name taken

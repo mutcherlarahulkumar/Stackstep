@@ -20,7 +20,7 @@ nums = [-3, 4, 3, 90], target = 0 -> [0, 2]
 ## Done checks
 The returned indices are distinct, in increasing order, and point to the required values. Your explanation identifies the loop invariant: before processing index j, the map contains information from indices smaller than j. Explain expected O(n) time with a hash map and O(n) auxiliary space.
 
-## Debug and hand-in
+## Hand-in and feedback: Debug and hand-in
 When a test fails, write columns for index, value, complement, and map contents. Submit your code in the hand-in note or a repository link, the trace for `[3,3]`, and your complexity explanation. Ask the reviewer to challenge the lookup ordering.
 
 **Optional stretch:** describe how the contract would change if no pair or multiple pairs were allowed. You do not need to implement that different problem.

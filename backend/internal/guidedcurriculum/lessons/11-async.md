@@ -41,7 +41,7 @@ The adapter intentionally does not cancel its timer, so the UI must ignore obsol
 ## Done checks
 You can demonstrate every state on demand. Unmounting or replacing a request does not let an old response overwrite a newer one. Retry does not duplicate records or clear filters. Error copy explains a next action without exposing a raw stack trace.
 
-## Debug and hand-in
+## Hand-in and feedback: Debug and hand-in
 Delay request A longer than request B and record which response the UI accepts. Submit the PR with that trace and evidence for all four states. Ask a reviewer to try navigating away during a delay.
 
 **Retrieval:** why is an effect cleanup useful here? **Optional stretch:** support cancellation with AbortController if the underlying loader can honor its signal.

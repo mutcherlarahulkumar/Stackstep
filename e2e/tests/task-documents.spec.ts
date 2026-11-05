@@ -40,9 +40,16 @@ async function enrollmentFor(request: APIRequestContext, token: string, login: s
   return id;
 }
 
-async function openStudentTask(page: Page, title: string) {
+async function showTaskBoard(page: Page) {
   const tasks = page.getByRole("tab", { name: "Tasks", exact: true });
-  if (await tasks.isVisible()) await tasks.click();
+  if ((page.viewportSize()?.width ?? 1440) < 1024) {
+    await expect(tasks).toBeVisible();
+    await tasks.click();
+  }
+}
+
+async function openStudentTask(page: Page, title: string) {
+  await showTaskBoard(page);
   await page.getByRole("button", { name: title, exact: true }).click();
 }
 
@@ -69,6 +76,9 @@ test("authored Markdown: import, preview, assign and read safely inside the task
     await expectToast(admin, `Assigned “${taskTitle}”`);
 
     await signIn(page, "asha-dev");
+    await showTaskBoard(page);
+    const board = page.getByRole("list", { name: "To do tasks", exact: true });
+    await expect(board.getByRole("button", { name: taskTitle, exact: true }).locator("xpath=ancestor::*[@data-slot='card'][1]")).toContainText("Guide included");
     await openStudentTask(page, taskTitle);
     await expect(page.locator("strong").filter({ hasText: /^field guide$/ })).toBeVisible();
     const taskUrl = page.url();

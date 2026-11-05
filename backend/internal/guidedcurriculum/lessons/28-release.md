@@ -4,7 +4,7 @@
 
 **Problem:** a development server working in a folder full of cached dependencies does not prove a release can be rebuilt. Verify only committed files in a separate clean directory, and explain how to return to the prior version.
 
-## Define the candidate · 15 minutes
+## Core work: Define the candidate · 15 minutes
 
 Create `chore/capstone-release`. Add `docs/capstone/release.md` with a proposed version such as `v0.1.0`, the primary journey, known limitations and a checklist for installation, tests, production build, smoke checks and rollback. Record the current candidate commit with `git rev-parse HEAD`.
 
@@ -38,7 +38,7 @@ Open the address the command reports. Exercise the primary journey, reload and o
 
 Storage is scoped by origin: data at the development port will not automatically appear at port 4173. Use fresh, non-sensitive test data. Do not diagnose that expected separation as data loss.
 
-## Document rollback and submit · 30 minutes
+## Hand-in and feedback: Document rollback and submit · 30 minutes
 
 Record the last known-good commit, or state that this is the first release. A local rollback rehearsal can use a second clean clone and `git switch --detach <known-good-commit>`, followed by the same install/test/build/preview steps. Replace the placeholder with a verified commit. Stop your current preview before using its port again. This leaves your working branch intact.
 
@@ -46,4 +46,8 @@ Returning to an older build does not restore browser data. If you changed the st
 
 Open a PR containing the checklist, exact commands/results and known limitations. Submit its link and ask a reviewer to repeat the clean install and primary journey. Create/push a release tag only after your project's review/merge process allows it.
 
-**Done:** committed files rebuild, tests execute, the production output works locally and rollback limitations are explicit. **Reflection:** which missing assumption did the clean clone expose?
+## Done checks
+
+ committed files rebuild, tests execute, the production output works locally and rollback limitations are explicit. **Reflection:** which missing assumption did the clean clone expose?
+
+**Optional stretch:** Rehearse one documented rollback on a disposable copy and record what it restores. Skip this when the core timebox is used.

@@ -20,7 +20,7 @@ Implement `searchInsert(nums, target)` for a nondecreasing integer array of leng
 ## Done checks
 The result is the first duplicate position, not any matching index. Empty input and insert-at-end work. Every iteration strictly shrinks the interval. Explain O(log n) time and O(1) auxiliary space.
 
-## Debug and hand-in
+## Hand-in and feedback: Debug and hand-in
 Write lo, hi, mid and the remaining candidate interval at each step. If the loop never ends, look for a boundary update that leaves the interval unchanged. Submit the code, duplicate trace and invariant; ask a reviewer to challenge an endpoint case.
 
 **Retrieval:** how does this invariant differ from the running minimum in stock profit? **Optional stretch:** describe how to find the first value strictly greater than target by changing one comparison.

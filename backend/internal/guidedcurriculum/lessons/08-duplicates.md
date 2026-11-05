@@ -18,7 +18,7 @@
 ## Done checks
 The result is a boolean, empty and single-value arrays return false, and duplicate negatives work. Explain expected O(n) time and O(n) auxiliary space with a hash-based Set. State what information the Set contains before each iteration.
 
-## Debug and hand-in
+## Hand-in and feedback: Debug and hand-in
 Trace the Set for `[1,2,3,1]`. If your code always returns true, check whether you inserted the current value before testing for it. Submit your implementation, one trace and the comparison with the baseline. Ask a reviewer when sorting a copy might be an acceptable alternative.
 
 **Retrieval:** what information did Two Sum need that this problem does not? **Optional stretch:** discuss how memory limits would change your choice; do not secretly sort or mutate the caller's array.

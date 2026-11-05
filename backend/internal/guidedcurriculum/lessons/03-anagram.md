@@ -25,3 +25,7 @@ Empty strings work; repeated letters are counted; the function returns only a bo
 Trace counts after every character for `"aab"`/`"abb"`. If using an object, understand inherited keys; a `Map` or fixed count array avoids that issue. Submit code, the failed-case trace, and the input assumptions. Ask the reviewer which assumption would change for general text.
 
 **Retrieval:** how is this map different from the map in Two Sum? **Optional stretch:** describe a Unicode-aware contract without implementing it.
+
+## Hand-in and feedback
+
+Submit the required artifact or note with the checks you ran and one decision you can explain. Ask your reviewer one focused question; incorporate the answer before adding optional scope.

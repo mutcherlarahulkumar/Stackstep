@@ -28,3 +28,7 @@ No horizontal page scrolling at 360px. Heading order is meaningful, text remains
 If text overflows, inspect its container and intrinsic width before adding `overflow: hidden`. Test an unusually long name. Submit the PR and two screenshots; explain one layout choice and ask for feedback on readability.
 
 **Optional stretch:** support reduced motion if you add animation. Animation is not required for a good hero.
+
+## Hand-in and feedback
+
+Submit the required artifact or note with the checks you ran and one decision you can explain. Ask your reviewer one focused question; incorporate the answer before adding optional scope.

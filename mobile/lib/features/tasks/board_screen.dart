@@ -178,6 +178,19 @@ class TaskCard extends ConsumerWidget {
                 Row(children: [TypeBadge(task.type), const Spacer(), StatusBadge(task.status)]),
                 const SizedBox(height: Space.md),
                 Text(task.title, style: t.textTheme.large, maxLines: 2, overflow: TextOverflow.ellipsis),
+                if (task.content.documents.isNotEmpty) ...[
+                  const SizedBox(height: Space.sm),
+                  Row(
+                    children: [
+                      Icon(LucideIcons.bookOpen, size: 14, color: t.colorScheme.mutedForeground),
+                      const SizedBox(width: 6),
+                      Text(
+                        task.content.documents.length == 1 ? 'Guide included' : '${task.content.documents.length} guides included',
+                        style: t.textTheme.small.copyWith(color: t.colorScheme.mutedForeground),
+                      ),
+                    ],
+                  ),
+                ],
                 const SizedBox(height: Space.sm),
                 Row(
                   children: [

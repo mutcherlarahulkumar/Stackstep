@@ -1,11 +1,15 @@
 # The guided React internship
 
-The guided edition covers all 30 days. It builds three connected artifacts: a personal
+The existing 30-day frontend and 60-day full-stack curricula remain available. Every task
+now has an in-app assignment guide; syncing the curriculum publishes a new version for
+new assignments while existing students keep their current snapshots.
+
+The additional guided edition covers all 30 days with 45 tasks. It builds three connected artifacts: a personal
 portfolio, a product explorer, and a small capstone grounded in a user's problem. The goal
 is to produce work a student can explain, test, review, and improve—not to collect completed
 checkboxes or promise a job.
 
-## Learning path
+## Guided learning path
 
 | Days | Focus | Evidence of learning |
 |---|---|---|
@@ -83,3 +87,7 @@ idempotent. It does not reassign students, erase their work, or edit an older pu
 curriculum. Review the new flow in the admin console and assign it intentionally. When
 releasing a materially revised edition, change its version so existing snapshots remain
 auditable.
+
+The existing courses continue to use `go run ./cmd/dbadmin curriculum` and the
+**Database · seed curriculum** workflow described in `docs/features/17-curriculum.md`.
+That sync includes the new reader documents while preserving assigned versions.

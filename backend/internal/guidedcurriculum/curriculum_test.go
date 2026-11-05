@@ -83,8 +83,8 @@ func TestFixtureCompatibilityAndIndependentValues(t *testing.T) {
 	}
 	for title, day := range map[string]int{
 		"Introduce yourself to the team": 1, "Set up Git and open your first PR": 1,
-		"Two Sum": 2, "Build the portfolio hero section": 2, "Read MDN: Flexbox": 3,
-		"Git basics quiz": 4, "Valid Anagram": 3, "Write: what I learned in week one": 3,
+		"Two Sum": 2, "Build the portfolio hero section": 2, "Read the MDN Flexbox guide": 3,
+		"Git basics quiz": 4, "Valid Anagram": 3, "Write about what I learned in week one": 3,
 		"Projects grid with filters": 4, "Best Time to Buy and Sell Stock": 4, "Friday standup": 5,
 	} {
 		entry, ok := byTitle[title]

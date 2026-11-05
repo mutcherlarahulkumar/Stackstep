@@ -1,10 +1,10 @@
 # Plan a capstone small enough to finish well
 
-**Estimated effort:** 75 minutes. **Start here:** your product explorer already runs, loads local fixtures and has an automated behaviour test. Open its repository, not the Stackstep repository. Keep its current work intact. You may evolve that project into your capstone; a new repository is optional, not another scaffolding assignment.
+**Estimated effort:** 75 minutes. **Prerequisite:** your product explorer already runs, loads local fixtures and has an automated behaviour test. Open its repository, not the Stackstep repository. Keep its current work intact. You may evolve that project into your capstone; a new repository is optional, not another scaffolding assignment.
 
 **Problem:** a long feature list hides whether anyone can accomplish one useful thing. Today you will replace that list with a three-slice plan and evidence about the problem.
 
-## Make the starting point explicit · 10 minutes
+## Core work: Make the starting point explicit · 10 minutes
 
 ```sh
 git status --short
@@ -35,7 +35,7 @@ A slice crosses data, UI and a behaviour check. “Build all components” is no
 
 Explicitly exclude real sign-in, payments, remote sync, email, a backend and an invented “AI” feature. State that local data stays in this browser and can be lost. If you already have an integration, defer it unless the core journey depends on it.
 
-## Challenge the plan and submit · 20 minutes
+## Hand-in and feedback: Challenge the plan and submit · 20 minutes
 
 Write a two-minute demo script. If it requires an account, a second app or five features before anything works, reduce it. Name what you will cut first when time runs out.
 
@@ -48,4 +48,8 @@ git push -u origin docs/capstone-plan
 
 Open a PR using your repository's normal workflow. This is a manually reviewed reading/planning task: submit the PR link, or paste the complete brief as a review note if a PR is unavailable. Ask: “Which acceptance check is ambiguous, and which feature would you cut?”
 
-**Done:** evidence is labelled honestly; three slices have observable checks; exclusions and working commands are recorded. **Troubleshoot:** if everything feels essential, pick one user, one situation and one successful action. **Reflection:** what observation changed your scope?
+## Done checks
+
+ evidence is labelled honestly; three slices have observable checks; exclusions and working commands are recorded. **Troubleshoot:** if everything feels essential, pick one user, one situation and one successful action. **Reflection:** what observation changed your scope?
+
+**Optional stretch:** Describe one rejected feature and the user evidence that put it outside the three-slice scope. Skip this when the core timebox is used.

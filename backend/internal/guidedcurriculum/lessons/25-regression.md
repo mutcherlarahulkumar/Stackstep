@@ -4,7 +4,7 @@
 
 **Problem:** a passing test count does not help if an important user journey can break unnoticed. Choose tests by likely harm, then prove one would detect a real regression.
 
-## Choose three risks · 10 minutes
+## Core work: Choose three risks · 10 minutes
 
 Create `test/capstone-regressions`. List three outcomes a person relies on. For Study Queue, use:
 
@@ -36,10 +36,14 @@ Reproduce one actual defect discovered while checking these journeys. If none ap
 
 Create `docs/capstone/bug-report.md` with the commit, starting data, exact steps, expected/actual result, cause and verification. Mark injected faults honestly. A useful reproduction should let someone else observe the same failure without guessing your browser state.
 
-## Run and submit · 25 minutes
+## Hand-in and feedback: Run and submit · 25 minutes
 
 Run the three tests individually, then the existing suite together with its documented command. Check every intended test executed; a skipped or zero-test result is not a pass. Fix leaked state instead of adding retries.
 
 Open a PR with the tests and report, commands/results and the specific red-to-green observation. Submit its link. Ask the reviewer which one important assertion they could remove before the original regression escapes.
 
-**Done:** three user outcomes are protected, failure-before-fix is demonstrated, and the report is reproducible. **Troubleshoot:** a test that stays green when its feature is removed is observing the wrong thing. **Reflection:** which risk is still manual, and why is that reasonable today?
+## Done checks
+
+ three user outcomes are protected, failure-before-fix is demonstrated, and the report is reproducible. **Troubleshoot:** a test that stays green when its feature is removed is observing the wrong thing. **Reflection:** which risk is still manual, and why is that reasonable today?
+
+**Optional stretch:** Turn one additional real bug from your notes into a focused regression test. Skip this when the core timebox is used.
