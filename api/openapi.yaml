@@ -213,6 +213,19 @@ paths:
           description: "Sections: exported_at, profile, internships (tasks with hand-ins and quiz attempts, delivered chat, AI helper conversations, credits, points, certificates)"
           content: { application/json: { schema: { type: object } } }
         "401": { $ref: "#/components/responses/Error" }
+  /v1/me/calendar:
+    get:
+      tags: [student]
+      operationId: myCalendar
+      summary: The internship laid out by day
+      description: >-
+        Released tasks carry their ID and status. Tasks scheduled ahead carry their title and time
+        but no ID, so they can't be opened early. Surprise tasks that haven't landed are only a day
+        marker (kind surprise, no title or time). Live classes the student is invited to appear as
+        kind class.
+      responses:
+        "200": { description: Calendar, content: { application/json: { schema: { $ref: "#/components/schemas/Calendar" } } } }
+        "409": { $ref: "#/components/responses/Error" }
   /v1/me/tasks:
     get:
       tags: [student]
@@ -1657,6 +1670,31 @@ components:
     FlowVersionStatus: { type: string, enum: [draft, published, retired] }
     TaskStatus: { type: string, enum: [todo, in_progress, in_review, changes_requested, done, cancelled] }
     EnrollmentStatus: { type: string, enum: [active, paused, completed, cancelled] }
+    CalendarKind: { type: string, enum: [task, surprise, class] }
+    CalendarEntry:
+      type: object
+      required: [kind, date, day, at, due_at, released, task_id, title, task_type, status, persona_id, class_id]
+      properties:
+        kind: { $ref: "#/components/schemas/CalendarKind" }
+        date: { type: string, format: date, description: Calendar date in the student's time zone }
+        day: { type: integer, minimum: 0, maximum: 60, description: Internship day; 0 outside the internship }
+        at: { type: [string, "null"], format: date-time, description: Null for surprise entries }
+        due_at: { type: [string, "null"], format: date-time }
+        released: { type: boolean }
+        task_id: { type: [string, "null"], format: uuid, description: Only once released }
+        title: { type: [string, "null"], description: Null for surprise entries }
+        task_type: { oneOf: [{ $ref: "#/components/schemas/TaskType" }, { type: "null" }] }
+        status: { oneOf: [{ $ref: "#/components/schemas/TaskStatus" }, { type: "null" }], description: Only once released }
+        persona_id: { type: [string, "null"], format: uuid }
+        class_id: { type: [string, "null"], format: uuid, description: Set on class entries }
+    Calendar:
+      type: object
+      required: [start_date, end_date, timezone, items]
+      properties:
+        start_date: { type: string, format: date }
+        end_date: { type: string, format: date }
+        timezone: { type: string }
+        items: { type: array, items: { $ref: "#/components/schemas/CalendarEntry" } }
     Author: { type: string, enum: [student, persona] }
     ErrorCode:
       type: string

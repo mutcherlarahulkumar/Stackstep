@@ -241,23 +241,24 @@ class _AssignTaskScreenState extends ConsumerState<AssignTaskScreen> {
 
     setState(() => _submitting = true);
     try {
-      final task = await ref.read(apiClientProvider).createTask(
-        widget.student.enrollment.id,
-        (
-          type: _type,
-          personaId: _personaId ?? _selectedPersona(ref.read(personasProvider).value ?? const []),
-          reviewMode: _reviewMode,
-          title: normalizeLine(_title.text),
-          brief: _brief.text.trim(),
-          scheduledFor: start,
-          dueAt: due!,
-          resources: [if (_linkUrl.text.trim().isNotEmpty) Resource(title: normalizeLine(_linkName.text), url: _linkUrl.text.trim())],
-        ),
-        documents: [
-          if (_documentBody.text.trim().isNotEmpty)
-            TaskDocument(title: normalizeLine(_documentTitle.text), body: _documentBody.text),
-        ],
-      );
+      final task = await ref
+          .read(apiClientProvider)
+          .createTask(
+            widget.student.enrollment.id,
+            (
+              type: _type,
+              personaId: _personaId ?? _selectedPersona(ref.read(personasProvider).value ?? const []),
+              reviewMode: _reviewMode,
+              title: normalizeLine(_title.text),
+              brief: _brief.text.trim(),
+              scheduledFor: start,
+              dueAt: due!,
+              resources: [if (_linkUrl.text.trim().isNotEmpty) Resource(title: normalizeLine(_linkName.text), url: _linkUrl.text.trim())],
+            ),
+            documents: [
+              if (_documentBody.text.trim().isNotEmpty) TaskDocument(title: normalizeLine(_documentTitle.text), body: _documentBody.text),
+            ],
+          );
       if (!mounted) return;
       unawaited(HapticFeedback.mediumImpact());
       // The task is saved: stop the button's spinner before the dialog opens over it.
@@ -421,7 +422,9 @@ class _AssignTaskScreenState extends ConsumerState<AssignTaskScreen> {
                 key: const Key('task-document-body'),
                 controller: _documentBody,
                 minHeight: 160,
-                placeholder: const Text('## What you will learn\n\nExplain the idea, show an example, and give the student something to try.'),
+                placeholder: const Text(
+                  '## What you will learn\n\nExplain the idea, show an example, and give the student something to try.',
+                ),
               ),
             ),
             const SizedBox(height: Space.sm),

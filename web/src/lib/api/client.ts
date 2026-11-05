@@ -174,6 +174,10 @@ export class ApiClient {
     return (await this.send("GET", "/v1/me/tasks", S.TaskList)).items;
   }
 
+  calendar() {
+    return this.send("GET", "/v1/me/calendar", S.Calendar);
+  }
+
   async threads() {
     return (await this.send("GET", "/v1/me/threads", S.ThreadList)).items;
   }

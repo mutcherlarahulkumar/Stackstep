@@ -709,3 +709,23 @@ func (w *Workspace) handIn(ctx context.Context, q store.Q, e domain.Enrollment, 
 	}
 	return nil
 }
+
+// Calendar is a student's internship laid out by day.
+type Calendar struct {
+	Enrollment domain.Enrollment
+	Entries    []domain.CalendarEntry
+}
+
+// StudentCalendar returns the signed-in student's calendar: tasks already out, tasks coming up
+// with their time, and surprise tasks as a day marker only.
+func (w *Workspace) StudentCalendar(ctx context.Context, u domain.User) (Calendar, error) {
+	e, err := w.requireEnrollment(ctx, u)
+	if err != nil {
+		return Calendar{}, err
+	}
+	rows, err := store.CalendarTasks(ctx, w.Store.Pool, e.ID)
+	if err != nil {
+		return Calendar{}, err
+	}
+	return Calendar{Enrollment: e, Entries: domain.CalendarFor(e, rows, w.Clock.Now())}, nil
+}

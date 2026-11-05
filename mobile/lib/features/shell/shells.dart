@@ -9,6 +9,7 @@ import 'package:stackstep/features/account/onboarding_sheet.dart';
 import 'package:stackstep/features/admin/assign_screen.dart';
 import 'package:stackstep/features/admin/broadcast_screen.dart';
 import 'package:stackstep/features/apply/application_status.dart';
+import 'package:stackstep/features/calendar/calendar_screen.dart';
 import 'package:stackstep/features/chat/inbox_controller.dart';
 import 'package:stackstep/features/chat/inbox_screen.dart';
 import 'package:stackstep/features/progress/progress_screen.dart';
@@ -104,7 +105,11 @@ class _StudentShellState extends ConsumerState<StudentShell> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(_tab == 0 ? 'Chats' : 'Your board', style: t.textTheme.large),
+                  Text(switch (_tab) {
+                    0 => 'Chats',
+                    1 => 'Your board',
+                    _ => 'Calendar',
+                  }, style: t.textTheme.large),
                   Text(
                     e.status == EnrollmentStatus.paused
                         ? 'Internship paused'
@@ -133,6 +138,12 @@ class _StudentShellState extends ConsumerState<StudentShell> {
             }),
           ),
           BoardScreen(focusTaskId: _focusTask, onFocusHandled: () => _focusTask = null),
+          CalendarScreen(
+            onOpenTask: (id) => setState(() {
+              _focusTask = id;
+              _tab = 1;
+            }),
+          ),
         ],
       ),
       bottomNavigationBar: NavigationBar(
@@ -144,6 +155,7 @@ class _StudentShellState extends ConsumerState<StudentShell> {
             label: 'Chats',
           ),
           const NavigationDestination(icon: Icon(LucideIcons.squareKanban), label: 'Tasks'),
+          const NavigationDestination(key: Key('nav-calendar'), icon: Icon(LucideIcons.calendarDays), label: 'Calendar'),
         ],
       ),
     );

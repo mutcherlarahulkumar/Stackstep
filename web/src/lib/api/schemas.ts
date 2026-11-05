@@ -12,6 +12,7 @@ const date = z.iso.date();
 export const ROLES = ["student", "college_admin", "admin"] as const;
 export const TASK_TYPES = ["feature", "bug_fix", "dsa", "doc_reading", "quiz", "git_chore", "code_review", "standup", "blog"] as const;
 export const TASK_STATUSES = ["todo", "in_progress", "in_review", "changes_requested", "done", "cancelled"] as const;
+export const CALENDAR_KINDS = ["task", "surprise", "class"] as const;
 export const ENROLLMENT_STATUSES = ["active", "paused", "completed", "cancelled"] as const;
 export const REVIEW_MODES = ["manual", "self"] as const;
 export const PERSONA_COLORS = ["violet", "blue", "emerald", "amber", "rose", "cyan", "slate"] as const;
@@ -673,3 +674,23 @@ export const ApplicationQueue = z.object({ items: z.array(ApplicationRow), waiti
 export type ApplicationQueue = z.output<typeof ApplicationQueue>;
 export const ImageData = z.object({ content_type: z.enum(["image/png", "image/jpeg", "image/webp"]), data_base64: z.string() });
 export type ImageData = z.output<typeof ImageData>;
+
+export const CalendarKind = z.enum(CALENDAR_KINDS);
+export type CalendarKind = z.output<typeof CalendarKind>;
+export const CalendarEntry = z.object({
+  kind: CalendarKind,
+  date,
+  day: z.int().min(0).max(60),
+  at: timestamp.nullable(),
+  due_at: timestamp.nullable(),
+  released: z.boolean(),
+  task_id: z.uuid().nullable(),
+  title: z.string().nullable(),
+  task_type: TaskType.nullable(),
+  status: TaskStatus.nullable(),
+  persona_id: z.uuid().nullable(),
+  class_id: z.uuid().nullable(),
+});
+export type CalendarEntry = z.output<typeof CalendarEntry>;
+export const Calendar = z.object({ start_date: date, end_date: date, timezone: z.string(), items: z.array(CalendarEntry) });
+export type Calendar = z.output<typeof Calendar>;

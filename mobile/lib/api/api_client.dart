@@ -172,6 +172,8 @@ final class ApiClient {
 
   Future<List<Task>> myTasks() async => asObject(await _send('GET', '/v1/me/tasks')).list('items', Task.fromJson);
 
+  Future<Calendar> myCalendar() async => Calendar.fromJson(asObject(await _send('GET', '/v1/me/calendar')));
+
   Future<List<Thread>> threads() async => asObject(await _send('GET', '/v1/me/threads')).list('items', Thread.fromJson);
 
   Future<Page<Message>> messages(String personaId, {String? cursor, int limit = 50}) async =>

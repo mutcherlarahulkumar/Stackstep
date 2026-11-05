@@ -126,6 +126,7 @@ func (s *Server) Handler() http.Handler {
 	authed.POST("/me/consent", s.consent)
 	authed.POST("/me/onboarded", s.onboarded)
 	authed.GET("/me/tasks", s.myTasks)
+	authed.GET("/me/calendar", s.myCalendar)
 	authed.GET("/me/threads", s.myThreads)
 	authed.GET("/me/threads/:persona/messages", s.myMessages)
 	authed.POST("/me/threads/:persona/messages", s.sendMessage)

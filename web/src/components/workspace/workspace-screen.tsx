@@ -34,6 +34,7 @@ import { AIHelper } from "../ai/ai-helper";
 import { ApplyScreen } from "../apply/apply-screen";
 import { BoardPanel } from "./board-panel";
 import { OnboardingDialog } from "./onboarding-dialog";
+import { CalendarButton } from "./calendar-dialog";
 import { ProgressButton } from "./progress-sheet";
 import { useWorkspace } from "./use-workspace";
 
@@ -113,6 +114,7 @@ function Workspace({ me, enrollment }: { me: Me; enrollment: Enrollment }) {
           </span>
         </div>
         <div className="ml-auto flex items-center gap-1">
+          <CalendarButton personas={personas} onOpenTask={openFromChat} />
           <ProgressButton enrollment={enrollment} />
         </div>
       </AppHeader>

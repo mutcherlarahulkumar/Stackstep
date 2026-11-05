@@ -1158,3 +1158,88 @@ final class ApplicationSummary {
   final int openCohorts;
   final bool enrolled;
 }
+
+/// What a calendar entry stands for (feature 20).
+enum CalendarKind {
+  task('task'),
+  surprise('surprise'),
+  classSession('class');
+
+  CalendarKind(this.wire);
+  final String wire;
+}
+
+/// One thing on a student's calendar. Unreleased entries have no task ID; surprise entries
+/// have no title or time until they land.
+class CalendarEntry {
+  const CalendarEntry({
+    required this.kind,
+    required this.date,
+    required this.day,
+    required this.at,
+    required this.dueAt,
+    required this.released,
+    required this.taskId,
+    required this.title,
+    required this.taskType,
+    required this.status,
+    required this.personaId,
+    required this.classId,
+  });
+
+  factory CalendarEntry.fromJson(JsonReader j) => CalendarEntry(
+    kind: j.enumValue('kind', CalendarKind.values, (k) => k.wire),
+    date: DateTime.parse(j.string('date')),
+    day: j.integer('day'),
+    at: j.dateTimeOrNull('at'),
+    dueAt: j.dateTimeOrNull('due_at'),
+    released: j.boolean('released'),
+    taskId: j.stringOrNull('task_id'),
+    title: j.stringOrNull('title'),
+    taskType: j.enumValueOrNull('task_type', TaskType.values, (t) => t.wire),
+    status: j.enumValueOrNull('status', TaskStatus.values, (s) => s.wire),
+    personaId: j.stringOrNull('persona_id'),
+    classId: j.stringOrNull('class_id'),
+  );
+
+  final CalendarKind kind;
+
+  /// Calendar date in the student's time zone (no time part).
+  final DateTime date;
+  final int day;
+  final DateTime? at;
+  final DateTime? dueAt;
+  final bool released;
+  final String? taskId;
+  final String? title;
+  final TaskType? taskType;
+  final TaskStatus? status;
+  final String? personaId;
+  final String? classId;
+}
+
+/// A student's internship laid out by day.
+class Calendar {
+  const Calendar({required this.startDate, required this.endDate, required this.timezone, required this.items});
+
+  factory Calendar.fromJson(JsonReader j) => Calendar(
+    startDate: DateTime.parse(j.string('start_date')),
+    endDate: DateTime.parse(j.string('end_date')),
+    timezone: j.string('timezone'),
+    items: j.list('items', CalendarEntry.fromJson),
+  );
+
+  final DateTime startDate;
+  final DateTime endDate;
+  final String timezone;
+  final List<CalendarEntry> items;
+
+  /// Entries grouped by date, in order.
+  Map<DateTime, List<CalendarEntry>> get byDate {
+    final out = <DateTime, List<CalendarEntry>>{};
+    for (final e in items) {
+      (out[e.date] ??= []).add(e);
+    }
+    return out;
+  }
+}

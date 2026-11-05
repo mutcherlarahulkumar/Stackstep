@@ -49,9 +49,15 @@ void main() {
     for (final malformed in <Object?>[
       'not an array',
       [null],
-      [{'title': 'Missing body'}],
-      [{'title': 42, 'body': 'text'}],
-      [{'title': 'Wrong body', 'body': true}],
+      [
+        {'title': 'Missing body'},
+      ],
+      [
+        {'title': 42, 'body': 'text'},
+      ],
+      [
+        {'title': 'Wrong body', 'body': true},
+      ],
     ]) {
       expect(
         () => TaskContent.fromJson(JsonReader({'resources': <Object?>[], 'quiz': null, 'documents': malformed})),
@@ -141,9 +147,7 @@ void main() {
         return http.Response(jsonEncode(taskJson()), 201, headers: {'content-type': 'application/json'});
       }),
     );
-    final student = StudentRow.fromJson(
-      JsonReader({'user': userJson(), 'enrollment': enrollmentJson(), 'open_tasks': 0, 'in_review': 0}),
-    );
+    final student = StudentRow.fromJson(JsonReader({'user': userJson(), 'enrollment': enrollmentJson(), 'open_tasks': 0, 'in_review': 0}));
     await tester.pumpWidget(
       ProviderScope(
         overrides: [
@@ -193,7 +197,8 @@ void main() {
         home: TaskDocumentScreen(
           document: TaskDocument(
             title: 'Your reading',
-            body: '# Start here\n\n'
+            body:
+                '# Start here\n\n'
                 '- [x] Read the brief\n- [ ] Try the example\n\n'
                 '| Input | Result |\n| --- | --- |\n| Empty list | No matches |\n\n'
                 '> Keep the original list unchanged.\n\n'
@@ -218,10 +223,11 @@ void main() {
   });
 
   testWidgets('shared Markdown permits only safe links and disposes link recognizers on rebuild', (tester) async {
-    await tester.pumpWidget(
-      const ShadApp(home: Scaffold(body: MarkdownView('[Safe](https://example.com) [Unsafe](javascript:alert(1))'))),
-    );
-    final interactive = tester.widgetList<RichText>(find.byType(RichText)).expand((text) => spans(text.text)).where((span) => span.recognizer != null);
+    await tester.pumpWidget(const ShadApp(home: Scaffold(body: MarkdownView('[Safe](https://example.com) [Unsafe](javascript:alert(1))'))));
+    final interactive = tester
+        .widgetList<RichText>(find.byType(RichText))
+        .expand((text) => spans(text.text))
+        .where((span) => span.recognizer != null);
     expect(interactive.map((span) => span.text), ['Safe']);
     await tester.pumpWidget(const ShadApp(home: Scaffold(body: MarkdownView('No link now.'))));
     expect(tester.takeException(), isNull);

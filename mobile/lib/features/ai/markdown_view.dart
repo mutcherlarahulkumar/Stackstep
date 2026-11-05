@@ -129,24 +129,21 @@ class _MarkdownViewState extends State<MarkdownView> {
     final children = li.children ?? const <md.Node>[];
     final inputs = <md.Element>[
       for (final child in children.whereType<md.Element>())
-        if (child.tag == 'input') child
+        if (child.tag == 'input')
+          child
         else if (child.tag == 'p')
           ...?(child.children?.whereType<md.Element>().where((element) => element.tag == 'input')),
     ];
     if (inputs.isEmpty) return Text(marker, style: base);
     final checked = inputs.first.attributes.containsKey('checked');
-    return Semantics(
-      checked: checked,
-      child: Icon(checked ? Icons.check_box_outlined : Icons.check_box_outline_blank, size: 18),
-    );
+    return Semantics(checked: checked, child: Icon(checked ? Icons.check_box_outlined : Icons.check_box_outline_blank, size: 18));
   }
 
   Widget _table(BuildContext context, md.Element table, TextStyle base) {
     final color = ShadTheme.of(context).colorScheme;
     final rows = <md.Element>[
       for (final section in (table.children ?? const <md.Node>[]).whereType<md.Element>())
-        if (section.tag == 'tr') section
-        else ...?(section.children?.whereType<md.Element>().where((row) => row.tag == 'tr')),
+        if (section.tag == 'tr') section else ...?(section.children?.whereType<md.Element>().where((row) => row.tag == 'tr')),
     ];
     if (rows.isEmpty) return const SizedBox.shrink();
     final cells = [for (final row in rows) (row.children ?? const <md.Node>[]).whereType<md.Element>().toList()];
