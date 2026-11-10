@@ -282,7 +282,7 @@ function ProfileBody({ p, me, onClose }: { p: Profile; me: Me; onClose: () => vo
         </div>
         <div className="mt-5 grid grid-cols-3 gap-2">
           <QuickAction icon={GitHubIcon} label="GitHub" href={p.github_url} external testId="profile-github" />
-          {current ? <QuickAction icon={MessageCircle} label="Chats" href="/admin/inbox" /> : <QuickAction icon={Inbox} label="Applications" href="/admin/applications" />}
+          {current ? <QuickAction icon={MessageCircle} label="Chats" href={`/admin/inbox?student=${encodeURIComponent(p.user.github_login)}&enrollment=${current.enrollment.id}`} testId="profile-chats" /> : <QuickAction icon={Inbox} label="Applications" href="/admin/applications" />}
           {p.user.email ? <QuickAction icon={Mail} label="Email" href={`mailto:${p.user.email}`} external /> : <QuickAction icon={CalendarClock} label="Joined" text={p.created_at.toLocaleDateString([], { day: "numeric", month: "short", year: "numeric" })} />}
         </div>
       </div>

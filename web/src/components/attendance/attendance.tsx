@@ -238,7 +238,7 @@ export function Forest({ a, className }: { a: Attendance; className?: string }) 
           })}
         </div>
       </div>
-      <div className="absolute right-3 bottom-3 flex gap-1">
+      <div className="absolute top-3 left-3 flex gap-1">
         <Button size="icon-sm" variant="secondary" aria-label="Turn left" onClick={() => setAngle((v) => v - 30)}>
           <RotateCcw aria-hidden />
         </Button>

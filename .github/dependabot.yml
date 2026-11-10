@@ -13,6 +13,10 @@ updates:
       next-react: { patterns: ["next", "react", "react-dom", "@types/react*", "eslint-config-next", "babel-plugin-react-compiler"] }
       radix-shadcn: { patterns: ["radix-ui", "lucide-react", "class-variance-authority", "tailwind-merge", "clsx", "sonner", "tw-animate-css"] }
       tooling: { patterns: ["eslint", "typescript*", "vitest", "@vitejs/*", "@testing-library/*", "jsdom", "tailwindcss", "@tailwindcss/*"] }
+    ignore:
+      # typescript-eslint refuses TypeScript 7 for now; lift this once it supports it.
+      - dependency-name: "typescript"
+        versions: [">=7.0.0"]
     commit-message: { prefix: "build(deps)" }
   - package-ecosystem: npm
     directory: /e2e

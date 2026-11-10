@@ -47,6 +47,15 @@ test("admins open a full profile, keep notes and sign people out (PA1 to PA3, SO
   await forest.getByRole("button", { name: "Close" }).click();
   await expect(forest).toBeHidden();
 
+  // Chats opens Ravi's own chats in the inbox, then back to his profile.
+  await profile.getByTestId("profile-chats").click();
+  await expect(page).toHaveURL(/\/admin\/inbox\?student=ravi-dev/);
+  await expect(page.getByRole("heading", { name: "Ravi Teja" })).toBeVisible();
+  await expect(page.getByTestId("student-personas")).toBeVisible();
+  // Back returns to the profile, still open where it was.
+  await page.goBack();
+  await expect(profile.getByRole("heading", { name: "Ravi Teja" })).toBeVisible();
+
   // Signing out everywhere sends Ravi back to GitHub sign in.
   await profile.getByTestId("profile-sign-out").click();
   await page.getByTestId("profile-sign-out-confirm").click();
