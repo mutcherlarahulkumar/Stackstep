@@ -201,9 +201,18 @@ func reviewMail(t domain.Task, approved bool, note string, rubric []bool, person
 
 // certificateMail congratulates a student and gives them the code to share.
 func certificateMail(student domain.User, cert domain.Certificate) store.NewMail {
-	body := fmt.Sprintf("Congratulations, %s!\n\nYou finished **%d tasks** and earned **%d points**. Your certificate is ready to download and share.\n\n"+
+	body := fmt.Sprintf("Congratulations, %s!\n\nYou finished **%s** and earned **%s**. Your certificate is ready to download and share.\n\n"+
 		"Anyone can check it is genuine on the Stackstep verify page with code **%s**.\n\nWell done,\n\nSam Rivera, Team Lead",
-		firstNameOf(student.Name), cert.TasksDone, cert.Points, cert.Code)
+		firstNameOf(student.Name), plural(cert.TasksDone, "task", "tasks"), plural(cert.Points, "point", "points"), cert.Code)
 	lead := domain.DefaultPersonaID
 	return store.NewMail{Kind: domain.MailCertificate, Subject: "Your certificate is ready", Body: body, FromName: "Sam Rivera", PersonaID: &lead}
 }
+
+// plural is "1 task" or "3 tasks".
+func plural(n int, one, many string) string {
+	if n == 1 {
+		return fmt.Sprintf("%d %s", n, one)
+	}
+	return fmt.Sprintf("%d %s", n, many)
+}
+

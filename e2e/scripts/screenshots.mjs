@@ -51,7 +51,7 @@ await shoot("14-flow-builder", "admin-demo", "/admin/flows/00000000-0000-4000-80
 await shoot("15-flow-item", "admin-demo", "/admin/flows/00000000-0000-4000-8000-0000000000f1", { before: async (p) => { await p.getByTestId("day-2").click(); await p.getByTestId("item-Two Sum").getByRole("button", { name: "Two Sum", exact: true }).click(); await p.waitForTimeout(500); } });
 await shoot("16-library", "admin-demo", "/admin/library");
 await shoot("17-personas", "admin-demo", "/admin/personas");
-await shoot("18-inbox", "admin-demo", "/admin/inbox", { before: async (p) => { await p.getByTestId("staff-thread-asha-dev-Sam Rivera").click(); await p.waitForTimeout(600); } });
+await shoot("18-inbox", "admin-demo", "/admin/inbox", { before: async (p) => { await p.getByTestId("inbox-mode-latest").click(); await p.getByTestId("staff-thread-asha-dev-Sam Rivera").click(); await p.waitForTimeout(600); } });
 await shoot("19-broadcast", "admin-demo", "/admin/inbox", { before: async (p) => { await p.getByTestId("open-broadcast").click(); await p.waitForTimeout(500); } });
 await shoot("20-inbox-phone", "admin-demo", "/admin/inbox", { width: 390, height: 844, dark: true });
 await shoot("21-student-chats-phone", "meera-dev", "/workspace", { width: 390, height: 844 });
@@ -93,10 +93,10 @@ await shoot("34-overview", "admin-demo", "/admin/overview");
 await shoot("35-overview-dark", "admin-demo", "/admin/overview", { dark: true });
 await shoot("36-overview-student", "admin-demo", "/admin/overview", { before: async (p) => { await p.getByTestId("overview-row-asha-dev").getByRole("button").click(); await p.waitForTimeout(600); } });
 await shoot("37-nudge", "admin-demo", "/admin/overview", { before: async (p) => { await p.getByTestId("open-nudge").click(); await p.waitForTimeout(500); } });
-await shoot("38-people-enroll", "admin-demo", "/admin/people");
-await shoot("39-people-cohorts", "admin-demo", "/admin/people", { before: async (p) => { await p.getByRole("tab", { name: "Colleges & cohorts" }).click(); await p.waitForTimeout(600); } });
+await shoot("38-people-enroll", "admin-demo", "/admin/people", { before: async (p) => { await p.getByRole("tab", { name: "Enroll students" }).click(); await p.waitForTimeout(600); } });
+await shoot("39-people-cohorts", "admin-demo", "/admin/cohorts");
 await shoot("40-people-staff", "admin-demo", "/admin/people", { dark: true, before: async (p) => { await p.getByRole("tab", { name: "Staff" }).click(); await p.waitForTimeout(600); } });
-await shoot("41-people-import", "admin-demo", "/admin/people", { before: async (p) => { await p.locator("form").nth(1).getByLabel("Roster").fill("github_login,name\nnew-one,New One\nbad login,Bad\nnew-one,Dup"); await p.waitForTimeout(400); } });
+await shoot("41-people-import", "admin-demo", "/admin/people", { before: async (p) => { await p.getByRole("tab", { name: "Enroll students" }).click(); await p.getByTestId("enroll-mode-csv").click(); await p.locator("form").first().getByLabel("Roster").fill("github_login,name\nnew-one,New One\nbad login,Bad\nnew-one,Dup"); await p.waitForTimeout(400); } });
 await shoot("42-status-menu", "admin-demo", "/admin", { before: async (p) => { await p.getByTestId("student-asha-dev").click(); await p.getByTestId("internship-status").click(); await p.waitForTimeout(400); } });
 // Loading states: hold the API so the loaders stay on screen.
 await shoot("43-loading-full", null, null, { before: async (p) => { await p.route("**/api/v1/auth/refresh", () => {}); await p.goto("http://localhost:3000/workspace"); await p.waitForTimeout(1500); } });
@@ -112,4 +112,22 @@ await shoot("45-ai-thinking", "ravi-dev", "/workspace", {
     await p.waitForTimeout(1200);
   },
 });
+// Features 19 to 26.
+await shoot("46-calendar-week", "asha-dev", "/calendar");
+await shoot("47-calendar-month-dark", "asha-dev", "/calendar", { dark: true, before: async (p) => { await p.getByTestId("calendar-view-month").click(); await p.waitForTimeout(400); } });
+await shoot("48-calendar-phone", "asha-dev", "/calendar", { width: 390, height: 844 });
+await shoot("49-mail", "asha-dev", "/mail");
+await shoot("50-mail-phone-dark", "asha-dev", "/mail", { width: 390, height: 844, dark: true });
+await shoot("51-classes-admin", "admin-demo", "/admin/classes");
+await shoot("52-announcements", "admin-demo", "/admin/announcements");
+await shoot("53-download", null, "/download");
+await shoot("54-download-phone-dark", null, "/download", { width: 390, height: 844, dark: true });
+await shoot("55-people-directory", "admin-demo", "/admin/people");
+await shoot("56-profile", "admin-demo", "/admin/people", { before: async (p) => { await p.getByTestId("person-asha-dev").click(); await p.waitForTimeout(800); } });
+await shoot("57-profile-forest", "admin-demo", "/admin/people", { before: async (p) => { await p.getByTestId("person-asha-dev").click(); await p.getByTestId("profile-forest").click(); await p.waitForTimeout(1200); } });
+await shoot("58-attendance", "asha-dev", "/attendance");
+await shoot("59-attendance-phone-dark", "asha-dev", "/attendance", { width: 390, height: 844, dark: true });
+await shoot("60-tour", "asha-dev", "/workspace", { before: async (p) => { await p.getByRole("button", { name: "Account menu" }).click(); await p.getByTestId("menu-tour").click(); await p.getByTestId("tour-next").click(); await p.waitForTimeout(600); } });
+await shoot("61-help", "asha-dev", "/workspace", { before: async (p) => { await p.getByTestId("help-open").click(); await p.getByTestId("help-suggestion").first().click(); await p.getByTestId("help-a").nth(1).waitFor(); } });
+await shoot("62-help-phone", null, "/", { width: 390, height: 844, before: async (p) => { await p.getByTestId("help-open").click(); await p.waitForTimeout(500); } });
 await browser.close();

@@ -109,8 +109,8 @@ func (w *Workspace) IssueCertificate(ctx context.Context, u domain.User, enrollm
 		by := u.ID
 		_, _, err = store.InsertMessage(ctx, q, store.NewMessage{
 			EnrollmentID: e.ID, PersonaID: domain.DefaultPersonaID, SentBy: &by, Author: domain.AuthorPersona, DeliverAt: now,
-			Body: fmt.Sprintf("Congratulations, %s! Your certificate is ready, with %d tasks finished and %d points. Anyone can verify it with code %s.",
-				firstNameOf(student.Name), p.Done, p.Points, cert.Code),
+			Body: fmt.Sprintf("Congratulations, %s! Your certificate is ready, with %s finished and %s. Anyone can verify it with code %s.",
+				firstNameOf(student.Name), plural(p.Done, "task", "tasks"), plural(p.Points, "point", "points"), cert.Code),
 		}, now)
 		if err != nil {
 			return err
