@@ -49,7 +49,9 @@ void main() {
       baseUrl: Uri.parse('http://api.test'),
       tokenStore: MemoryTokenStore()..value = 'refresh',
       httpClient: MockClient((r) async {
-        if (r.url.path == '/v1/auth/refresh') return http.Response(jsonEncode(tokensJson()), 200, headers: {'content-type': 'application/json'});
+        if (r.url.path == '/v1/auth/refresh') {
+          return http.Response(jsonEncode(tokensJson()), 200, headers: {'content-type': 'application/json'});
+        }
         if (r.url.path.endsWith('/reactions')) {
           final body = jsonDecode(r.body) as Json;
           sent.add(body);

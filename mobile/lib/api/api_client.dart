@@ -174,6 +174,8 @@ final class ApiClient {
 
   Future<Calendar> myCalendar() async => Calendar.fromJson(asObject(await _send('GET', '/v1/me/calendar')));
 
+  Future<Attendance> myAttendance() async => Attendance.fromJson(asObject(await _send('GET', '/v1/me/attendance')));
+
   Future<MailPage> myMail({String? cursor, int limit = 50}) async =>
       MailPage.fromJson(asObject(await _send('GET', '/v1/me/mail', query: {'limit': '$limit', 'cursor': ?cursor})));
 

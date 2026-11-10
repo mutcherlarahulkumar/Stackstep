@@ -34,7 +34,8 @@ day. Quick actions open GitHub, the team inbox, and email. Sections:
 - The seat map is drawn like picking seats at the cinema. Present days are a computer with
   the seat number, missed days a dead tree, today a dashed seat.
 - The forest is a 3D plot you can turn: a green tree per day present, a bare tree per day
-  missed, a sapling for today. Students open it from **Progress, Show attendance**.
+  missed, a sapling for today. Students open it from **Progress, Show attendance** on the
+  web and in the app (where it is drawn isometrically; drag sideways to turn it).
 
 ## Edge cases
 
@@ -46,6 +47,7 @@ day. Quick actions open GitHub, the team inbox, and email. Sections:
 | AT4 | The next day before opening | Today pending, streak unchanged; opening it marks present | backend `TestAttendanceMarkedOnOpen` |
 | AT5 | No internship | 409 `no_active_enrollment` | backend `TestAttendanceMarkedOnOpen` |
 | AT6 | Student opens Show attendance | Stats, the forest and the seat map; today present with a seat | E2E `people-admin.spec.ts` |
+| AT7 | App | Strict decoding (unknown status refused); stats, forest and seats; turning the forest | Flutter `attendance_test.dart` |
 | PA1 | Directory filters and scope | Applicants have no internship; college admins don't see other colleges; students get 403; bad kind 422 | backend `TestPeopleDirectoryAndProfile`, E2E `people-admin.spec.ts` |
 | PA2 | Profile | GitHub link, internships, attendance and notes | backend `TestPeopleDirectoryAndProfile`, E2E `people-admin.spec.ts` |
 | PA3 | Notes | Trimmed; blank refused; tick off; open first; delete; college admins can keep them too | backend `TestPeopleDirectoryAndProfile`, E2E `people-admin.spec.ts` |

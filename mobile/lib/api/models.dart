@@ -1418,3 +1418,44 @@ enum ClassStatus {
   ClassStatus(this.wire);
   final String wire;
 }
+
+/// One day of the internship so far (feature 25).
+class AttendanceDay {
+  const AttendanceDay({required this.date, required this.day, required this.status, required this.seat, required this.firstSeenAt});
+
+  factory AttendanceDay.fromJson(JsonReader j) => AttendanceDay(
+    date: DateTime.parse(j.string('date')),
+    day: j.integer('day'),
+    status: j.enumValue('status', AttendanceStatus.values, (s) => s.wire),
+    seat: j.integerOrNull('seat'),
+    firstSeenAt: j.dateTimeOrNull('first_seen_at'),
+  );
+
+  /// Calendar date in the student's time zone (no time part).
+  final DateTime date;
+  final int day;
+  final AttendanceStatus status;
+
+  /// Arrival order that day, across everyone; only when present.
+  final int? seat;
+  final DateTime? firstSeenAt;
+}
+
+/// Day 1 to today, with totals and the current streak.
+class Attendance {
+  const Attendance({required this.days, required this.present, required this.missed, required this.streak});
+
+  factory Attendance.fromJson(JsonReader j) => Attendance(
+    days: j.list('days', AttendanceDay.fromJson),
+    present: j.integer('present'),
+    missed: j.integer('missed'),
+    streak: j.integer('streak'),
+  );
+
+  final List<AttendanceDay> days;
+  final int present;
+  final int missed;
+  final int streak;
+
+  int get percent => present + missed == 0 ? 0 : (present * 100 / (present + missed)).round();
+}
