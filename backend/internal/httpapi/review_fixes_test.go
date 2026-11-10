@@ -6,6 +6,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/google/uuid"
+
 	"github.com/mutcherlarahulkumar/stackstep/backend/internal/seed"
 	"github.com/mutcherlarahulkumar/stackstep/backend/internal/store"
 )
@@ -127,5 +129,44 @@ func TestAssignBeforeDayOne(t *testing.T) {
 	e.expect(e.do("POST", "/v1/admin/enrollments/"+id.String()+"/tasks", adm, map[string]any{"type": "bug_fix", "title": "Fix the navbar", "brief": "Fix it.", "due_at": dayTwo}), 201).json(t, &task)
 	if !task.ScheduledFor.After(e.clock.Now()) {
 		t.Fatalf("task shows before Day 1: %v", task.ScheduledFor)
+	}
+}
+
+// AS3: a bug fix goes the whole way: assigned, started, handed in, sent back, fixed, approved.
+func TestBugFixLoop(t *testing.T) {
+	e := newEnv(t)
+	adm := e.login(seed.AdminLogin)
+	stu := e.login(seed.StudentLogin)
+	enr := e.enrollmentOf(seed.StudentLogin)
+	var task taskResp
+	e.expect(e.do("POST", "/v1/admin/enrollments/"+enr.String()+"/tasks", adm, map[string]any{
+		"type": "bug_fix", "title": "Fix the empty form crash", "brief": "Steps to reproduce in the issue.", "due_at": e.clock.Now().Add(3 * time.Hour),
+		"content": map[string]any{"rubric": []string{"Adds a failing test first", "Fix is minimal"}},
+	}), 201).json(t, &task)
+	v := task.Version
+	e.expect(e.move(stu, task.ID, "in_progress", v, ""), 200)
+	e.expect(e.move(stu, task.ID, "in_review", v+1, ""), 200)
+	e.expect(e.move(adm, task.ID, "changes_requested", v+2, ""), 422) // a reason is required
+	review := func(to string, version int, note string, rubric []bool) resp {
+		return e.do("POST", "/v1/tasks/"+task.ID.String()+"/transitions", adm, map[string]any{
+			"to": to, "expected_version": version, "note": note, "rubric": rubric,
+		})
+	}
+	e.expect(review("changes_requested", v+2, "Add the regression test.", []bool{false, true}), 200)
+	e.expect(e.move(stu, task.ID, "in_progress", v+3, ""), 200)
+	e.expect(e.move(stu, task.ID, "in_review", v+4, ""), 200)
+	e.expect(review("done", v+5, "", []bool{true, true}), 200)
+	var mine struct {
+		Items []struct {
+			ID     uuid.UUID `json:"id"`
+			Status string    `json:"status"`
+			Type   string    `json:"type"`
+		} `json:"items"`
+	}
+	e.expect(e.do("GET", "/v1/me/tasks", stu, nil), 200).json(t, &mine)
+	for _, it := range mine.Items {
+		if it.ID == task.ID && (it.Status != "done" || it.Type != "bug_fix") {
+			t.Fatalf("bug fix ended as %+v", it)
+		}
 	}
 }
