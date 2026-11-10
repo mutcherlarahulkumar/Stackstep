@@ -61,3 +61,93 @@ export function entryLine(e: CalendarEntry, timeZone: string): string {
   }
 }
 
+
+// ---- Timeline (week/day/month) helpers -------------------------------------------------
+
+export type View = "day" | "week" | "month";
+
+/** Minutes since midnight of an instant, in a zone. */
+export function minutesIn(at: Date, timeZone: string): number {
+  const parts = new Intl.DateTimeFormat("en-GB", { timeZone, hour: "2-digit", minute: "2-digit", hourCycle: "h23" }).formatToParts(at);
+  const h = Number(parts.find((p) => p.type === "hour")?.value ?? 0);
+  const m = Number(parts.find((p) => p.type === "minute")?.value ?? 0);
+  return h * 60 + m;
+}
+
+export function addDays(d: string, n: number): string {
+  const x = parseDay(d);
+  x.setUTCDate(x.getUTCDate() + n);
+  return isoDay(x);
+}
+
+/** The days a view shows around an anchor day (weeks start on Monday). */
+export function daysOf(view: View, anchor: string): string[] {
+  if (view === "day") return [anchor];
+  const a = parseDay(anchor);
+  if (view === "week") {
+    const mon = addDays(anchor, -((a.getUTCDay() + 6) % 7));
+    return Array.from({ length: 7 }, (_, i) => addDays(mon, i));
+  }
+  const first = isoDay(new Date(Date.UTC(a.getUTCFullYear(), a.getUTCMonth(), 1)));
+  const last = isoDay(new Date(Date.UTC(a.getUTCFullYear(), a.getUTCMonth() + 1, 0)));
+  return weeksBetween(first, last).flat();
+}
+
+/** Moves the anchor one view forward or back. */
+export function shift(view: View, anchor: string, dir: 1 | -1): string {
+  if (view === "day") return addDays(anchor, dir);
+  if (view === "week") return addDays(anchor, 7 * dir);
+  const a = parseDay(anchor);
+  return isoDay(new Date(Date.UTC(a.getUTCFullYear(), a.getUTCMonth() + dir, 1)));
+}
+
+/** "10 – 16 November 2026", "November 2026" or "Tuesday 10 November". */
+export function rangeTitle(view: View, anchor: string): string {
+  const fmt = (d: string, o: Intl.DateTimeFormatOptions) => parseDay(d).toLocaleDateString("en-GB", { timeZone: "UTC", ...o });
+  if (view === "day") return fmt(anchor, { weekday: "long", day: "numeric", month: "long", year: "numeric" });
+  if (view === "month") return fmt(anchor, { month: "long", year: "numeric" });
+  const days = daysOf("week", anchor);
+  const a = days[0] ?? anchor;
+  const b = days[6] ?? anchor;
+  const sameMonth = parseDay(a).getUTCMonth() === parseDay(b).getUTCMonth();
+  return sameMonth ? `${fmt(a, { day: "numeric" })} to ${fmt(b, { day: "numeric", month: "long", year: "numeric" })}` : `${fmt(a, { day: "numeric", month: "short" })} to ${fmt(b, { day: "numeric", month: "short", year: "numeric" })}`;
+}
+
+export type Placed = { entry: CalendarEntry; top: number; height: number; col: number; cols: number };
+
+/**
+ * Timed blocks for one day, Google Calendar style: top and height in minutes, and events
+ * that overlap share the width side by side. Tasks show as 30-minute blocks at the moment
+ * they arrive; classes last as long as they run.
+ */
+export function layoutDay(entries: readonly CalendarEntry[], timeZone: string): Placed[] {
+  const timed = entries
+    .filter((e) => e.at)
+    .map((e) => {
+      const top = minutesIn(e.at ?? new Date(0), timeZone);
+      const span = e.kind === "class" && e.due_at && e.at ? Math.round((e.due_at.getTime() - e.at.getTime()) / 60_000) : 30;
+      return { entry: e, top, height: Math.max(20, Math.min(span, 24 * 60 - top)) };
+    })
+    .sort((a, b) => a.top - b.top || b.height - a.height);
+  const out: Placed[] = [];
+  let group: Placed[] = [];
+  let groupEnd = -1;
+  const flush = () => {
+    const cols = Math.max(1, ...group.map((g) => g.col + 1));
+    for (const g of group) out.push({ ...g, cols });
+    group = [];
+  };
+  for (const t of timed) {
+    if (t.top >= groupEnd && group.length) flush();
+    const used = new Set(group.filter((g) => g.top + g.height > t.top).map((g) => g.col));
+    let col = 0;
+    while (used.has(col)) col++;
+    group.push({ ...t, col, cols: 1 });
+    groupEnd = Math.max(groupEnd, t.top + t.height);
+  }
+  if (group.length) flush();
+  return out;
+}
+
+/** Entries without a time (surprises): the all-day lane. */
+export const untimed = (entries: readonly CalendarEntry[]) => entries.filter((e) => !e.at);

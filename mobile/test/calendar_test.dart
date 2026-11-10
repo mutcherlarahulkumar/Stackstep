@@ -90,6 +90,8 @@ void main() {
       ),
     );
     await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('calendar-mode-agenda')));
+    await tester.pumpAndSettle();
     // Earlier days fold away; today is labelled with its internship day.
     expect(find.text('Yesterday'), findsNothing);
     expect(find.text('Today · Day 3'), findsOneWidget);
@@ -103,5 +105,63 @@ void main() {
     await tester.tap(find.byKey(const Key('calendar-past')));
     await tester.pumpAndSettle();
     expect(find.text('Yesterday'), findsOneWidget);
+  });
+
+  testWidgets('CA8 day timeline: week strip, blocks at their time, a now line, and details on tap', (tester) async {
+    String? opened;
+    final api = ApiClient(
+      baseUrl: Uri.parse('http://api.test'),
+      tokenStore: MemoryTokenStore()..value = 'refresh',
+      httpClient: MockClient((r) async {
+        final body = switch (r.url.path) {
+          '/v1/auth/refresh' => tokensJson(),
+          '/v1/me/threads' => {'items': <Object?>[]},
+          _ => {
+            'start_date': '2026-11-02',
+            'end_date': '2026-12-01',
+            'timezone': 'Asia/Kolkata',
+            'items': [
+              entry(released: true, taskId: 't-1', status: 'todo', at: DateTime(2026, 11, 4, 10).toUtc().toIso8601String()),
+              entry(kind: 'surprise', at: null, title: null),
+              entry(date: '2026-11-05', day: 4, title: 'Hero', at: DateTime(2026, 11, 5, 9).toUtc().toIso8601String()),
+            ],
+          },
+        };
+        return http.Response(jsonEncode(body), 200, headers: {'content-type': 'application/json'});
+      }),
+    );
+    await tester.binding.setSurfaceSize(const Size(390, 844));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [apiClientProvider.overrideWithValue(api), clockProvider.overrideWithValue(() => DateTime(2026, 11, 4, 12))],
+        child: ShadApp(
+          home: Scaffold(body: CalendarScreen(onOpenTask: (id) => opened = id)),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    expect(find.byKey(const Key('calendar-timeline')), findsOneWidget);
+    expect(find.text('Today'), findsOneWidget);
+    expect(find.text('Day 3'), findsOneWidget);
+    expect(find.byKey(const Key('calendar-now')), findsOneWidget);
+    expect(find.text('A surprise task lands sometime this day'), findsOneWidget);
+    // A released task opens from its details sheet.
+    await tester.ensureVisible(find.byKey(const Key('calendar-block-Standup')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('calendar-block-Standup')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('calendar-entry-Standup')));
+    await tester.pumpAndSettle();
+    expect(opened, 't-1');
+    // Tomorrow from the strip: a locked task, and no now line.
+    await tester.tap(find.byKey(const Key('calendar-strip-2026-11-05')));
+    await tester.pumpAndSettle();
+    expect(find.byKey(const Key('calendar-now')), findsNothing);
+    await tester.ensureVisible(find.byKey(const Key('calendar-block-Hero')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('calendar-block-Hero')));
+    await tester.pumpAndSettle();
+    expect(find.text('It opens on your board the moment it arrives.'), findsOneWidget);
   });
 }

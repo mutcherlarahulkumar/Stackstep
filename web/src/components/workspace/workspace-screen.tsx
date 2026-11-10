@@ -3,6 +3,7 @@
 import {
   ArrowLeft,
   Bot,
+  CalendarDays,
   Mail,
   MessageCircle,
   SquareKanban,
@@ -38,7 +39,6 @@ import { AIHelper } from "../ai/ai-helper";
 import { ApplyScreen } from "../apply/apply-screen";
 import { BoardPanel } from "./board-panel";
 import { OnboardingDialog } from "./onboarding-dialog";
-import { CalendarButton } from "./calendar-dialog";
 import { LiveClassBanner } from "./live-class-banner";
 import { ProgressButton } from "./progress-sheet";
 import { useWorkspace } from "./use-workspace";
@@ -147,7 +147,12 @@ function Workspace({ me, enrollment }: { me: Me; enrollment: Enrollment }) {
               ) : null}
             </Link>
           </Button>
-          <CalendarButton personas={personas} onOpenTask={openFromChat} />
+          <Button asChild variant="ghost" size="sm" className="gap-2 rounded-full" data-testid="open-calendar">
+            <Link href="/calendar" aria-label="Your calendar">
+              <CalendarDays aria-hidden />
+              <span className="hidden md:inline">Calendar</span>
+            </Link>
+          </Button>
           <ProgressButton enrollment={enrollment} />
         </div>
       </AppHeader>

@@ -37,3 +37,31 @@ describe("calendar (CA6)", () => {
     expect(todayIn("Asia/Kolkata", new Date(Date.UTC(2026, 10, 4, 20, 0)))).toBe("2026-11-05");
   });
 });
+
+import { daysOf, layoutDay, minutesIn, rangeTitle, shift } from "./calendar";
+
+describe("calendar timeline (CA8)", () => {
+  const at = (iso: string) => new Date(iso);
+  it("places blocks by time in the student's zone and shares width when they overlap", () => {
+    expect(minutesIn(at("2026-11-10T04:00:00Z"), "Asia/Kolkata")).toBe(9 * 60 + 30);
+    const placed = layoutDay(
+      [
+        { ...base, at: at("2026-11-10T04:00:00Z"), title: "Standup" },
+        { ...base, at: at("2026-11-10T04:15:00Z"), title: "Two Sum" },
+        { ...base, kind: "class", at: at("2026-11-10T12:30:00Z"), due_at: at("2026-11-10T13:30:00Z"), title: "Class", task_type: null },
+      ],
+      "Asia/Kolkata",
+    );
+    const by = Object.fromEntries(placed.map((p) => [p.entry.title, p]));
+    expect(by.Standup).toMatchObject({ top: 570, height: 30, col: 0, cols: 2 });
+    expect(by["Two Sum"]).toMatchObject({ col: 1, cols: 2 });
+    expect(by.Class).toMatchObject({ top: 18 * 60, height: 60, cols: 1 });
+  });
+  it("lays out days, weeks and months and moves between them", () => {
+    expect(daysOf("week", "2026-11-12")[0]).toBe("2026-11-09");
+    expect(daysOf("month", "2026-11-12")).toHaveLength(42);
+    expect(shift("month", "2026-11-12", 1)).toBe("2026-12-01");
+    expect(shift("week", "2026-11-12", -1)).toBe("2026-11-05");
+    expect(rangeTitle("week", "2026-11-12")).toBe("9 to 15 November 2026");
+  });
+});
