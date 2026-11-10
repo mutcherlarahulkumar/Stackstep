@@ -18,7 +18,7 @@ test("get the app on a desktop shows both phones and a QR code (DL2)", async ({
   await expect(page.getByTestId("download-qr")).toBeVisible();
   await expect(ctas.getByTestId("download-android")).toHaveAttribute(
     "href",
-    /stackstep\.apk$/,
+    "/download/stackstep.apk",
   );
   await expect(ctas.getByTestId("download-ios")).toBeVisible();
   await expect(page.getByTestId("download-qr")).toBeVisible();
@@ -75,4 +75,16 @@ test.describe("on an iPhone", () => {
       await page.evaluate(() => document.documentElement.scrollWidth),
     ).toBeLessThanOrEqual(page.viewportSize()?.width ?? 0);
   });
+});
+
+test("the Android download is our own address and the page never names the code host (DL6)", async ({
+  page,
+  request,
+}) => {
+  const res = await request.get("/download/stackstep.apk", { maxRedirects: 0 });
+  expect(res.status()).toBe(302);
+  expect(res.headers()["location"]).toMatch(/stackstep\.apk$/);
+  await page.goto("/download");
+  await expect(page.locator('a[href*="github.com"]')).toHaveCount(0);
+  await expect(page.getByText(/github release/i)).toHaveCount(0);
 });

@@ -8,6 +8,5 @@ export function detectPlatform(ua: string, maxTouchPoints = 0): Platform {
   return "desktop";
 }
 
-/** Where the Android build lives: a configured link, else the latest build on GitHub. */
-export const DEFAULT_ANDROID_URL =
-  "https://github.com/mutcherlarahulkumar/stackstep/releases/download/latest-main/stackstep.apk";
+/** Our own address for the Android build. It redirects to wherever the file is hosted. */
+export const ANDROID_DOWNLOAD_PATH = "/download/stackstep.apk";

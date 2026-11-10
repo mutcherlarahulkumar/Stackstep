@@ -26,7 +26,11 @@ import {
 
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { DEFAULT_ANDROID_URL, detectPlatform, type Platform } from "@/lib/platform";
+import {
+  ANDROID_DOWNLOAD_PATH,
+  detectPlatform,
+  type Platform,
+} from "@/lib/platform";
 import { useSession } from "@/lib/session";
 import { qrPath } from "@/lib/qr";
 import { cn } from "@/lib/utils";
@@ -146,7 +150,7 @@ const IOS_WEB_STEPS = [
 const FAQ: { q: string; a: ReactNode; for?: Platform }[] = [
   {
     q: "Android says the app might be harmful or blocks the install",
-    a: "Play Protect warns about every app installed from outside the Play Store. Tap More details, then Install anyway. The file comes straight from our official GitHub release, and you can check it against the SHA256 checksum published next to it.",
+    a: "Play Protect warns about every app installed from outside the Play Store. Tap More details, then Install anyway. Only install the file you download from this page.",
     for: "android",
   },
   {
@@ -195,7 +199,10 @@ const FAQ: { q: string; a: ReactNode; for?: Platform }[] = [
 export function DownloadScreen() {
   const { config } = useSession();
   // The links come from the server's settings; the APK default works until they load.
-  const links: AppLinks = { android: config?.androidUrl ?? DEFAULT_ANDROID_URL, ios: config?.iosUrl ?? null };
+  const links: AppLinks = {
+    android: config?.androidUrl ?? ANDROID_DOWNLOAD_PATH,
+    ios: config?.iosUrl ?? null,
+  };
   const platform = usePlatform();
   const p = useHeroScroll();
   const [tab, setTab] = useState<"android" | "ios" | null>(null);
@@ -243,8 +250,8 @@ export function DownloadScreen() {
                 />
               </div>
               <p className="animate-enter text-muted-foreground mt-5 flex items-center gap-1.5 text-sm [animation-delay:320ms]">
-                <ShieldCheck className="size-4" aria-hidden /> Free, built from
-                our public GitHub releases
+                <ShieldCheck className="size-4" aria-hidden /> Free, and always
+                the latest version
               </p>
             </div>
             <div className="relative">
@@ -397,17 +404,7 @@ export function DownloadScreen() {
                 ))}
             </div>
             <p className="text-muted-foreground mt-8 text-center text-sm">
-              Still stuck? Sign in on the web and ask your team lead in chat, or
-              check the{" "}
-              <a
-                href="https://github.com/mutcherlarahulkumar/stackstep/releases"
-                target="_blank"
-                rel="noreferrer"
-                className="text-primary underline-offset-4 hover:underline"
-              >
-                release notes
-              </a>
-              .
+              Still stuck? Sign in on the web and ask your team lead in chat.
             </p>
           </div>
         </section>
