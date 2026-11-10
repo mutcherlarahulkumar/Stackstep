@@ -1,6 +1,7 @@
 package domain
 
 import (
+	"fmt"
 	"strings"
 	"time"
 	"unicode"
@@ -282,6 +283,11 @@ func ValidateNewTask(in NewTaskInput, e Enrollment, now time.Time) (ValidatedTas
 	switch {
 	case in.DueAt.IsZero():
 		errs["due_at"] = "Pick a due time."
+	case out.DueAt.Before(out.ScheduledFor.Add(MinTaskDuration)) && in.ScheduledFor == nil && opens.After(now):
+		// The student hasn't reached Day 1, so the task waits for it; say so rather than
+		// talk about a start time the admin never picked.
+		errs["due_at"] = fmt.Sprintf("This internship starts %s, so the task appears then. Pick a due time at least 15 minutes after.",
+			opens.In(e.Location()).Format("Mon 2 Jan at 3:04 PM"))
 	case out.DueAt.Before(out.ScheduledFor.Add(MinTaskDuration)):
 		errs["due_at"] = "Due time must be at least 15 minutes after the start."
 	case out.DueAt.After(closes):

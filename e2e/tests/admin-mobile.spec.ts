@@ -1,6 +1,6 @@
 import { expect, test } from "@playwright/test";
 
-import { signIn, unique } from "./helpers";
+import { api, apiToken, signIn, unique } from "./helpers";
 
 test.describe("admin on a phone @mobile", () => {
   test.use({ viewport: { width: 390, height: 844 } });
@@ -23,6 +23,25 @@ test.describe("admin on a phone @mobile", () => {
     await page.getByRole("option", { name: "Doc reading" }).click();
     await page.getByTestId("assign-submit").click();
     await expect(page.getByTestId("assign-success")).toContainText(title);
+  });
+
+  test("a student who starts tomorrow can be given a bug fix with the default due time (AS2)", async ({ page, request }) => {
+    const admin = await apiToken(request, "admin-demo");
+    const login = `day-one-${Date.now().toString(36)}`;
+    await api(request, admin, "POST", "/v1/admin/enrollments", { github_login: login, program_slug: "frontend-30" });
+    await signIn(page, "admin-demo");
+    await page.goto("/admin/assign");
+    await page.getByLabel("Search students").fill(login);
+    await page.getByTestId(`student-${login}`).click();
+    await expect(page.getByTestId("assign-not-started")).toContainText(/starts/i);
+    await expect(page.getByRole("radio", { name: "Day 1, 6 PM" })).toBeVisible();
+    const title = unique("Fix the navbar");
+    await page.getByLabel("Title").fill(title);
+    await page.getByLabel("Type").click();
+    await page.getByRole("option", { name: "Bug fix" }).click();
+    await page.getByTestId("assign-submit").click();
+    await expect(page.getByTestId("assign-success")).toContainText(title);
+    await expect(page.getByTestId("assign-success")).toContainText("sees it on their board from");
   });
 
   test("paused internships can't receive tasks", async ({ page }) => {

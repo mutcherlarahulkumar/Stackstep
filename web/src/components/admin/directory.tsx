@@ -53,6 +53,7 @@ import { AttendanceSeats, AttendanceStats, Forest } from "../attendance/attendan
 import { EmptyState, ErrorState, ListSkeleton } from "../app/state";
 import { useFlows } from "./catalog-queries";
 import { useCohorts } from "./people-enroll";
+import { internshipDay } from "@/lib/people";
 
 const ALL = "all";
 const KINDS: { value: UserKind; label: string }[] = [
@@ -203,7 +204,7 @@ function PersonRow({ r, now, onOpen }: { r: UserRow; now: number; onOpen: () => 
         </span>
         <span className="text-muted-foreground block truncate text-xs">
           {r.enrollment
-            ? [r.cohort?.name ?? "No cohort", r.enrollment.flow?.name, r.enrollment.status === "active" ? `Day ${r.enrollment.day_number}` : r.enrollment.status].filter(Boolean).join(" · ")
+            ? [r.cohort?.name ?? "No cohort", r.enrollment.flow?.name, r.enrollment.status === "active" ? internshipDay(r.enrollment, true) : r.enrollment.status].filter(Boolean).join(" · ")
             : r.applications > 0
               ? `${r.applications} ${r.applications === 1 ? "application" : "applications"}, not enrolled`
               : r.user.role === "student"
@@ -279,7 +280,7 @@ function ProfileBody({ p, me, onClose }: { p: Profile; me: Me; onClose: () => vo
         </SheetHeader>
         <div className="mt-2 flex justify-center gap-1.5">
           <Badge variant="outline">{ROLE_LABEL[p.user.role]}</Badge>
-          {current ? <Badge variant={current.enrollment.status === "active" ? "default" : "secondary"}>{current.enrollment.status === "active" ? `Day ${current.enrollment.day_number}` : current.enrollment.status}</Badge> : null}
+          {current ? <Badge variant={current.enrollment.status === "active" ? "default" : "secondary"}>{current.enrollment.status === "active" ? internshipDay(current.enrollment, true) : current.enrollment.status}</Badge> : null}
         </div>
         <div className="mt-5 grid grid-cols-3 gap-2">
           <QuickAction icon={GitHubIcon} label="GitHub" href={p.github_url} external testId="profile-github" />

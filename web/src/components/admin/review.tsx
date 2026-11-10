@@ -35,6 +35,7 @@ import { CertificateDialogs, CertificatePanel, useCertificateState } from "./cer
 import { InternshipStatus } from "./internship-status";
 import { AdjustCredits, WalletPanel } from "./wallet-panel";
 import { personaMap, useAllPersonas, useFlows } from "./catalog-queries";
+import { internshipDay } from "@/lib/people";
 
 /** Less frequent actions: credits and the certificate. */
 function MoreActions({ student }: { student: Student }) {
@@ -149,7 +150,7 @@ export function StudentDetail({ student }: { student: Student }) {
               <span>{student.enrollment.program.slug}</span>
               <span aria-hidden>·</span>
               <span>
-                Day {student.enrollment.day_number} of {student.enrollment.program.days}
+                {internshipDay(student.enrollment)}
               </span>
               <span aria-hidden>·</span>
               <span className="inline-flex items-center gap-1">

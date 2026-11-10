@@ -2,7 +2,9 @@ package httpapi
 
 import (
 	"net/url"
+	"strings"
 	"testing"
+	"time"
 
 	"github.com/mutcherlarahulkumar/stackstep/backend/internal/seed"
 	"github.com/mutcherlarahulkumar/stackstep/backend/internal/store"
@@ -102,5 +104,28 @@ func TestSimultaneousArrivalsGetDistinctSeats(t *testing.T) {
 	}
 	if n != len(logins) || distinct != n {
 		t.Fatalf("%d marks with %d distinct seats", n, distinct)
+	}
+}
+
+// AS1: before Day 1 a task waits for the start of that day; a due time before then is
+// refused with a message that says when the student starts.
+func TestAssignBeforeDayOne(t *testing.T) {
+	e := newEnv(t)
+	adm := e.login(seed.AdminLogin)
+	var r enrollResp
+	e.expect(e.do("POST", "/v1/admin/enrollments", adm, map[string]any{"github_login": "day-zero", "program_slug": "frontend-30"}), 201).json(t, &r)
+	id := r.Student.Enrollment.ID
+	soon := e.clock.Now().Add(time.Hour)
+	f := e.expect(e.do("POST", "/v1/admin/enrollments/"+id.String()+"/tasks", adm, map[string]any{"type": "bug_fix", "title": "Fix the navbar", "brief": "Fix it.", "due_at": soon}), 422).errCode(t).Error.Fields
+	if !strings.Contains(f["due_at"], "starts") {
+		t.Fatalf("due_at error = %q", f["due_at"])
+	}
+	var task struct {
+		ScheduledFor time.Time `json:"scheduled_for"`
+	}
+	dayTwo := e.clock.Now().Add(48 * time.Hour)
+	e.expect(e.do("POST", "/v1/admin/enrollments/"+id.String()+"/tasks", adm, map[string]any{"type": "bug_fix", "title": "Fix the navbar", "brief": "Fix it.", "due_at": dayTwo}), 201).json(t, &task)
+	if !task.ScheduledFor.After(e.clock.Now()) {
+		t.Fatalf("task shows before Day 1: %v", task.ScheduledFor)
 	}
 }

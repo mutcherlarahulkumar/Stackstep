@@ -6,7 +6,8 @@ import { useState } from "react";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { type Student, type Task } from "@/lib/api/schemas";
-import { dueLabel, firstName } from "@/lib/format";
+import { dateTimeLabel, dueLabel, firstName } from "@/lib/format";
+import { internshipDay } from "@/lib/people";
 
 import { AdminShell } from "./admin-shell";
 import { AssignTaskForm } from "./assign-task-form";
@@ -39,14 +40,18 @@ export function AssignFlow() {
                 </Button>
                 <h1 className="text-xl font-semibold">Assign to {student.user.name}</h1>
                 <p className="text-muted-foreground mb-6 text-sm">
-                  Day {student.enrollment.day_number} of {student.enrollment.program.days} · {student.open_tasks} open · {student.in_review} in review
+                  {internshipDay(student.enrollment)} ·{" "}
+                  {student.open_tasks} open · {student.in_review} in review
                 </p>
                 {done ? (
                   <Alert className="mb-6" data-testid="assign-success">
                     <CircleCheck aria-hidden />
                     <AlertTitle>Assigned “{done.title}”</AlertTitle>
                     <AlertDescription>
-                      {firstName(student.user.name)} sees it on their board, with an announcement in chat. {dueLabel(done.due_at, new Date())}.
+                      {done.scheduled_for > new Date()
+                        ? `${firstName(student.user.name)} sees it on their board from ${dateTimeLabel(done.scheduled_for)}, with an announcement in chat.`
+                        : `${firstName(student.user.name)} sees it on their board, with an announcement in chat.`}{" "}
+                      {dueLabel(done.due_at, new Date())}.
                     </AlertDescription>
                   </Alert>
                 ) : null}

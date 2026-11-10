@@ -17,7 +17,9 @@ import { TYPE_LABEL } from "@/lib/board";
 import { dateTimeLabel, firstName, fromLocalInput, toLocalInput } from "@/lib/format";
 import { type ContentInput } from "@/lib/api/client";
 import { blankQuestion, cleanContent, ContentBounds, emptyContent, validateContent } from "@/lib/content";
+import { addDays } from "@/lib/calendar";
 import { DEFAULT_PERSONA_ID } from "@/lib/inbox";
+import { startsCaption, zoneTime } from "@/lib/people";
 import { usePersonas } from "@/lib/inbox-queries";
 import { useSession } from "@/lib/session";
 import { cn } from "@/lib/utils";
@@ -82,7 +84,12 @@ export function AssignTaskForm({ student, onAssigned }: { student: Student; onAs
   const [more, setMore] = useState(false);
   const [startAt, setStartAt] = useState("");
   const now = useMemo(() => new Date(), []);
-  const todayOpen = presetDue("today", now).getTime() - now.getTime() >= Bounds.minTaskMinutes * 60_000;
+  // A student who hasn't reached Day 1 sees new tasks from the start of that day, so due
+  // times are offered on their Day 1 and Day 2 (6 PM in their zone), not today.
+  const e = student.enrollment;
+  const notStarted = e.status === "active" && e.day_number === 0;
+  const dayDue = (n: number) => zoneTime(addDays(e.start_date, n), 18, e.timezone);
+  const todayOpen = notStarted || presetDue("today", now).getTime() - now.getTime() >= Bounds.minTaskMinutes * 60_000;
   const [preset, setPreset] = useState<DuePreset>(todayOpen ? "today" : "tomorrow");
   const [customDue, setCustomDue] = useState("");
   const [errors, setErrors] = useState<Errors>({});
@@ -92,7 +99,12 @@ export function AssignTaskForm({ student, onAssigned }: { student: Student; onAs
   const [importingDocument, setImportingDocument] = useState(false);
 
   const start = later ? fromLocalInput(startAt) : null;
-  const due = preset === "custom" ? fromLocalInput(customDue) : presetDue(preset, start ?? new Date());
+  const due =
+    preset === "custom"
+      ? fromLocalInput(customDue)
+      : notStarted && !start && preset !== "2h"
+        ? dayDue(preset === "today" ? 0 : 1)
+        : presetDue(preset, start ?? new Date());
   const titleLen = runeLength(normalizeLine(title));
   const clear = (k: keyof Errors) => setErrors((e) => ({ ...e, [k]: undefined }));
   const paused = student.enrollment.status !== "active";
@@ -149,6 +161,15 @@ export function AssignTaskForm({ student, onAssigned }: { student: Student; onAs
           <CircleAlert aria-hidden />
           <AlertTitle>{student.user.name}&apos;s internship is {student.enrollment.status}</AlertTitle>
           <AlertDescription>Tasks can only be assigned to active internships.</AlertDescription>
+        </Alert>
+      ) : null}
+      {notStarted ? (
+        <Alert data-testid="assign-not-started">
+          <CircleAlert aria-hidden />
+          <AlertTitle>
+            {firstName(student.user.name)} {startsCaption(e.start_date, now).toLowerCase()}
+          </AlertTitle>
+          <AlertDescription>Tasks you assign now appear on their board when Day 1 begins. Pick a due time on or after that day.</AlertDescription>
         </Alert>
       ) : null}
       {formError ? (
@@ -236,9 +257,9 @@ export function AssignTaskForm({ student, onAssigned }: { student: Student; onAs
             }}
             className="flex-wrap justify-start"
           >
-            <ToggleGroupItem value="2h" className={choiceItem}>In 2 hours</ToggleGroupItem>
-            {todayOpen ? <ToggleGroupItem value="today" className={choiceItem}>Today 6 PM</ToggleGroupItem> : null}
-            <ToggleGroupItem value="tomorrow" className={choiceItem}>Tomorrow 6 PM</ToggleGroupItem>
+            {notStarted ? null : <ToggleGroupItem value="2h" className={choiceItem}>In 2 hours</ToggleGroupItem>}
+            {todayOpen ? <ToggleGroupItem value="today" className={choiceItem}>{notStarted ? "Day 1, 6 PM" : "Today 6 PM"}</ToggleGroupItem> : null}
+            <ToggleGroupItem value="tomorrow" className={choiceItem}>{notStarted ? "Day 2, 6 PM" : "Tomorrow 6 PM"}</ToggleGroupItem>
             <ToggleGroupItem value="custom" className={choiceItem}>Pick…</ToggleGroupItem>
           </ToggleGroup>
           {preset === "custom" ? (

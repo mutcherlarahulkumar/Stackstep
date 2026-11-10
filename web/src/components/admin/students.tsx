@@ -19,6 +19,7 @@ import { Bounds } from "@/lib/validation";
 
 import { EmptyState, ErrorState } from "../app/state";
 import { RowsSkeleton, stagger } from "../app/loading";
+import { internshipDay } from "@/lib/people";
 
 export function useStudents(query: string) {
   const { api } = useSession();
@@ -106,7 +107,7 @@ function StudentRow({ student: s, selected, onSelect }: { student: Student; sele
       <span className="min-w-0 flex-1">
         <span className="block truncate text-sm font-medium">{s.user.name}</span>
         <span className="text-muted-foreground block truncate text-xs">
-          @{s.user.github_login} · Day {s.enrollment.day_number}/{s.enrollment.program.days}
+          @{s.user.github_login} · {internshipDay(s.enrollment, true)}
         </span>
       </span>
       {!active ? (

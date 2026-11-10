@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { firstWorkingDay, parseRoster, splitCsvLine, startsCaption, statusMoves, validLogin } from "./people";
+import { firstWorkingDay, parseRoster, splitCsvLine, startsCaption, statusMoves, validLogin, zoneTime } from "./people";
 
 describe("GitHub logins", () => {
   it("follows GitHub's rules", () => {
@@ -50,3 +50,12 @@ describe("rolling start (RS3, RS6)", () => {
     expect(startsCaption("2026-11-09", now)).toBe("Starts Mon 9 Nov");
   });
 });
+
+describe("zoneTime (AS1)", () => {
+  it("finds the instant a local time happens in a zone", () => {
+    expect(zoneTime("2026-11-11", 0, "Asia/Kolkata").toISOString()).toBe("2026-11-10T18:30:00.000Z");
+    expect(zoneTime("2026-11-11", 18, "Asia/Kolkata").toISOString()).toBe("2026-11-11T12:30:00.000Z");
+    expect(zoneTime("2026-03-09", 18, "America/New_York").toISOString()).toBe("2026-03-09T22:00:00.000Z");
+  });
+});
+
