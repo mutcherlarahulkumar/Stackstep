@@ -17,6 +17,11 @@ const nextConfig: NextConfig = {
           { key: "Permissions-Policy", value: "camera=(), microphone=(), geolocation=()" },
         ],
       },
+      {
+        // Live classes need the microphone and screen sharing on this site only.
+        source: "/classes/:path*",
+        headers: [{ key: "Permissions-Policy", value: "camera=(), microphone=(self), display-capture=(self), geolocation=()" }],
+      },
     ];
   },
   turbopack: {

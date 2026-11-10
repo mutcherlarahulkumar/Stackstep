@@ -5,9 +5,11 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_riverpod/misc.dart';
 import 'package:shadcn_ui/shadcn_ui.dart';
 import 'package:stackstep/api/models.dart';
+import 'package:stackstep/core/config.dart';
 import 'package:stackstep/core/providers.dart';
 import 'package:stackstep/core/theme.dart';
 import 'package:stackstep/features/ai/markdown_view.dart';
+import 'package:stackstep/features/tasks/task_work.dart';
 import 'package:stackstep/shared/errors.dart';
 import 'package:stackstep/shared/format.dart';
 import 'package:stackstep/shared/motion.dart';
@@ -202,6 +204,20 @@ class LetterScreen extends ConsumerWidget {
               Text('From ${value.fromName} · ${dateTimeLabel(value.createdAt)}', style: t.textTheme.muted),
               const Divider(height: Space.xl * 2),
               MarkdownView(value.body ?? ''),
+              if (value.classId != null) ...[
+                const SizedBox(height: Space.xl),
+                ShadButton(
+                  key: const Key('mail-join-class'),
+                  leading: const Icon(LucideIcons.video, size: 16),
+                  onPressed: () => openLink(context, AppConfig.classUrl(value.classId!)),
+                  child: const Text('Join the class'),
+                ),
+                const SizedBox(height: Space.xs),
+                Text(
+                  'Opens in your browser, where screen sharing and the microphone work.',
+                  style: t.textTheme.muted.copyWith(fontSize: 12),
+                ),
+              ],
               if (value.taskId != null) ...[
                 const SizedBox(height: Space.xl),
                 ShadButton(

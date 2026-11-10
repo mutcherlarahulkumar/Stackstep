@@ -13,6 +13,7 @@ export const ROLES = ["student", "college_admin", "admin"] as const;
 export const TASK_TYPES = ["feature", "bug_fix", "dsa", "doc_reading", "quiz", "git_chore", "code_review", "standup", "blog"] as const;
 export const TASK_STATUSES = ["todo", "in_progress", "in_review", "changes_requested", "done", "cancelled"] as const;
 export const CALENDAR_KINDS = ["task", "surprise", "class"] as const;
+export const CLASS_STATUSES = ["scheduled", "live", "ended", "cancelled"] as const;
 export const REACTION_EMOJIS = ["thumbs_up", "heart", "party", "laugh", "thinking", "eyes"] as const;
 export const MAIL_KINDS = ["announcement", "welcome", "review", "certificate", "class"] as const;
 export const AUDIENCES = ["all", "flow", "cohort", "class"] as const;
@@ -761,3 +762,29 @@ export const InboxStudent = z.object({
 export type InboxStudent = z.output<typeof InboxStudent>;
 export const InboxStudentPage = z.object({ items: z.array(InboxStudent), next_offset: z.int().min(0).nullable() });
 export type InboxStudentPage = z.output<typeof InboxStudentPage>;
+
+export const ClassStatus = z.enum(CLASS_STATUSES);
+export type ClassStatus = z.output<typeof ClassStatus>;
+export const LiveClass = z.object({
+  id: z.uuid(),
+  title: z.string(),
+  description: z.string(),
+  starts_at: timestamp,
+  ends_at: timestamp,
+  duration_minutes: z.int(),
+  audience: Audience,
+  flow_id: z.uuid().nullable(),
+  flow_name: z.string().nullable(),
+  cohort_id: z.uuid().nullable(),
+  cohort_name: z.string().nullable(),
+  host_name: z.string(),
+  status: ClassStatus,
+  started_at: timestamp.nullable(),
+  ended_at: timestamp.nullable(),
+  in_room: z.int().min(0),
+});
+export type LiveClass = z.output<typeof LiveClass>;
+export const LiveClassList = z.object({ items: z.array(LiveClass) });
+export const IceServer = z.object({ urls: z.array(z.string()), username: z.string().optional(), credential: z.string().optional() });
+export const ClassDetail = LiveClass.extend({ role: z.enum(["host", "student"]), ice_servers: z.array(IceServer) });
+export type ClassDetail = z.output<typeof ClassDetail>;

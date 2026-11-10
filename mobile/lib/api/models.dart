@@ -1397,3 +1397,14 @@ final class MailPage {
   final String? nextCursor;
   final int unread;
 }
+
+/// Where a live class is (feature 23). The room itself opens in the browser.
+enum ClassStatus {
+  scheduled('scheduled'),
+  live('live'),
+  ended('ended'),
+  cancelled('cancelled');
+
+  ClassStatus(this.wire);
+  final String wire;
+}

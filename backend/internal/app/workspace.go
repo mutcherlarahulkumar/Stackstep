@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
+	"sort"
 	"strings"
 	"sync"
 	"time"
@@ -738,5 +739,26 @@ func (w *Workspace) StudentCalendar(ctx context.Context, u domain.User) (Calenda
 	if err != nil {
 		return Calendar{}, err
 	}
-	return Calendar{Enrollment: e, Entries: domain.CalendarFor(e, rows, w.Clock.Now())}, nil
+	now := w.Clock.Now()
+	entries := domain.CalendarFor(e, rows, now)
+	classes, err := store.StudentClasses(ctx, w.Store.Pool, e, now)
+	if err != nil {
+		return Calendar{}, err
+	}
+	loc := e.Location()
+	for _, c := range classes {
+		at, ends := c.StartsAt, domain.ClassEnds(c.StartsAt, c.DurationMinutes)
+		y, m, d := at.In(loc).Date()
+		id, title := c.ID, c.Title
+		entries = append(entries, domain.CalendarEntry{Kind: domain.CalendarClass, Date: time.Date(y, m, d, 0, 0, 0, 0, time.UTC), Day: e.DayNumber(at),
+			At: &at, DueAt: &ends, Released: c.Status == domain.ClassLive, Title: &title, ClassID: &id})
+	}
+	sort.SliceStable(entries, func(i, j int) bool {
+		if !entries[i].Date.Equal(entries[j].Date) {
+			return entries[i].Date.Before(entries[j].Date)
+		}
+		ai, aj := entries[i].At, entries[j].At
+		return ai != nil && (aj == nil || ai.Before(*aj))
+	})
+	return Calendar{Enrollment: e, Entries: entries}, nil
 }

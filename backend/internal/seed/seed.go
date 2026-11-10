@@ -164,7 +164,32 @@ func Run(ctx context.Context, q store.Q, now time.Time) error {
 			return fmt.Errorf("welcome %s: %w", login, err)
 		}
 	}
-	return seedAnnouncement(ctx, q, ids[AdminLogin], now.Add(-2*time.Hour))
+	if err := seedAnnouncement(ctx, q, ids[AdminLogin], now.Add(-2*time.Hour)); err != nil {
+		return err
+	}
+	return seedClass(ctx, q, ids[AdminLogin], now)
+}
+
+// seedClass schedules one live class for everyone tomorrow at 6 PM (India), once.
+func seedClass(ctx context.Context, q store.Q, admin uuid.UUID, now time.Time) error {
+	var has bool
+	if err := q.QueryRow(ctx, `SELECT EXISTS (SELECT 1 FROM classes)`).Scan(&has); err != nil || has {
+		return err
+	}
+	local := now.In(seedZone)
+	starts := time.Date(local.Year(), local.Month(), local.Day()+1, 18, 0, 0, 0, seedZone)
+	id, err := store.InsertClass(ctx, q, store.Class{Title: "Git branching, live", Description: "Bring a repo with two branches. We'll rebase, merge and fix a conflict together.",
+		StartsAt: starts.UTC(), DurationMinutes: 60, Audience: domain.AudienceAll, HostID: admin}, now)
+	if err != nil {
+		return fmt.Errorf("class: %w", err)
+	}
+	to, err := store.AudienceStudents(ctx, q, domain.AudienceAll, nil, nil, nil)
+	if err != nil || len(to) == 0 {
+		return err
+	}
+	_, err = store.InsertMail(ctx, q, store.NewMail{Kind: domain.MailClass, Subject: "Live class Git branching, live", FromName: "Platform Admin", ClassID: &id,
+		Body: "You're invited to a live class.\n\n- **When** tomorrow at 6 PM IST\n- **How long** about 60 minutes\n\nBring a repo with two branches.\n\n> [!TIP]\n> Join from this letter or your calendar when it starts."}, to, now.Add(-time.Hour))
+	return err
 }
 
 // demoAnnouncement shows what mail can look like: headings, a list and a callout.

@@ -32,6 +32,8 @@ tags:
     description: Colleges, cohorts, enrollment (one or by CSV), internship status and staff roles
   - name: mail
     description: In-house mail. Announcements and system letters land in each user's mailbox.
+  - name: classes
+    description: Live classes. Scheduled in the database; the room itself lives in memory.
 paths:
   /v1/auth/dev-login:
     post:
@@ -248,6 +250,45 @@ paths:
       responses:
         "200": { description: Letter, content: { application/json: { schema: { $ref: "#/components/schemas/Mail" } } } }
         "404": { $ref: "#/components/responses/Error" }
+  /v1/me/classes:
+    get:
+      tags: [classes]
+      operationId: myClasses
+      summary: Live classes you're invited to (by your flow, cohort or everyone), from a day ago on
+      responses:
+        "200":
+          description: Classes
+          content:
+            application/json:
+              schema: { type: object, required: [items], properties: { items: { type: array, items: { $ref: "#/components/schemas/Class" } } } }
+        "409": { $ref: "#/components/responses/Error" }
+  /v1/classes/{id}:
+    get:
+      tags: [classes]
+      operationId: getClass
+      summary: One class, with your role in it and the STUN/TURN servers to connect with
+      parameters: [{ $ref: "#/components/parameters/Id" }]
+      responses:
+        "200": { description: Class, content: { application/json: { schema: { $ref: "#/components/schemas/ClassDetail" } } } }
+        "404": { $ref: "#/components/responses/Error" }
+  /v1/classes/{id}/ws:
+    get:
+      tags: [classes]
+      operationId: classSocket
+      summary: The live room (WebSocket, subprotocols stackstep.v1 and bearer.<access token>)
+      description: >-
+        Two-way JSON frames, kept in the API's memory only: the last 100 chat lines, up to 200
+        questions, raised hands, the presenter's drawing (2,000 strokes) and WebRTC signalling
+        between the presenter and each viewer. A host opening the room puts a scheduled class
+        live; a host sending end ends it for everyone. Client frames are chat, ask, vote,
+        answer (host), hand, allow_mic (host), present (host), signal, draw (host), clear
+        (host), react, promote (host, mails the line to every invitee) and end (host). Server
+        frames are welcome, peer_joined, peer_left, peer, presenter, chat, question, signal,
+        draw, clear, react, promoted, error and ended. Close codes are 4401 unauthenticated,
+        4404 not invited, 4410 cancelled or ended, and 4429 full.
+      parameters: [{ $ref: "#/components/parameters/Id" }]
+      responses:
+        "101": { description: Switching protocols }
   /v1/me/tasks:
     get:
       tags: [student]
@@ -1656,6 +1697,63 @@ paths:
         "403": { $ref: "#/components/responses/Error" }
         "413": { $ref: "#/components/responses/Error" }
         "422": { $ref: "#/components/responses/Error" }
+  /v1/admin/classes:
+    get:
+      tags: [classes]
+      operationId: staffClasses
+      summary: Classes in your scope, upcoming and live first
+      responses:
+        "200":
+          description: Classes
+          content:
+            application/json:
+              schema: { type: object, required: [items], properties: { items: { type: array, items: { $ref: "#/components/schemas/Class" } } } }
+        "403": { $ref: "#/components/responses/Error" }
+    post:
+      tags: [classes]
+      operationId: scheduleClass
+      summary: Schedule a live class and mail an invitation to everyone invited
+      description: College admins schedule for their own college only.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [title, starts_at, duration_minutes, audience]
+              properties:
+                title: { type: string, minLength: 3, maxLength: 120 }
+                description: { type: string, maxLength: 2000 }
+                starts_at: { type: string, format: date-time, description: From an hour ago to 90 days ahead }
+                duration_minutes: { type: integer, minimum: 15, maximum: 240 }
+                audience: { $ref: "#/components/schemas/Audience", description: "all, flow or cohort" }
+                flow_id: { type: [string, "null"], format: uuid }
+                cohort_id: { type: [string, "null"], format: uuid }
+      responses:
+        "201": { description: Scheduled, content: { application/json: { schema: { $ref: "#/components/schemas/Class" } } } }
+        "403": { $ref: "#/components/responses/Error" }
+        "422": { $ref: "#/components/responses/Error" }
+  /v1/admin/classes/{id}/status:
+    post:
+      tags: [classes]
+      operationId: setClassStatus
+      summary: End a class, or cancel it before it starts. Everyone in the room is disconnected.
+      parameters: [{ $ref: "#/components/parameters/Id" }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [status]
+              properties:
+                status: { type: string, enum: [ended, cancelled] }
+      responses:
+        "200": { description: Saved, content: { application/json: { schema: { $ref: "#/components/schemas/Class" } } } }
+        "404": { $ref: "#/components/responses/Error" }
+        "422": { $ref: "#/components/responses/Error" }
   /v1/admin/cohorts/{id}/flow:
     put:
       tags: [people]
@@ -1798,6 +1896,43 @@ components:
     EnrollmentStatus: { type: string, enum: [active, paused, completed, cancelled] }
     CalendarKind: { type: string, enum: [task, surprise, class] }
     MailKind: { type: string, enum: [announcement, welcome, review, certificate, class] }
+    ClassStatus: { type: string, enum: [scheduled, live, ended, cancelled] }
+    Class:
+      type: object
+      required: [id, title, description, starts_at, ends_at, duration_minutes, audience, flow_id, flow_name, cohort_id, cohort_name, host_name, status, started_at, ended_at, in_room]
+      properties:
+        id: { type: string, format: uuid }
+        title: { type: string }
+        description: { type: string }
+        starts_at: { type: string, format: date-time }
+        ends_at: { type: string, format: date-time }
+        duration_minutes: { type: integer }
+        audience: { $ref: "#/components/schemas/Audience" }
+        flow_id: { type: [string, "null"], format: uuid }
+        flow_name: { type: [string, "null"] }
+        cohort_id: { type: [string, "null"], format: uuid }
+        cohort_name: { type: [string, "null"] }
+        host_name: { type: string }
+        status: { $ref: "#/components/schemas/ClassStatus" }
+        started_at: { type: [string, "null"], format: date-time }
+        ended_at: { type: [string, "null"], format: date-time }
+        in_room: { type: integer, minimum: 0, description: People in the live room right now }
+    ClassDetail:
+      allOf:
+        - $ref: "#/components/schemas/Class"
+        - type: object
+          required: [role, ice_servers]
+          properties:
+            role: { type: string, enum: [host, student] }
+            ice_servers:
+              type: array
+              items:
+                type: object
+                required: [urls]
+                properties:
+                  urls: { type: array, items: { type: string } }
+                  username: { type: string }
+                  credential: { type: string }
     Audience: { type: string, enum: [all, flow, cohort, class] }
     Mail:
       type: object

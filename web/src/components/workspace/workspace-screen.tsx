@@ -39,6 +39,7 @@ import { ApplyScreen } from "../apply/apply-screen";
 import { BoardPanel } from "./board-panel";
 import { OnboardingDialog } from "./onboarding-dialog";
 import { CalendarButton } from "./calendar-dialog";
+import { LiveClassBanner } from "./live-class-banner";
 import { ProgressButton } from "./progress-sheet";
 import { useWorkspace } from "./use-workspace";
 
@@ -151,6 +152,7 @@ function Workspace({ me, enrollment }: { me: Me; enrollment: Enrollment }) {
         </div>
       </AppHeader>
       <ConnectionBanner status={socket} />
+      <LiveClassBanner />
       {me.account.onboarded ? null : <OnboardingDialog />}
       <main id="main" className="min-h-0 flex-1">
         <h1 className="sr-only">Your internship workspace</h1>

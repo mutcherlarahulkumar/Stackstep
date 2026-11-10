@@ -25,6 +25,9 @@ abstract final class AppConfig {
   static String verifyUrl(String code) => '${webBaseUrl.replaceAll(RegExp(r'/+$'), '')}/verify/${Uri.encodeComponent(code)}';
 
   /// A page on the public web app, e.g. webUrl('/privacy').
+  /// A live class runs in the browser (screen sharing and the microphone need it).
+  static String classUrl(String id) => webUrl('/classes/${Uri.encodeComponent(id)}');
+
   static String webUrl(String path) => '${webBaseUrl.replaceAll(RegExp(r'/+$'), '')}$path';
 
   static const callbackScheme = 'stackstep';

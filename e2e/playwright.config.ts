@@ -19,7 +19,16 @@ export default defineConfig({
     baseURL: process.env.WEB_URL ?? "http://localhost:3000",
     trace: "retain-on-failure",
     screenshot: "only-on-failure",
-    launchOptions: { executablePath },
+    // Live classes: fake microphone and screen so media can be tested headless.
+    launchOptions: {
+      executablePath,
+      args: [
+        "--use-fake-ui-for-media-stream",
+        "--use-fake-device-for-media-stream",
+        "--auto-select-desktop-capture-source=Entire screen",
+        "--auto-accept-this-tab-capture",
+      ],
+    },
   },
   projects: [
     { name: "desktop", use: { ...devices["Desktop Chrome"], viewport: { width: 1440, height: 900 } } },

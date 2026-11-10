@@ -2,9 +2,11 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shadcn_ui/shadcn_ui.dart';
 import 'package:stackstep/api/models.dart';
+import 'package:stackstep/core/config.dart';
 import 'package:stackstep/core/providers.dart';
 import 'package:stackstep/core/theme.dart';
 import 'package:stackstep/features/chat/inbox_controller.dart';
+import 'package:stackstep/features/tasks/task_work.dart';
 import 'package:stackstep/shared/errors.dart';
 import 'package:stackstep/shared/motion.dart';
 import 'package:stackstep/shared/state_views.dart';
@@ -196,7 +198,11 @@ class _EntryCard extends StatelessWidget {
       CalendarEntry(released: true, status: final s?) => s.label,
       _ => 'Arrives at $time',
     };
-    final open = e.taskId == null ? null : () => onOpenTask(e.taskId!);
+    final open = switch (e) {
+      CalendarEntry(classId: final id?) => () => openLink(context, AppConfig.classUrl(id)),
+      CalendarEntry(taskId: final id?) => () => onOpenTask(id),
+      _ => null,
+    };
     return Semantics(
       button: open != null,
       child: ShadCard(

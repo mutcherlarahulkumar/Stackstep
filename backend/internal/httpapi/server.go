@@ -24,6 +24,7 @@ import (
 	"github.com/mutcherlarahulkumar/stackstep/backend/internal/app"
 	"github.com/mutcherlarahulkumar/stackstep/backend/internal/apperr"
 	"github.com/mutcherlarahulkumar/stackstep/backend/internal/auth"
+	"github.com/mutcherlarahulkumar/stackstep/backend/internal/classroom"
 	"github.com/mutcherlarahulkumar/stackstep/backend/internal/clock"
 	"github.com/mutcherlarahulkumar/stackstep/backend/internal/config"
 	"github.com/mutcherlarahulkumar/stackstep/backend/internal/domain"
@@ -50,6 +51,7 @@ type Server struct {
 	drafter      *app.Drafter
 	admissions   *app.Admissions
 	hub          *realtime.Hub
+	classes      *classroom.Hub
 	log          *slog.Logger
 	signInLimit  *ipLimiter
 	refreshLimit *ipLimiter
@@ -75,8 +77,16 @@ type Deps struct {
 
 // New builds a Server.
 func New(d Deps) *Server {
+	maxPeers := d.Config.ClassMaxPeers
+	if maxPeers == 0 {
+		maxPeers = 60
+	}
+	if len(d.Config.ClassICEServers) == 0 {
+		d.Config.ClassICEServers = config.DefaultICEServers
+	}
 	return &Server{
-		cfg: d.Config, store: d.Store, clock: d.Clock, signer: d.Signer, states: d.States, github: d.GitHub,
+		classes: classroom.NewHub(maxPeers, d.Clock.Now),
+		cfg:     d.Config, store: d.Store, clock: d.Clock, signer: d.Signer, states: d.States, github: d.GitHub,
 		sessions: d.Sessions, workspace: d.Workspace, helper: d.Helper, drafter: d.Drafter, admissions: d.Admissions, hub: d.Hub, log: d.Log,
 		// Sign-in is the brute-force target; refresh runs on every page load, so it gets more room.
 		signInLimit:  newIPLimiter(perMinute(d.Config.AuthRatePerMinute), d.Config.AuthRatePerMinute),
@@ -128,6 +138,8 @@ func (s *Server) Handler() http.Handler {
 	authed.GET("/me/tasks", s.myTasks)
 	authed.GET("/me/calendar", s.myCalendar)
 	authed.GET("/me/mail", s.myMail)
+	authed.GET("/me/classes", s.myClasses)
+	authed.GET("/classes/:id", s.getClass)
 	authed.GET("/me/mail/:id", s.openMail)
 	authed.GET("/me/threads", s.myThreads)
 	authed.GET("/me/threads/:persona/messages", s.myMessages)
@@ -215,9 +227,13 @@ func (s *Server) Handler() http.Handler {
 	admin.POST("/broadcasts", s.broadcast)
 	admin.POST("/messages/:id/reactions", s.react)
 	admin.GET("/announcements", s.listAnnouncements)
+	admin.GET("/classes", s.staffClasses)
+	admin.POST("/classes", s.scheduleClass)
+	admin.POST("/classes/:id/status", s.setClassStatus)
 	admin.POST("/announcements", s.announce)
 
 	v1.GET("/ws", s.websocket)
+	v1.GET("/classes/:id/ws", s.classSocket)
 	return r
 }
 

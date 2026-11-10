@@ -2,6 +2,7 @@
 package config
 
 import (
+	"encoding/json"
 	"errors"
 	"fmt"
 	"net"
@@ -56,6 +57,19 @@ type Config struct {
 	AuthRatePerMinute    int
 	DeliveryInterval     time.Duration
 	AI                   AIConfig
+	// Live classes (feature 23).
+	ClassICEServers []ICEServer // STUN/TURN servers handed to browsers (CLASS_ICE_SERVERS, JSON)
+	ClassMaxPeers   int         // people in one room (CLASS_MAX_PEERS)
+}
+
+// DefaultICEServers are public STUN servers, used unless CLASS_ICE_SERVERS says otherwise.
+var DefaultICEServers = []ICEServer{{URLs: []string{"stun:stun.l.google.com:19302", "stun:stun1.l.google.com:19302"}}}
+
+// ICEServer is one STUN or TURN server, in the shape browsers take (RTCIceServer).
+type ICEServer struct {
+	URLs       []string `json:"urls"`
+	Username   string   `json:"username,omitempty"`
+	Credential string   `json:"credential,omitempty"`
 }
 
 // AIConfig is the student AI helper (Groq). Empty GroqAPIKey turns the helper off.
@@ -192,6 +206,22 @@ func Load() (Config, error) {
 	}
 
 	cfg.LeadReplyDelay = parseDuration("LEAD_REPLY_DELAY", "45s", 0, 2*time.Hour)
+
+	// Public STUN finds a direct path for most students; add a TURN server for strict networks.
+	cfg.ClassICEServers = DefaultICEServers
+	if raw := get("CLASS_ICE_SERVERS", ""); raw != "" {
+		var servers []ICEServer
+		if err := json.Unmarshal([]byte(raw), &servers); err != nil || len(servers) == 0 {
+			errs = append(errs, errors.New(`CLASS_ICE_SERVERS must be a JSON array like [{"urls":["stun:stun.example.com:3478"]}]`))
+		} else {
+			cfg.ClassICEServers = servers
+		}
+	}
+	if n, err := strconv.Atoi(get("CLASS_MAX_PEERS", "60")); err != nil || n < 2 || n > 500 {
+		errs = append(errs, errors.New("CLASS_MAX_PEERS must be 2-500"))
+	} else {
+		cfg.ClassMaxPeers = n
+	}
 
 	onOff := func(key, def string) bool {
 		switch strings.ToLower(get(key, def)) {

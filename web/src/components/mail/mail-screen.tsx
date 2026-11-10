@@ -227,6 +227,16 @@ function Letter({ id }: { id: string }) {
         </p>
         <hr className="via-border my-6 h-px border-0 bg-gradient-to-r from-transparent to-transparent" />
         <Prose>{body}</Prose>
+        {m.class_id ? (
+          <div className="mt-8 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-rose-500/30 bg-rose-500/5 p-4">
+            <p className="text-sm">The room opens a few minutes before the class. Join from here or your calendar.</p>
+            <Button asChild data-testid="mail-join-class">
+              <Link href={`/classes/${m.class_id}`}>
+                <Video data-icon="inline-start" aria-hidden /> Join the class
+              </Link>
+            </Button>
+          </div>
+        ) : null}
         {m.task_id ? (
           <div className="bg-muted/40 mt-8 flex flex-wrap items-center justify-between gap-3 rounded-xl border p-4">
             <p className="text-sm">This letter is about a task on your board.</p>

@@ -34,7 +34,7 @@ func Flush(ctx context.Context, q store.Q, mode FlushMode) error {
 	switch mode {
 	case FlushAll:
 		if _, err := q.Exec(ctx, `TRUNCATE task_notes, task_submissions, quiz_attempts, points_ledger, credit_ledger, ai_messages, ai_conversations,
-			mail_recipients, mails, announcements, certificates, task_events, chat_threads, chat_messages, tasks, enrollments, flow_items, flow_versions, flows,
+			mail_recipients, mails, announcements, classes, certificates, task_events, chat_threads, chat_messages, tasks, enrollments, flow_items, flow_versions, flows,
 			task_templates, personas, cohorts, login_codes, refresh_tokens, users, colleges RESTART IDENTITY CASCADE`); err != nil {
 			return fmt.Errorf("truncate: %w", err)
 		}
@@ -69,6 +69,7 @@ func flushDemo(ctx context.Context, q store.Q) error {
 		// Feature 21: demo users' mailboxes and the demo admin's announcements go.
 		{`DELETE FROM mail_recipients WHERE user_id IN (SELECT id FROM demo_users)`, nil},
 		{`DELETE FROM announcements WHERE sent_by IN (SELECT id FROM demo_users)`, nil},
+		{`DELETE FROM classes WHERE host_id IN (SELECT id FROM demo_users)`, nil},
 		{`DELETE FROM mails m WHERE NOT EXISTS (SELECT 1 FROM mail_recipients r WHERE r.mail_id = m.id)`, nil},
 		{`DELETE FROM credit_ledger WHERE enrollment_id IN (SELECT id FROM demo_enr)`, nil},
 		{`DELETE FROM points_ledger WHERE enrollment_id IN (SELECT id FROM demo_enr)`, nil},

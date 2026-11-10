@@ -78,6 +78,15 @@ export type ApplicationDecisionInput = {
 type Method = "GET" | "POST" | "PUT" | "PATCH";
 export type PersonInput = { github_login: string; name?: string; email?: string };
 export type EnrollSettings = { cohort_id: string | null; program_slug?: string; start_date: string | null; timezone: string; flow_id: string | null };
+export type ClassInput = {
+  title: string;
+  description: string;
+  starts_at: string;
+  duration_minutes: number;
+  audience: Audience;
+  flow_id?: string | null;
+  cohort_id?: string | null;
+};
 export type AnnouncementInput = {
   subject: string;
   body: string;
@@ -184,6 +193,26 @@ export class ApiClient {
 
   calendar() {
     return this.send("GET", "/v1/me/calendar", S.Calendar);
+  }
+
+  async myClasses() {
+    return (await this.send("GET", "/v1/me/classes", S.LiveClassList)).items;
+  }
+
+  async staffClasses() {
+    return (await this.send("GET", "/v1/admin/classes", S.LiveClassList)).items;
+  }
+
+  liveClass(id: string) {
+    return this.send("GET", `/v1/classes/${seg(id)}`, S.ClassDetail);
+  }
+
+  scheduleClass(input: ClassInput) {
+    return this.send("POST", "/v1/admin/classes", S.LiveClass, { body: input });
+  }
+
+  setClassStatus(id: string, status: "ended" | "cancelled") {
+    return this.send("POST", `/v1/admin/classes/${seg(id)}/status`, S.LiveClass, { body: { status } });
   }
 
   myMail(cursor: string | null = null) {

@@ -2,6 +2,7 @@
 
 import { useQuery } from "@tanstack/react-query";
 import { CalendarDays, ChevronRight, Gift, Lock, Video } from "lucide-react";
+import Link from "next/link";
 import { useMemo, useState } from "react";
 
 import { Badge } from "@/components/ui/badge";
@@ -240,6 +241,18 @@ function EntryRow({ e, timeZone, persona, onOpenTask }: { e: CalendarEntry; time
     </>
   );
   const taskId = e.task_id;
+  if (e.class_id) {
+    return (
+      <Link
+        href={`/classes/${e.class_id}`}
+        className="bg-card hover:bg-accent/60 focus-visible:ring-ring/60 flex w-full items-center gap-3 rounded-lg border border-rose-500/30 p-3 text-left text-sm outline-none focus-visible:ring-2"
+        data-testid={`calendar-entry-${e.title ?? ""}`}
+      >
+        {body}
+        <ChevronRight className="text-muted-foreground size-4" aria-hidden />
+      </Link>
+    );
+  }
   return taskId ? (
     <button
       type="button"

@@ -76,6 +76,7 @@
 }
 
 @theme inline {
+  --animate-float-up: float-up 2.4s ease-out forwards;
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
   --font-heading: var(--font-geist-sans);
@@ -301,4 +302,14 @@
       scroll-behavior: auto !important;
     }
   }
+}
+
+/* Live class reactions drift up and fade (feature 23). */
+@keyframes float-up {
+  0% { transform: translateY(0) scale(0.6); opacity: 0; }
+  12% { transform: translateY(-12px) scale(1.1); opacity: 1; }
+  100% { transform: translateY(-260px) scale(1); opacity: 0; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .animate-float-up { animation-duration: 1.2s; }
 }

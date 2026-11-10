@@ -1,7 +1,7 @@
 "use client";
 
 import { useQuery } from "@tanstack/react-query";
-import { BookCopy, Building2, ChartColumn, ChevronDown, ClipboardCheck, Inbox, Megaphone, QrCode, ReceiptIndianRupee, Route, Send, Settings2, UserPlus, UserRoundCog, Users, UsersRound, type LucideIcon } from "lucide-react";
+import { BookCopy, Building2, ChartColumn, ChevronDown, ClipboardCheck, Inbox, Megaphone, QrCode, Video, ReceiptIndianRupee, Route, Send, Settings2, UserPlus, UserRoundCog, Users, UsersRound, type LucideIcon } from "lucide-react";
 import Link from "next/link";
 import { type ReactNode } from "react";
 
@@ -23,7 +23,7 @@ import { useBrowserNotifications, useUnreadTitle } from "@/lib/use-notifications
 
 import { personaMap, useAllPersonas } from "./catalog-queries";
 
-export type Section = "report" | "overview" | "people" | "reviews" | "students" | "inbox" | "flows" | "library" | "personas" | "assign" | "applications" | "payments" | "colleges" | "cohorts" | "announcements";
+export type Section = "report" | "overview" | "people" | "reviews" | "students" | "inbox" | "flows" | "library" | "personas" | "assign" | "applications" | "payments" | "colleges" | "cohorts" | "announcements" | "classes";
 
 type NavItem = { id: Section; href: string; label: string; icon: LucideIcon };
 
@@ -33,7 +33,8 @@ const DESKTOP_NAV: NavItem[] = [
   { id: "reviews", href: "/admin/reviews", label: "Reviews", icon: ClipboardCheck },
   { id: "applications", href: "/admin/applications", label: "Applications", icon: ReceiptIndianRupee },
   { id: "inbox", href: "/admin/inbox", label: "Inbox", icon: Inbox },
-  { id: "announcements", href: "/admin/announcements", label: "Announcements", icon: Megaphone },
+  { id: "announcements", href: "/admin/announcements", label: "Announce", icon: Megaphone },
+  { id: "classes", href: "/admin/classes", label: "Classes", icon: Video },
   { id: "overview", href: "/admin/overview", label: "Insights", icon: ChartColumn },
 ];
 
