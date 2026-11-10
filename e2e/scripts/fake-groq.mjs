@@ -51,11 +51,15 @@ http
       const ok = Array.isArray(parsed.messages) && parsed.messages[0]?.role === "system";
       const system = ok ? String(parsed.messages[0].content) : "";
       // The AI team lead and review drafts share this endpoint; answer each in its own shape.
+      // The help bot answers from the guide; echo its first topic so tests can tell it worked.
+      const helpTopic = /\n## ([^\n]+)/.exec(system)?.[1] ?? "the guide";
       const content = system.includes("You draft code-review feedback")
         ? JSON.stringify(reviewDraft)
-        : system.includes("in the team chat")
-          ? leadReply
-          : answer;
+        : system.includes("Stackstep's help assistant")
+          ? `Here's how it works (from ${helpTopic}). Open the task on your board, paste your pull request link and hand it in.`
+          : system.includes("in the team chat")
+            ? leadReply
+            : answer;
       res.writeHead(ok ? 200 : 400, { "content-type": "application/json" });
       res.end(JSON.stringify({ choices: [{ message: { role: "assistant", content }, finish_reason: "stop" }], usage: { prompt_tokens: 100, completion_tokens: 60 } }));
     });

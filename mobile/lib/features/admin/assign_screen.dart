@@ -12,6 +12,7 @@ import 'package:stackstep/core/providers.dart';
 import 'package:stackstep/core/theme.dart';
 import 'package:stackstep/features/admin/students_controller.dart';
 import 'package:stackstep/features/chat/inbox_controller.dart';
+import 'package:stackstep/features/tasks/task_documents.dart';
 import 'package:stackstep/shared/errors.dart';
 import 'package:stackstep/shared/format.dart';
 import 'package:stackstep/shared/state_views.dart';
@@ -142,6 +143,8 @@ class _AssignTaskScreenState extends ConsumerState<AssignTaskScreen> {
   final _brief = TextEditingController();
   final _linkName = TextEditingController();
   final _linkUrl = TextEditingController();
+  final _documentTitle = TextEditingController();
+  final _documentBody = TextEditingController();
   TaskType _type = TaskType.feature;
 
   /// Null until the admin picks one; the server then uses the default team lead.
@@ -171,6 +174,8 @@ class _AssignTaskScreenState extends ConsumerState<AssignTaskScreen> {
     if (!_todayEveningOpen) _preset = _DuePreset.tomorrowEvening;
     _title.addListener(() => setState(() => _errors = {..._errors}..remove('title')));
     _brief.addListener(() => setState(() => _errors = {..._errors}..remove('brief')));
+    _documentTitle.addListener(() => setState(() => _errors = {..._errors}..remove('documents[0].title')));
+    _documentBody.addListener(() => setState(() => _errors = {..._errors}..remove('documents[0].body')));
   }
 
   @override
@@ -179,6 +184,8 @@ class _AssignTaskScreenState extends ConsumerState<AssignTaskScreen> {
     _brief.dispose();
     _linkName.dispose();
     _linkUrl.dispose();
+    _documentTitle.dispose();
+    _documentBody.dispose();
     super.dispose();
   }
 
@@ -214,11 +221,14 @@ class _AssignTaskScreenState extends ConsumerState<AssignTaskScreen> {
     final start = _startLater ? _startAt : null;
     final due = _dueFor(start ?? now);
     final schedule = validateSchedule(now: now, scheduledFor: start, dueAt: due);
+    final documentErrors = validateDocument(title: _documentTitle.text, body: _documentBody.text);
     final errors = <String, String>{
       'title': ?validateTitle(_title.text),
       'brief': ?validateBrief(_brief.text),
       'resources[0].url': ?validateLink(name: _linkName.text, url: _linkUrl.text).url,
       'resources[0].title': ?validateLink(name: _linkName.text, url: _linkUrl.text).name,
+      'documents[0].title': ?documentErrors.title,
+      'documents[0].body': ?documentErrors.body,
       if (_startLater && start == null) 'scheduled_for': 'Pick a start time.',
       'scheduled_for': ?schedule.scheduledFor,
       'due_at': ?schedule.dueAt,
@@ -231,18 +241,28 @@ class _AssignTaskScreenState extends ConsumerState<AssignTaskScreen> {
 
     setState(() => _submitting = true);
     try {
-      final task = await ref.read(apiClientProvider).createTask(widget.student.enrollment.id, (
-        type: _type,
-        personaId: _personaId ?? _selectedPersona(ref.read(personasProvider).value ?? const []),
-        reviewMode: _reviewMode,
-        title: normalizeLine(_title.text),
-        brief: _brief.text.trim(),
-        scheduledFor: start,
-        dueAt: due!,
-        resources: [if (_linkUrl.text.trim().isNotEmpty) Resource(title: normalizeLine(_linkName.text), url: _linkUrl.text.trim())],
-      ));
+      final task = await ref
+          .read(apiClientProvider)
+          .createTask(
+            widget.student.enrollment.id,
+            (
+              type: _type,
+              personaId: _personaId ?? _selectedPersona(ref.read(personasProvider).value ?? const []),
+              reviewMode: _reviewMode,
+              title: normalizeLine(_title.text),
+              brief: _brief.text.trim(),
+              scheduledFor: start,
+              dueAt: due!,
+              resources: [if (_linkUrl.text.trim().isNotEmpty) Resource(title: normalizeLine(_linkName.text), url: _linkUrl.text.trim())],
+            ),
+            documents: [
+              if (_documentBody.text.trim().isNotEmpty) TaskDocument(title: normalizeLine(_documentTitle.text), body: _documentBody.text),
+            ],
+          );
       if (!mounted) return;
       unawaited(HapticFeedback.mediumImpact());
+      // The task is saved: stop the button's spinner before the dialog opens over it.
+      setState(() => _submitting = false);
       await _showSuccess(task);
     } on ApiException catch (e) {
       if (!mounted) return;
@@ -265,6 +285,9 @@ class _AssignTaskScreenState extends ConsumerState<AssignTaskScreen> {
       context: context,
       builder: (ctx) => ShadDialog(
         title: const Text('Task assigned'),
+        // Two long labels never fit side by side on a phone, so the actions always stack.
+        actionsAxis: Axis.vertical,
+        actionsMainAxisSize: MainAxisSize.min,
         description: Text(
           '${widget.student.user.firstName} sees “${task.title}” on their board, and ${_personaName(task.personaId)} announced it in chat. ${dueLabel(task.dueAt, _now)}.',
         ),
@@ -280,6 +303,8 @@ class _AssignTaskScreenState extends ConsumerState<AssignTaskScreen> {
       _brief.clear();
       _linkName.clear();
       _linkUrl.clear();
+      _documentTitle.clear();
+      _documentBody.clear();
       setState(() => _errors = {});
     } else {
       Navigator.of(context).pop();
@@ -369,12 +394,56 @@ class _AssignTaskScreenState extends ConsumerState<AssignTaskScreen> {
             const SizedBox(height: Space.lg),
             AppField(
               label: 'Brief',
-              description: 'What done looks like, the branch name, and links to docs.',
+              description: 'What done looks like, the branch name, and acceptance checks. Supports Markdown.',
               error: _errors['brief'],
               trailingLabel: _brief.text.length > Bounds.briefMax - 1000
                   ? CharCounter(length: runeLength(_brief.text.trim()), max: Bounds.briefMax)
                   : null,
               child: ShadTextarea(key: const Key('task-brief'), controller: _brief, placeholder: const Text('Optional'), minHeight: 100),
+            ),
+            const SizedBox(height: Space.lg),
+            AppField(
+              label: 'Reading title (optional)',
+              description: 'Write a guide students can read inside the task.',
+              error: _errors['documents[0].title'],
+              child: ShadInput(
+                key: const Key('task-document-title'),
+                controller: _documentTitle,
+                placeholder: const Text('e.g. A practical guide to filtering'),
+                textInputAction: TextInputAction.next,
+              ),
+            ),
+            const SizedBox(height: Space.sm),
+            AppField(
+              label: 'Reading (Markdown)',
+              error: _errors['documents[0].body'],
+              trailingLabel: CharCounter(length: runeLength(_documentBody.text), max: Bounds.documentBodyMax),
+              child: ShadTextarea(
+                key: const Key('task-document-body'),
+                controller: _documentBody,
+                minHeight: 160,
+                placeholder: const Text(
+                  '## What you will learn\n\nExplain the idea, show an example, and give the student something to try.',
+                ),
+              ),
+            ),
+            const SizedBox(height: Space.sm),
+            Align(
+              alignment: Alignment.centerLeft,
+              child: ShadButton.outline(
+                key: const Key('task-document-preview'),
+                size: ShadButtonSize.sm,
+                enabled: _documentBody.text.trim().isNotEmpty,
+                leading: const Icon(LucideIcons.bookOpen, size: 16),
+                onPressed: () => openTaskDocument(
+                  context,
+                  TaskDocument(
+                    title: normalizeLine(_documentTitle.text).isEmpty ? 'Reading preview' : normalizeLine(_documentTitle.text),
+                    body: _documentBody.text,
+                  ),
+                ),
+                child: const Text('Preview reading'),
+              ),
             ),
             const SizedBox(height: Space.lg),
             AppField(

@@ -16,6 +16,13 @@ type Resource struct {
 	URL   string `json:"url"`
 }
 
+// TaskDocument is an authored lesson rendered inside the task, without a separate site.
+// Body is Markdown; its whitespace is significant and is never normalized.
+type TaskDocument struct {
+	Title string `json:"title"`
+	Body  string `json:"body"`
+}
+
 // QuizQuestion is one multiple-choice question. Answer is the index of the right option.
 type QuizQuestion struct {
 	Prompt  string   `json:"prompt"`
@@ -31,15 +38,19 @@ type Quiz struct {
 
 // TaskContent is what a task carries beyond its title and brief. Stored as JSON.
 type TaskContent struct {
-	Resources []Resource `json:"resources"`
-	Quiz      *Quiz      `json:"quiz"`
-	Practice  *Practice  `json:"practice,omitempty"`
+	Documents []TaskDocument `json:"documents"`
+	Resources []Resource     `json:"resources"`
+	Quiz      *Quiz          `json:"quiz"`
+	Practice  *Practice      `json:"practice,omitempty"`
 	// Rubric is the reviewer's checklist (admin-reviewed tasks only).
 	Rubric []string `json:"rubric,omitempty"`
 }
 
 // Bounds for task content (mirrored in clients).
 const (
+	MaxDocuments        = 5
+	DocumentTitleMax    = 80
+	DocumentBodyMax     = 20000
 	MaxResources        = 5
 	ResourceTitleMax    = 80
 	URLMaxLen           = 2048
@@ -68,7 +79,34 @@ func ValidURL(s string) bool {
 // prefixed (e.g. "items[2].") and look like "quiz.questions[1].options".
 func ValidateContent(c TaskContent, typ TaskType, review ReviewMode, prefix string) (TaskContent, map[string]string) {
 	errs := map[string]string{}
-	out := TaskContent{Resources: []Resource{}}
+	out := TaskContent{Resources: []Resource{}, Documents: []TaskDocument{}}
+	if len(c.Documents) > MaxDocuments {
+		errs[prefix+"documents"] = fmt.Sprintf("Add at most %d documents.", MaxDocuments)
+	}
+	for i, d := range c.Documents {
+		if i >= MaxDocuments {
+			break
+		}
+		key := fmt.Sprintf("%sdocuments[%d]", prefix, i)
+		title := NormalizeText(d.Title)
+		switch {
+		case hasBadControl(d.Title, true) || hasBadControl(title, false):
+			errs[key+".title"] = "Document title contains characters that can't be displayed."
+		case title == "":
+			errs[key+".title"] = "Give the document a title."
+		case utf8.RuneCountInString(title) > DocumentTitleMax:
+			errs[key+".title"] = fmt.Sprintf("Document titles can be at most %d characters.", DocumentTitleMax)
+		}
+		switch {
+		case !utf8.ValidString(d.Body) || hasBadControl(d.Body, true):
+			errs[key+".body"] = "Document contains characters that can't be displayed."
+		case strings.TrimSpace(d.Body) == "":
+			errs[key+".body"] = "Write the document in Markdown."
+		case utf8.RuneCountInString(d.Body) > DocumentBodyMax:
+			errs[key+".body"] = fmt.Sprintf("Documents can be at most %d characters.", DocumentBodyMax)
+		}
+		out.Documents = append(out.Documents, TaskDocument{Title: title, Body: d.Body})
+	}
 	if len(c.Resources) > MaxResources {
 		errs[prefix+"resources"] = fmt.Sprintf("Add at most %d links.", MaxResources)
 	}

@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"strings"
 
 	"github.com/google/uuid"
 
@@ -174,4 +175,32 @@ func (w *Workspace) Broadcast(ctx context.Context, u domain.User, personaID, cli
 		out = append(out, r)
 	}
 	return out, nil
+}
+
+// InboxStudentPageSize is how many students one page of the inbox list shows.
+const InboxStudentPageSize = 50
+
+// InboxStudents lists the students in the caller's scope for the inbox, filtered by flow,
+// cohort or a name. Next is the offset of the following page, or -1 at the end.
+func (w *Workspace) InboxStudents(ctx context.Context, u domain.User, f store.InboxStudentFilter) ([]store.InboxStudent, int, error) {
+	if err := requireStaff(u); err != nil {
+		return nil, -1, err
+	}
+	college, ok := staffScope(u)
+	if !ok {
+		return []store.InboxStudent{}, -1, nil
+	}
+	f.College = college
+	f.Search = strings.TrimSpace(f.Search)
+	f.Limit = InboxStudentPageSize + 1
+	rows, err := store.InboxStudents(ctx, w.Store.Pool, w.Clock.Now(), f)
+	if err != nil {
+		return nil, -1, err
+	}
+	next := -1
+	if len(rows) > InboxStudentPageSize {
+		rows = rows[:InboxStudentPageSize]
+		next = f.Offset + InboxStudentPageSize
+	}
+	return rows, next, nil
 }

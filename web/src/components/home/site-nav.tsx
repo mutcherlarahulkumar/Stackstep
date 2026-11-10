@@ -15,10 +15,10 @@ import { GitHubMark, Wordmark } from "../app/brand";
 import { ThemeToggle } from "../app/theme-toggle";
 
 const LINKS = [
-  { href: "#how", label: "How it works" },
-  { href: "#features", label: "Features" },
-  { href: "#colleges", label: "For colleges" },
-  { href: "#faq", label: "FAQ" },
+  { href: "/#how", label: "How it works" },
+  { href: "/#features", label: "Features" },
+  { href: "/#colleges", label: "For colleges" },
+  { href: "/download", label: "Get the app" },
 ];
 
 /** Where the signed-in person's button goes, and what it says. */

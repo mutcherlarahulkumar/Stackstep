@@ -27,6 +27,7 @@ import { choiceItem } from "../app/choice";
 import { DateTimePicker } from "../app/date-picker";
 import { PersonaAvatar } from "../app/persona-avatar";
 import { PracticeEditor, QuizEditor, ResourcesEditor, RubricEditor } from "./content-editors";
+import { DocumentsEditor } from "./documents-editor";
 import { TYPE_ICON } from "../app/task-badges";
 
 type DuePreset = "2h" | "today" | "tomorrow" | "custom";
@@ -88,6 +89,7 @@ export function AssignTaskForm({ student, onAssigned }: { student: Student; onAs
   const moreOpen = more || Object.entries(errors).some(([k, v]) => !!v && /^(persona_id|review_mode|scheduled_for|rubric|resources|practice)/.test(k));
   const [formError, setFormError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
+  const [importingDocument, setImportingDocument] = useState(false);
 
   const start = later ? fromLocalInput(startAt) : null;
   const due = preset === "custom" ? fromLocalInput(customDue) : presetDue(preset, start ?? new Date());
@@ -96,6 +98,7 @@ export function AssignTaskForm({ student, onAssigned }: { student: Student; onAs
   const paused = student.enrollment.status !== "active";
 
   const submit = async () => {
+    if (importingDocument) return;
     const schedule = validateSchedule(new Date(), start, due);
     const next: Errors = {
       ...validateContent(content, type, reviewMode),
@@ -121,7 +124,7 @@ export function AssignTaskForm({ student, onAssigned }: { student: Student; onAs
       });
       setTitle("");
       setBrief("");
-      setContent({ resources: [], quiz: type === "quiz" ? { pass_percent: ContentBounds.passDefault, questions: [blankQuestion()] } : null, practice: null, rubric: [] });
+      setContent({ documents: [], resources: [], quiz: type === "quiz" ? { pass_percent: ContentBounds.passDefault, questions: [blankQuestion()] } : null, practice: null, rubric: [] });
       onAssigned(task);
     } catch (e) {
       if (e instanceof ApiError && e.code === "validation_failed" && Object.keys(e.fields).length) setErrors(e.fields as Errors);
@@ -217,7 +220,7 @@ export function AssignTaskForm({ student, onAssigned }: { student: Student; onAs
           {errors.brief ? (
             <FieldError>{errors.brief}</FieldError>
           ) : (
-            <FieldDescription>Optional · up to {Bounds.briefMax.toLocaleString()} characters</FieldDescription>
+            <FieldDescription>Markdown supported · up to {Bounds.briefMax.toLocaleString()} characters</FieldDescription>
           )}
         </Field>
         <Field data-invalid={!!errors.due_at}>
@@ -252,6 +255,7 @@ export function AssignTaskForm({ student, onAssigned }: { student: Student; onAs
           ) : null}
           {errors.due_at ? <FieldError>{errors.due_at}</FieldError> : due ? <FieldDescription>{dateTimeLabel(due)}</FieldDescription> : null}
         </Field>
+        <DocumentsEditor onImportingChange={setImportingDocument} value={content.documents ?? []} onChange={(update) => setContent((current) => ({ ...current, documents: update(current.documents ?? []) }))} errors={errors} idPrefix="assign-docs" />
         {content.quiz ? (
           <QuizEditor value={content.quiz} onChange={(quiz) => setContent((c) => ({ ...c, quiz }))} errors={errors} idPrefix="assign-quiz" />
         ) : null}
@@ -359,7 +363,7 @@ export function AssignTaskForm({ student, onAssigned }: { student: Student; onAs
           </Button>
         )}
       </FieldGroup>
-      <Button type="submit" size="lg" className="h-11" disabled={submitting || paused} data-testid="assign-submit">
+      <Button type="submit" size="lg" className="h-11" disabled={submitting || paused || importingDocument} data-testid="assign-submit">
         {submitting ? <Spinner data-icon="inline-start" /> : <Send data-icon="inline-start" aria-hidden />}
         {submitting ? "Assigning…" : `Assign to ${firstName(student.user.name)}`}
       </Button>

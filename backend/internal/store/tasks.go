@@ -162,3 +162,34 @@ func CancelUnreleasedFlowTasks(ctx context.Context, q Q, enrollmentID, actor uui
 	}
 	return len(ids), nil
 }
+
+// FirstTaskAt is when an internship's earliest open task arrives, or nil when it has none.
+func FirstTaskAt(ctx context.Context, q Q, enrollmentID uuid.UUID) (*time.Time, error) {
+	var at *time.Time
+	err := q.QueryRow(ctx, `SELECT min(scheduled_for) FROM tasks WHERE enrollment_id = $1 AND status <> 'cancelled'`, enrollmentID).Scan(&at)
+	return at, err
+}
+
+// CalendarTasks lists an internship's tasks for its calendar, oldest first, marking those from
+// a surprise window (their flow item had one).
+func CalendarTasks(ctx context.Context, q Q, enrollmentID uuid.UUID) ([]domain.CalendarTaskRow, error) {
+	rows, err := q.Query(ctx, `SELECT t.id, t.type, t.title, t.status, t.persona_id, t.scheduled_for, t.due_at, COALESCE(fi.release_window, 0) > 0
+		FROM tasks t LEFT JOIN flow_items fi ON fi.id = t.flow_item_id
+		WHERE t.enrollment_id = $1 AND t.status <> 'cancelled'
+		ORDER BY t.scheduled_for, t.id LIMIT $2`, enrollmentID, MaxTasksPerList)
+	if err != nil {
+		return nil, fmt.Errorf("calendar tasks: %w", err)
+	}
+	defer rows.Close()
+	out := []domain.CalendarTaskRow{}
+	for rows.Next() {
+		var r domain.CalendarTaskRow
+		var typ, status string
+		if err := rows.Scan(&r.ID, &typ, &r.Title, &status, &r.PersonaID, &r.ScheduledFor, &r.DueAt, &r.Surprise); err != nil {
+			return nil, err
+		}
+		r.Type, r.Status = domain.TaskType(typ), domain.TaskStatus(status)
+		out = append(out, r)
+	}
+	return out, rows.Err()
+}

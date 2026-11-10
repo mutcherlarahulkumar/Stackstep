@@ -2,7 +2,6 @@ package httpapi
 
 import (
 	"net/http"
-	"time"
 
 	"github.com/gin-gonic/gin"
 
@@ -13,6 +12,10 @@ import (
 
 func (s *Server) me(c *gin.Context) {
 	u := currentUser(c)
+	// Opening Stackstep marks the day present (feature 25). It never blocks loading.
+	if err := s.workspace.MarkPresent(c.Request.Context(), u); err != nil {
+		s.log.Warn("mark attendance", "user", u.ID, "err", err)
+	}
 	e, err := s.workspace.OpenEnrollment(c.Request.Context(), u)
 	if err != nil {
 		s.fail(c, err)
@@ -52,18 +55,6 @@ func (s *Server) onboarded(c *gin.Context) {
 		return
 	}
 	c.JSON(http.StatusOK, toAccount(a))
-}
-
-// exportMe sends the caller's data as a JSON download.
-func (s *Server) exportMe(c *gin.Context) {
-	b, err := s.workspace.Export(c.Request.Context(), currentUser(c))
-	if err != nil {
-		s.fail(c, err)
-		return
-	}
-	c.Header("Content-Disposition", `attachment; filename="stackstep-my-data-`+s.clock.Now().UTC().Format(time.DateOnly)+`.json"`)
-	c.Header("Cache-Control", "no-store")
-	c.Data(http.StatusOK, "application/json; charset=utf-8", b)
 }
 
 func (s *Server) myTasks(c *gin.Context) {
@@ -292,7 +283,7 @@ func (s *Server) createTask(c *gin.Context) {
 		return
 	}
 	var req createTaskReq
-	if err := decode(c, &req); err != nil {
+	if err := decodeLimit(c, &req, MaxContentBodyBytes); err != nil {
 		s.fail(c, err)
 		return
 	}

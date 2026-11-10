@@ -3,17 +3,23 @@
 import {
   ArrowLeft,
   Bot,
+  CalendarDays,
+  Mail,
   MessageCircle,
   SquareKanban,
   UserRound,
 } from "lucide-react";
-import { useState } from "react";
+import Link from "next/link";
+import { useRouter, useSearchParams } from "next/navigation";
+import { useEffect, useState } from "react";
 
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { startsCaption } from "@/lib/people";
 import { type Enrollment, type Me, type Persona } from "@/lib/api/schemas";
 import { personaTag, totalUnread } from "@/lib/inbox";
 import { useStudentThreads } from "@/lib/inbox-queries";
+import { useMailFrames, useUnreadMail } from "@/lib/mail-queries";
 import { RealtimeProvider, useSocketStatus } from "@/lib/realtime-context";
 import { useIsDesktop } from "@/lib/use-desktop";
 import {
@@ -33,8 +39,11 @@ import { AIHelper } from "../ai/ai-helper";
 import { ApplyScreen } from "../apply/apply-screen";
 import { BoardPanel } from "./board-panel";
 import { OnboardingDialog } from "./onboarding-dialog";
+import { LiveClassBanner } from "./live-class-banner";
 import { ProgressButton } from "./progress-sheet";
 import { useWorkspace } from "./use-workspace";
+import { HelpWidget } from "../help/help-widget";
+import { TourHost, type TourStep } from "../help/tour";
 
 export function WorkspaceScreen() {
   return (
@@ -54,7 +63,7 @@ export function WorkspaceScreen() {
 
 function dayCaption(e: Enrollment): string {
   if (e.status === "paused") return "Internship paused";
-  if (e.day_number === 0) return `Starts ${e.start_date}`;
+  if (e.day_number === 0) return startsCaption(e.start_date);
   return `Day ${e.day_number} of ${e.program.days}`;
 }
 
@@ -73,6 +82,21 @@ function Workspace({ me, enrollment }: { me: Me; enrollment: Enrollment }) {
   const desktop = useIsDesktop();
   const [tab, setTab] = useState<"chat" | "tasks">("chat");
   const [openTask, setOpenTask] = useState<string | null>(null);
+  // Links from mail open a task (/workspace?task=<id>). The page stays mounted between
+  // routes, so the link is read on every visit, once per link.
+  const linked = useSearchParams().get("task");
+  const router = useRouter();
+  const [seenLink, setSeenLink] = useState<string | null>(null);
+  if (linked !== seenLink) {
+    setSeenLink(linked);
+    if (linked) {
+      setOpenTask(linked);
+      setTab("tasks");
+    }
+  }
+  useEffect(() => {
+    if (linked) router.replace("/workspace", { scroll: false });
+  }, [linked, router]);
   // Desktop always shows a conversation (the newest by default); phones start on the list.
   const [picked, setPicked] = useState<string | null>(null);
   const [phoneThread, setPhoneThread] = useState<string | null>(null);
@@ -92,6 +116,8 @@ function Workspace({ me, enrollment }: { me: Me; enrollment: Enrollment }) {
     setOpenTask(id);
     setTab("tasks");
   };
+  const mailUnread = useUnreadMail();
+  useMailFrames();
 
   return (
     <div className="flex h-dvh flex-col">
@@ -112,17 +138,36 @@ function Workspace({ me, enrollment }: { me: Me; enrollment: Enrollment }) {
           </span>
         </div>
         <div className="ml-auto flex items-center gap-1">
+          <Button asChild variant="ghost" size="sm" className="relative gap-2 rounded-full" data-testid="open-mail" data-tour="mail">
+            <Link href="/mail" aria-label={mailUnread > 0 ? `Mail, ${mailUnread} unread` : "Mail"}>
+              <Mail aria-hidden />
+              <span className="hidden md:inline">Mail</span>
+              {mailUnread > 0 ? (
+                <span className="bg-primary text-primary-foreground absolute -top-0.5 right-0 grid min-w-4 place-items-center rounded-full px-1 text-[10px] leading-4 font-semibold tabular-nums" aria-hidden>
+                  {mailUnread > 99 ? "99+" : mailUnread}
+                </span>
+              ) : null}
+            </Link>
+          </Button>
+          <Button asChild variant="ghost" size="sm" className="gap-2 rounded-full" data-testid="open-calendar" data-tour="calendar">
+            <Link href="/calendar" aria-label="Your calendar">
+              <CalendarDays aria-hidden />
+              <span className="hidden md:inline">Calendar</span>
+            </Link>
+          </Button>
           <ProgressButton enrollment={enrollment} />
+          <HelpWidget inline />
         </div>
       </AppHeader>
       <ConnectionBanner status={socket} />
+      <LiveClassBanner />
       {me.account.onboarded ? null : <OnboardingDialog />}
       <main id="main" className="min-h-0 flex-1">
         <h1 className="sr-only">Your internship workspace</h1>
         {desktop === null ? null : desktop ? (
           /* Desktop: chats, the open conversation and the board side by side. */
           <div className="grid h-full grid-cols-[17rem_minmax(0,3fr)_minmax(22rem,2fr)]">
-            <nav aria-label="Chats" className="flex min-h-0 flex-col border-r">
+            <nav aria-label="Chats" className="flex min-h-0 flex-col border-r" data-tour="chats">
               <PanelTitle icon={MessageCircle} title="Chats" />
               <div className="min-h-0 flex-1 overflow-y-auto p-2">
                 <SectionBoundary label="Your chats">
@@ -137,6 +182,7 @@ function Workspace({ me, enrollment }: { me: Me; enrollment: Enrollment }) {
             <section
               aria-label="Conversation"
               className="flex min-h-0 flex-col border-r"
+              data-tour="conversation"
             >
               <SectionBoundary
                 key={aiOpen ? AI_THREAD : (desktopPersona?.id ?? "none")}
@@ -177,7 +223,7 @@ function Workspace({ me, enrollment }: { me: Me; enrollment: Enrollment }) {
                 )}
               </SectionBoundary>
             </section>
-            <section aria-label="Task board" className="flex min-h-0 flex-col">
+            <section aria-label="Task board" className="flex min-h-0 flex-col" data-tour="board">
               <PanelTitle icon={SquareKanban} title="Your board" />
               <SectionBoundary label="Your board">
                 <BoardPanel
@@ -197,7 +243,7 @@ function Workspace({ me, enrollment }: { me: Me; enrollment: Enrollment }) {
             className="flex h-full flex-col gap-0"
           >
             <div className="border-b px-4 py-2">
-              <TabsList className="w-full">
+              <TabsList className="w-full" data-tour="tabs">
                 <TabsTrigger value="chat">
                   <MessageCircle aria-hidden /> Chats
                   {unread > 0 ? (
@@ -268,9 +314,57 @@ function Workspace({ me, enrollment }: { me: Me; enrollment: Enrollment }) {
           </Tabs>
         )}
       </main>
+      <TourHost steps={WORKSPACE_TOUR} />
     </div>
   );
 }
+
+const WORKSPACE_TOUR: TourStep[] = [
+  {
+    title: "Welcome to your workspace",
+    body: "This is where your internship happens. Here is a quick look around. Use the arrow keys or Next, and Escape to stop at any time.",
+  },
+  {
+    target: "chats",
+    title: "Your team's chats",
+    body: "Your team lead, PM and teammates message you here with standups, tickets and nudges. Automatic replies are labelled. The AI helper lives here too.",
+  },
+  {
+    target: "conversation",
+    title: "The conversation",
+    body: "Reply, react to messages and open tasks straight from the chat. When you hand in work, it is posted in the chat of whoever assigned it.",
+  },
+  {
+    target: "board",
+    title: "Your board",
+    body: "Tasks move from To do to Waiting for review to Done. Open one for the brief, review criteria, lessons, notes and the hand-in box.",
+  },
+  {
+    target: "tabs",
+    title: "Chats and tasks",
+    body: "On a phone your chats and your board are two tabs. Switch between them here.",
+  },
+  {
+    target: "mail",
+    title: "Mail",
+    body: "Your welcome letter, review results, class invites, certificates and announcements land here.",
+  },
+  {
+    target: "calendar",
+    title: "Calendar",
+    body: "Day, week and month views of every task and live class, with the time each one arrives. Surprise tasks only show their day.",
+  },
+  {
+    target: "progress",
+    title: "Progress and attendance",
+    body: "See how much you have finished, your points, the certificate bar and your attendance forest. A tree grows for every day you show up.",
+  },
+  {
+    target: "help",
+    title: "Help, any time",
+    body: "Ask the help assistant how anything works, or start this tour again from here or the account menu.",
+  },
+];
 
 function ConversationHeader({
   persona,

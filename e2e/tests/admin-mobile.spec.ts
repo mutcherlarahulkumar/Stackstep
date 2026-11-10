@@ -54,12 +54,13 @@ test.describe("admin on a phone @mobile", () => {
     await expect(page).toHaveURL(/\/admin\/inbox$/);
     // The previous page may stay mounted but hidden (Next keeps route state), so check visibility.
     await expect(page.getByTestId("desktop-gate")).toBeHidden();
-    const thread = page.getByTestId("staff-thread-asha-dev-Sam Rivera");
-    await expect(thread).toBeVisible();
-    await thread.click();
+    // Students, then one student's personas, then the chat; Back steps out again.
+    await page.getByTestId("inbox-student-asha-dev").click();
+    await page.getByTestId("student-persona-Sam Rivera").click();
     await expect(page.getByText(/You reply as/)).toBeVisible();
     await expect(page.getByLabel("Message Asha Rao")).toBeVisible();
-    await page.getByRole("button", { name: "All conversations" }).click();
+    await page.getByRole("button", { name: "Back" }).click();
+    await page.getByRole("button", { name: "All students" }).click();
     await expect(page.getByTestId("open-broadcast")).toBeVisible();
   });
 });

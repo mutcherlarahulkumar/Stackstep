@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { parseRoster, splitCsvLine, statusMoves, validLogin } from "./people";
+import { firstWorkingDay, parseRoster, splitCsvLine, startsCaption, statusMoves, validLogin } from "./people";
 
 describe("GitHub logins", () => {
   it("follows GitHub's rules", () => {
@@ -34,5 +34,19 @@ describe("status moves", () => {
     expect(statusMoves("active")).toEqual(["paused", "completed", "cancelled"]);
     expect(statusMoves("paused")).toContain("active");
     expect(statusMoves("completed")).toEqual([]);
+  });
+});
+
+describe("rolling start (RS3, RS6)", () => {
+  it("day 1 is the next calendar day in the student's zone", () => {
+    // 23:30 UTC on 4 November is already 5 November in India.
+    const late = new Date(Date.UTC(2026, 10, 4, 23, 30));
+    expect(firstWorkingDay("UTC", late)).toBe("Thursday 5 November");
+    expect(firstWorkingDay("Asia/Kolkata", late)).toBe("Friday 6 November");
+  });
+  it("names tomorrow, or the date further out", () => {
+    const now = new Date(2026, 10, 4, 22, 0);
+    expect(startsCaption("2026-11-05", now)).toBe("Starts tomorrow");
+    expect(startsCaption("2026-11-09", now)).toBe("Starts Mon 9 Nov");
   });
 });

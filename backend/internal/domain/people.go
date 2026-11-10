@@ -39,12 +39,14 @@ type College struct {
 
 // Cohort is a batch of students on one program.
 type Cohort struct {
-	ID         uuid.UUID
-	Kind       CohortKind
-	Name       string
-	CollegeID  *uuid.UUID
-	Program    Program
-	StartDate  time.Time
+	ID        uuid.UUID
+	Kind      CohortKind
+	Name      string
+	CollegeID *uuid.UUID
+	Program   Program
+	// FlowID is the flow every student in the cohort follows from their first day.
+	FlowID     *uuid.UUID
+	FlowName   *string
 	SeatsTotal int
 	CreatedAt  time.Time
 	// FeeINR and ApplicationsOpen let students apply and pay for the cohort (feature 15).
@@ -114,6 +116,13 @@ func ValidateName(raw, what string) (string, string) {
 		return n, "Name contains characters that can't be displayed."
 	}
 	return n, ""
+}
+
+// FirstWorkingDay is the start date for someone joining at now: always the next calendar day
+// in their time zone, so they get a full first day instead of whatever is left of today.
+func FirstWorkingDay(now time.Time, loc *time.Location) time.Time {
+	y, m, d := now.In(loc).Date()
+	return time.Date(y, m, d+1, 0, 0, 0, 0, time.UTC)
 }
 
 // ValidateStartDate keeps internships within a sensible window around today (in loc).

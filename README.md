@@ -33,7 +33,7 @@ Each has a spec with every edge case and the test that covers it, in [`docs/feat
 7. **People** — enroll by GitHub login, roster CSV import, colleges, cohorts, internship status
    and staff roles.
 8. **Account** — consent at first sign-in, privacy and terms pages, a first-run guide,
-   honest persona tags and "Download my data".
+   and honest persona tags.
 9. **Task notes** — private Markdown notes per task, optionally shared with the reviewer.
 10. **DSA practice pad** — run a JavaScript solution against example tests in your own browser.
 11. **Review rubrics** — what the reviewer checks, up front, and which criteria were met.
@@ -43,6 +43,26 @@ Each has a spec with every edge case and the test that covers it, in [`docs/feat
     unread count in the tab title.
 14. **Curriculum** — Stackstep's own 30-day frontend and 60-day full-stack flows, six personas
     and 174 tasks, loaded by the "Database · seed curriculum" workflow.
+15. **Task documents** — write or import Markdown lessons and read them inside the web or
+    mobile app, alongside the assignment and its review criteria.
+16. **Rolling start** — students start on Day 1 the day after they join; cohorts follow a flow.
+17. **Calendar** — a Google Calendar style day, week, month and agenda view of every task and
+    live class, with surprise tasks shown only by their day.
+18. **Mail** — an in-house mailbox for welcome letters, review results, certificates, class
+    invites and announcements from staff.
+19. **Chat reactions and a student-first inbox** — react to messages; staff pick a student by
+    flow or cohort, then the persona, then the chat.
+20. **Live classes** — screen sharing, drawing on the screen, voice, chat, Q&A and raised
+    hands in the browser; nothing but the schedule is stored.
+21. **Get the app** — a download page that detects the phone, with install steps and fixes.
+22. **People admin** — everyone in one directory, a full profile per person with staff notes
+    as to-dos, sign out everywhere, and attendance as a seat map and a 3D forest.
+23. **Tour and help** — a spotlight tour of the workspace and the console, and a help
+    assistant that answers from our own student guide (never staff tools).
+
+An additional guided 30-day React edition includes self-contained lessons, deliberate practice
+and recovery days. See [`docs/CURRICULUM.md`](docs/CURRICULUM.md) for its learning path
+and safe import instructions; existing 30-day and 60-day courses remain available.
 
 Also: a review queue with hand-in authenticity warnings, and hand-ins posted in the assigning
 persona's chat with an acknowledgement.

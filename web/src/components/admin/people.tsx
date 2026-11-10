@@ -1,7 +1,7 @@
 "use client";
 
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { CircleAlert, Plus, ShieldCheck, ShieldOff, UserCog, Users } from "lucide-react";
+import { CircleAlert, Contact, Plus, ShieldCheck, ShieldOff, UserCog, Users } from "lucide-react";
 import { useId, useState } from "react";
 import { toast } from "sonner";
 
@@ -27,9 +27,10 @@ import { InfoNote } from "../app/info-note";
 import { ErrorState, ListSkeleton } from "../app/state";
 import { AdminShell } from "./admin-shell";
 import { splitError } from "./form-errors";
+import { Directory } from "./directory";
 import { EnrollPanel, useColleges } from "./people-enroll";
 
-type Tab = "enroll" | "staff";
+type Tab = "everyone" | "enroll" | "staff";
 
 export function PeopleScreen() {
   return <AdminShell section="people" phone="gate">{(me) => <People me={me} />}</AdminShell>;
@@ -37,13 +38,19 @@ export function PeopleScreen() {
 
 function People({ me }: { me: Me }) {
   const isAdmin = me.user.role === "admin";
-  const [tab, setTab] = useState<Tab>("enroll");
+  const [tab, setTab] = useState<Tab>("everyone");
   return (
     <div className="min-h-0 flex-1 overflow-y-auto">
       <div className={cn(PAGE, "gap-6")}>
-        <PageHeader title="People" description={isAdmin ? "Add students to a cohort and decide who can run the console." : "Add students to your college's cohorts."} />
-        <Tabs value={tab} onValueChange={(v) => setTab(v === "staff" ? "staff" : "enroll")} className="gap-6">
+        <PageHeader
+          title="People"
+          description={isAdmin ? "Everyone who signed in, their full profiles, enrollment and who can run the console." : "Your college's students, their profiles, and enrollment."}
+        />
+        <Tabs value={tab} onValueChange={(v) => setTab(v === "staff" ? "staff" : v === "enroll" ? "enroll" : "everyone")} className="gap-6">
           <TabsList>
+            <TabsTrigger value="everyone" data-testid="people-tab-everyone">
+              <Contact aria-hidden /> Everyone
+            </TabsTrigger>
             <TabsTrigger value="enroll">
               <Users aria-hidden /> Enroll students
             </TabsTrigger>
@@ -53,11 +60,29 @@ function People({ me }: { me: Me }) {
               </TabsTrigger>
             ) : null}
           </TabsList>
+          <TabsContent value="everyone" className="flex flex-col gap-6">
+            {isAdmin ? (
+              <InfoNote id="people-free-hand" title="You have a free hand here">
+                As an admin you can see and change everything. Open anyone to see their profile, GitHub, internships, applications and
+                attendance. Keep private notes and to-dos about them, which only staff ever see. Sign someone out of every device when a phone
+                is lost or an account is shared, and they sign in with GitHub again. From the other tabs you enroll students, pause or end
+                internships, assign flows and tasks, review work, issue certificates, mail announcements, run live classes and decide who
+                else can run the console.
+              </InfoNote>
+            ) : (
+              <InfoNote id="people-college" title="Your college's people">
+                Open a student to see their profile, internship, attendance and the notes your team keeps about them. Notes are only ever
+                seen by staff.
+              </InfoNote>
+            )}
+            <Directory me={me} />
+          </TabsContent>
           <TabsContent value="enroll" className="flex flex-col gap-6">
-            <InfoNote id="people-enroll" title="Enroll students by hand">
+            <InfoNote id="people-enroll-v2" title="Enroll students by hand">
               Use this when a college sends you a list, or to add someone without the application form. Enter a GitHub login (or upload a
-              CSV of them), pick a cohort and an optional flow, and the internship starts on the cohort&apos;s start date. Students enrolled
-              here skip the payment step. Students who apply and pay themselves show up under Applications instead.
+              CSV of them), pick a cohort and an optional flow. Day 1 is the day after you enroll them, and their first task arrives that
+              morning. Students enrolled here skip the payment step. Students who apply and pay themselves show up under Applications
+              instead.
             </InfoNote>
             <EnrollPanel me={me} />
           </TabsContent>

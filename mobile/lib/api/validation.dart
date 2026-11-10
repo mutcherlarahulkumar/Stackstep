@@ -10,6 +10,8 @@ abstract final class Bounds {
   static const briefMax = 8000;
   static const noteMax = 2000;
   static const messageMax = 4000;
+  static const documentTitleMax = 80;
+  static const documentBodyMax = 20000;
   static const minTaskDuration = Duration(minutes: 15);
   static const backdateGrace = Duration(minutes: 5);
 }
@@ -102,6 +104,27 @@ bool validUrl(String raw) {
   if (n.isEmpty) return (name: 'Give the link a name.', url: null);
   if (runeLength(n) > 80) return (name: 'Link names can be at most 80 characters.', url: null);
   return (name: null, url: null);
+}
+
+/// Optional authored reading. Markdown whitespace inside the body is preserved.
+({String? title, String? body}) validateDocument({required String title, required String body}) {
+  final name = normalizeLine(title);
+  if (name.isEmpty && body.trim().isEmpty) return (title: null, body: null);
+  final titleError = name.isEmpty
+      ? 'Give the reading a title.'
+      : _control.hasMatch(title)
+      ? "Reading title contains characters that can't be displayed."
+      : runeLength(name) > Bounds.documentTitleMax
+      ? 'Reading titles can be at most 80 characters.'
+      : null;
+  final bodyError = body.trim().isEmpty
+      ? 'Write the reading in Markdown.'
+      : runeLength(body) > Bounds.documentBodyMax
+      ? 'Readings can be at most 20000 characters.'
+      : _control.hasMatch(body)
+      ? "Reading contains characters that can't be displayed."
+      : null;
+  return (title: titleError, body: bodyError);
 }
 
 /// Needs a link when handed in (PR, post, repo). Mirrors TaskType.NeedsLink.

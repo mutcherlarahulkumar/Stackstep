@@ -35,9 +35,6 @@ The engineering specs, with every edge case and its test, are in [`features/`](f
   messages with AI: short, encouraging, a next step or a question back, never solutions or
   promises about grades. Anything personal or sensitive is left for a mentor. If AI is off or
   busy, the old scripted replies answer instead.
-- **Download my data.** Account menu → a JSON file of everything Stackstep holds about the
-  person: profile, tasks, hand-ins, chat, AI conversations, points, credits, certificates,
-  notes and applications with their payments. In the app, this opens the web app.
 - **Apply and pay (students without an internship).** Instead of an empty screen, a student
   who isn't enrolled sees a three-step application: their details and a cohort, then the UPI QR
   and fee with a screenshot upload, then "Payment received — awaiting confirmation". Admins
@@ -63,6 +60,9 @@ phone) and the mobile app (Chats and Tasks tabs).
 - **Task board.** One list: **To do** (anything with changes requested comes first), then
   **Waiting for review**, then a folded **Done** list. Each task has a brief, links, who
   assigned it, the due time and a "Next step" hint.
+- **Lessons inside the task.** Open an attached document to read its Markdown lesson without
+  leaving the app. Headings, examples, code, tables and checklists stay with the assignment;
+  returning takes you back to the same task. Supplemental external links stay separate.
 - **Task flow.** To do → In progress → hand in for review → done (or changes requested). Some
   tasks are self-checks the student marks done.
 - **Hand-ins in chat.** When a student starts, hands in or finishes, their note and PR link
@@ -130,6 +130,9 @@ People, Flows, Task library and Personas.
   student's time zone, and "surprise" tasks land at a random time in a window.
 - **Task library.** Reusable tasks to add to flows. Flows keep their own copy, so editing the
   library never changes a published flow.
+  Tasks can include authored Markdown documents. Write and preview a lesson, or import a
+  `.md` file in the web editor; its contents are saved with the task instead of depending on
+  an external document viewer.
 - **Personas.** The team characters: name, title, colour, and whether they auto-acknowledge
   messages.
 - **People.**
@@ -175,11 +178,11 @@ colleges and cohorts, and grant staff access.
 | Persona tags, AI privacy note | ✓ | ✓ |
 | AI helper | ✓ | ✓ |
 | Task notes (write, share) | ✓ | ✓ |
+| Task documents and Markdown briefs | in-app reader | in-app reader |
 | Rubric (see criteria and results) | ✓ | ✓ |
 | Quiz answer key with "Your answer" | ✓ | ✓ |
 | Progress, certificate, "This week" | ✓ | ✓ |
 | DSA practice pad | runs code | shows examples, links to web |
-| Download my data | ✓ | opens web |
 | Background notifications | browser, while a tab is open | in-app unread badges |
 | Admin: assign task, inbox | ✓ | ✓ |
 | Admin: everything else | desktop web | links to web |

@@ -11,11 +11,11 @@ import (
 )
 
 type cohortResp struct {
-	ID         uuid.UUID `json:"id"`
-	Name       string    `json:"name"`
-	SeatsTotal int       `json:"seats_total"`
-	SeatsUsed  int       `json:"seats_used"`
-	StartDate  string    `json:"start_date"`
+	ID         uuid.UUID  `json:"id"`
+	Name       string     `json:"name"`
+	SeatsTotal int        `json:"seats_total"`
+	SeatsUsed  int        `json:"seats_used"`
+	FlowID     *uuid.UUID `json:"flow_id"`
 }
 
 type enrollResp struct {
@@ -64,17 +64,18 @@ func TestPeopleEnroll(t *testing.T) {
 	}
 	e.expect(e.do("POST", "/v1/admin/colleges", e.login(seed.CollegeAdminLogin), map[string]any{"name": "Other"}), 403)
 
-	// PE2: cohorts check kind/college, program, seats and dates.
+	// PE2: cohorts check kind/college, program and seats. They have no start date: each
+	// student starts the day after they join.
 	bad := e.expect(e.do("POST", "/v1/admin/cohorts", adm, map[string]any{
-		"kind": "college", "name": "x", "program_slug": "nope", "start_date": "2020-01-01", "seats_total": 0,
+		"kind": "college", "name": "x", "program_slug": "nope", "seats_total": 0,
 	}), 422).errCode(t).Error.Fields
-	for _, k := range []string{"name", "college_id", "program_slug", "start_date", "seats_total"} {
+	for _, k := range []string{"name", "college_id", "program_slug", "seats_total"} {
 		if bad[k] == "" {
 			t.Errorf("cohort field %s not flagged: %v", k, bad)
 		}
 	}
 	cohort := e.mustCohort(adm, map[string]any{
-		"kind": "college", "name": "Vizag Batch 1", "college_id": college, "program_slug": "frontend-30", "start_date": "2026-11-02", "seats_total": 2,
+		"kind": "college", "name": "Vizag Batch 1", "college_id": college, "program_slug": "frontend-30", "seats_total": 2,
 	})
 
 	// PE3: enroll a login that has never signed in, on a flow; the lead welcomes them.
@@ -82,8 +83,8 @@ func TestPeopleEnroll(t *testing.T) {
 	e.expect(e.do("POST", "/v1/admin/enrollments", adm, map[string]any{
 		"github_login": "@New-Intern", "name": "New Intern", "cohort_id": cohort.ID, "flow_id": seed.ReactFlowID,
 	}), 201).json(t, &r)
-	if !r.UserCreated || r.Student.User.GitHubLogin != "New-Intern" || r.Student.Enrollment.StartDate != "2026-11-02" ||
-		r.Student.Enrollment.EndDate != "2026-12-01" || r.Student.Enrollment.Flow == nil {
+	if !r.UserCreated || r.Student.User.GitHubLogin != "New-Intern" || r.Student.Enrollment.StartDate != "2026-11-05" ||
+		r.Student.Enrollment.EndDate != "2026-12-04" || r.Student.Enrollment.Flow == nil {
 		t.Fatalf("enroll = %+v", r)
 	}
 	stu := e.login("new-intern") // dev sign-in stands in for their first GitHub sign-in
@@ -99,7 +100,8 @@ func TestPeopleEnroll(t *testing.T) {
 	e.expect(e.do("GET", "/v1/me/threads/"+domain.DefaultPersonaID.String()+"/messages", stu, nil), 200).json(t, &msgs)
 	welcomed := false
 	for _, m := range msgs.Items {
-		welcomed = welcomed || strings.HasPrefix(m.Body, "Welcome to Stackstep, New.")
+		welcomed = welcomed || strings.HasPrefix(m.Body, "Welcome to Stackstep, New.") &&
+			strings.Contains(m.Body, "Your first working day is tomorrow, Thursday 5 November. Your first task arrives at")
 	}
 	if !welcomed {
 		t.Fatalf("no welcome: %+v", msgs.Items)
@@ -117,9 +119,9 @@ func TestPeopleEnroll(t *testing.T) {
 		t.Fatalf("seats: %v", f)
 	}
 
-	// PE5: without a cohort, admins pick the program and date; bad input is flagged per field.
+	// PE5: without a cohort, admins pick the program (the start is the next day); bad input is flagged per field.
 	f := e.expect(e.do("POST", "/v1/admin/enrollments", adm, map[string]any{"github_login": "bad login!", "timezone": "Mars/Base", "email": "nope"}), 422).errCode(t).Error.Fields
-	for _, k := range []string{"github_login", "timezone", "email", "program_slug", "start_date"} {
+	for _, k := range []string{"github_login", "timezone", "email", "program_slug"} {
 		if f[k] == "" {
 			t.Errorf("enroll field %s not flagged: %v", k, f)
 		}

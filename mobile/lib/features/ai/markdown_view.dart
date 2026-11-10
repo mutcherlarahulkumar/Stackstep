@@ -2,6 +2,7 @@ import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:markdown/markdown.dart' as md;
 import 'package:shadcn_ui/shadcn_ui.dart';
+import 'package:stackstep/api/validation.dart';
 import 'package:stackstep/core/theme.dart';
 import 'package:stackstep/features/tasks/task_work.dart';
 
@@ -9,16 +10,38 @@ import 'package:stackstep/features/tasks/task_work.dart';
 String sectionHeadings(String source) =>
     source.replaceAllMapped(RegExp(r'^\*\*([^*\n]{1,60})\*\*\s*$', multiLine: true), (m) => '#### ${m[1]}');
 
-/// Renders the AI helper's Markdown with native widgets: headings, paragraphs, lists, code,
-/// bold, italics and links. Raw HTML and images are never rendered.
-class MarkdownView extends StatelessWidget {
-  const MarkdownView(this.source, {super.key});
+/// Native Markdown shared by answers, task briefs, notes and authored readings.
+/// Raw HTML and images are never rendered. Readings can disable outgoing links.
+class MarkdownView extends StatefulWidget {
+  const MarkdownView(this.source, {this.allowLinks = true, super.key});
   final String source;
+  final bool allowLinks;
+
+  @override
+  State<MarkdownView> createState() => _MarkdownViewState();
+}
+
+class _MarkdownViewState extends State<MarkdownView> {
+  final _recognizers = <TapGestureRecognizer>[];
+
+  void _disposeLinks() {
+    for (final recognizer in _recognizers) {
+      recognizer.dispose();
+    }
+    _recognizers.clear();
+  }
+
+  @override
+  void dispose() {
+    _disposeLinks();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
+    _disposeLinks();
     final doc = md.Document(extensionSet: md.ExtensionSet.gitHubFlavored, encodeHtml: false);
-    final nodes = doc.parseLines(sectionHeadings(source).split('\n'));
+    final nodes = doc.parseLines(sectionHeadings(widget.source).split('\n'));
     return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [for (final n in nodes) ..._block(context, n, 0)]);
   }
 
@@ -29,10 +52,15 @@ class MarkdownView extends StatelessWidget {
     if (node is! md.Element) return const [];
     switch (node.tag) {
       case 'h1' || 'h2' || 'h3' || 'h4' || 'h5' || 'h6':
+        final headingStyle = switch (node.tag) {
+          'h1' => t.textTheme.h3,
+          'h2' => t.textTheme.h4,
+          _ => base.copyWith(fontWeight: FontWeight.w700),
+        };
         return [
           Padding(
-            padding: const EdgeInsets.only(top: Space.sm, bottom: 2),
-            child: Text.rich(_inline(context, node.children ?? const [], base.copyWith(fontWeight: FontWeight.w700))),
+            padding: const EdgeInsets.only(top: Space.md, bottom: Space.xs),
+            child: Semantics(header: true, child: Text.rich(_inline(context, node.children ?? const [], headingStyle))),
           ),
         ];
       case 'p':
@@ -41,6 +69,7 @@ class MarkdownView extends StatelessWidget {
         ];
       case 'ul' || 'ol':
         final ordered = node.tag == 'ol';
+        final start = int.tryParse(node.attributes['start'] ?? '') ?? 1;
         final items = (node.children ?? const []).whereType<md.Element>().toList();
         return [
           for (final (i, li) in items.indexed)
@@ -49,7 +78,7 @@ class MarkdownView extends StatelessWidget {
               child: Row(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  SizedBox(width: 22, child: Text(ordered ? '${i + 1}.' : '•', style: base)),
+                  SizedBox(width: 26, child: _listMarker(li, ordered ? '${i + start}.' : '•', base)),
                   Expanded(child: _listItem(context, li, depth, base)),
                 ],
               ),
@@ -73,6 +102,37 @@ class MarkdownView extends StatelessWidget {
           ),
         ];
       case 'blockquote':
+        final callout = _callout(node.children ?? const <md.Node>[]);
+        if (callout != null) {
+          final (label, icon, color, kids) = callout;
+          return [
+            Container(
+              padding: const EdgeInsets.all(Space.md),
+              decoration: BoxDecoration(
+                color: color.withValues(alpha: 0.08),
+                border: Border.all(color: color.withValues(alpha: 0.4)),
+                borderRadius: const BorderRadius.all(Radii.md),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Row(
+                    children: [
+                      Icon(icon, size: 16, color: color),
+                      const SizedBox(width: 6),
+                      Text(
+                        label,
+                        style: base.copyWith(fontWeight: FontWeight.w700, color: color),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 4),
+                  for (final c in kids) ..._block(context, c, depth),
+                ],
+              ),
+            ),
+          ];
+        }
         return [
           Container(
             padding: const EdgeInsets.only(left: Space.md),
@@ -87,9 +147,105 @@ class MarkdownView extends StatelessWidget {
         ];
       case 'hr':
         return const [Divider()];
+      case 'table':
+        return [_table(context, node, base)];
+      case 'script' || 'style' || 'iframe' || 'img':
+        return const [];
       default:
         return [Text.rich(_inline(context, node.children ?? const [], base))];
     }
+  }
+
+  /// GitHub-style callouts: a blockquote starting with `[!TIP]`, `[!NOTE]`, `[!IMPORTANT]`,
+  /// `[!WARNING]` or `[!CAUTION]` becomes a coloured box, matching the web reader.
+  static (String, IconData, Color, List<md.Node>)? _callout(List<md.Node> kids) {
+    final first = kids.isEmpty ? null : kids.first;
+    if (first is! md.Element || first.tag != 'p') return null;
+    final inner = first.children ?? const <md.Node>[];
+    final head = inner.isEmpty ? null : inner.first;
+    if (head is! md.Text) return null;
+    final m = RegExp(r'^\[!(\w+)\][ \t]*\n?').firstMatch(head.text);
+    if (m == null) return null;
+    final style = switch (m.group(1)?.toLowerCase()) {
+      'note' => ('Note', LucideIcons.info, const Color(0xFF0284C7)),
+      'tip' => ('Tip', LucideIcons.lightbulb, const Color(0xFF059669)),
+      'important' => ('Important', LucideIcons.info, const Color(0xFF7C3AED)),
+      'warning' => ('Watch out', LucideIcons.triangleAlert, const Color(0xFFD97706)),
+      'caution' => ('Careful', LucideIcons.octagonAlert, const Color(0xFFE11D48)),
+      _ => null,
+    };
+    if (style == null) return null;
+    final rest = head.text.substring(m.end);
+    final para = md.Element('p', [if (rest.isNotEmpty) md.Text(rest), ...inner.skip(1)]);
+    return (style.$1, style.$2, style.$3, [if ((para.children ?? const []).isNotEmpty) para, ...kids.skip(1)]);
+  }
+
+  Widget _listMarker(md.Element li, String marker, TextStyle base) {
+    final children = li.children ?? const <md.Node>[];
+    final inputs = <md.Element>[
+      for (final child in children.whereType<md.Element>())
+        if (child.tag == 'input')
+          child
+        else if (child.tag == 'p')
+          ...?(child.children?.whereType<md.Element>().where((element) => element.tag == 'input')),
+    ];
+    if (inputs.isEmpty) return Text(marker, style: base);
+    final checked = inputs.first.attributes.containsKey('checked');
+    return Semantics(checked: checked, child: Icon(checked ? Icons.check_box_outlined : Icons.check_box_outline_blank, size: 18));
+  }
+
+  Widget _table(BuildContext context, md.Element table, TextStyle base) {
+    final color = ShadTheme.of(context).colorScheme;
+    final rows = <md.Element>[
+      for (final section in (table.children ?? const <md.Node>[]).whereType<md.Element>())
+        if (section.tag == 'tr') section else ...?(section.children?.whereType<md.Element>().where((row) => row.tag == 'tr')),
+    ];
+    if (rows.isEmpty) return const SizedBox.shrink();
+    final cells = [for (final row in rows) (row.children ?? const <md.Node>[]).whereType<md.Element>().toList()];
+    final columnCount = cells.fold<int>(0, (count, row) => row.length > count ? row.length : count);
+    if (columnCount == 0) return const SizedBox.shrink();
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: Space.sm),
+      child: SingleChildScrollView(
+        scrollDirection: Axis.horizontal,
+        child: Table(
+          defaultColumnWidth: const IntrinsicColumnWidth(),
+          border: TableBorder.all(color: color.border),
+          children: [
+            for (final row in cells)
+              TableRow(
+                decoration: row.any((cell) => cell.tag == 'th') ? BoxDecoration(color: color.muted) : null,
+                children: [
+                  for (var i = 0; i < columnCount; i++)
+                    ConstrainedBox(
+                      constraints: const BoxConstraints(minWidth: 100, maxWidth: 240),
+                      child: Padding(
+                        padding: const EdgeInsets.all(Space.sm),
+                        child: i >= row.length
+                            ? const SizedBox.shrink()
+                            : Semantics(
+                                header: row[i].tag == 'th',
+                                child: Text.rich(
+                                  _inline(
+                                    context,
+                                    row[i].children ?? const [],
+                                    row[i].tag == 'th' ? base.copyWith(fontWeight: FontWeight.w600) : base,
+                                  ),
+                                  textAlign: switch (row[i].attributes['align']) {
+                                    'center' => TextAlign.center,
+                                    'right' => TextAlign.right,
+                                    _ => TextAlign.left,
+                                  },
+                                ),
+                              ),
+                      ),
+                    ),
+                ],
+              ),
+          ],
+        ),
+      ),
+    );
   }
 
   Widget _listItem(BuildContext context, md.Element li, int depth, TextStyle base) {
@@ -126,16 +282,24 @@ class MarkdownView extends StatelessWidget {
                   backgroundColor: t.colorScheme.background,
                 ),
               ),
-              'a' => TextSpan(
-                text: n.textContent,
-                style: style.copyWith(color: t.colorScheme.primary, decoration: TextDecoration.underline),
-                recognizer: TapGestureRecognizer()..onTap = () => openLink(context, n.attributes['href'] ?? ''),
-              ),
+              'a' => _link(context, n, style),
               'br' => const TextSpan(text: '\n'),
-              'img' => const TextSpan(),
+              'img' || 'input' || 'script' || 'style' || 'iframe' => const TextSpan(),
               _ => _inline(context, n.children ?? const [], style),
             },
       ],
+    );
+  }
+
+  TextSpan _link(BuildContext context, md.Element element, TextStyle style) {
+    final url = element.attributes['href'] ?? '';
+    if (!widget.allowLinks || !validUrl(url)) return TextSpan(text: element.textContent, style: style);
+    final recognizer = TapGestureRecognizer()..onTap = () => openLink(context, url);
+    _recognizers.add(recognizer);
+    return TextSpan(
+      text: element.textContent,
+      style: style.copyWith(color: ShadTheme.of(context).colorScheme.primary, decoration: TextDecoration.underline),
+      recognizer: recognizer,
     );
   }
 }

@@ -112,6 +112,10 @@ func (w *Workspace) IssueCertificate(ctx context.Context, u domain.User, enrollm
 			Body: fmt.Sprintf("Congratulations, %s! Your certificate is ready, with %d tasks finished and %d points. Anyone can verify it with code %s.",
 				firstNameOf(student.Name), p.Done, p.Points, cert.Code),
 		}, now)
+		if err != nil {
+			return err
+		}
+		_, err = store.InsertMail(ctx, q, certificateMail(student, cert), []uuid.UUID{student.ID}, now)
 		return err
 	})
 	return cert, err

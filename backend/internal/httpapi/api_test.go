@@ -330,7 +330,7 @@ func TestCreateTaskBadRequests(t *testing.T) {
 	e.expect(e.do("POST", path, adm, `{"type":"feature",`), 400)
 	e.expect(e.do("POST", path, adm, `{"due_at":"tomorrow"}`), 400)
 	e.expect(e.do("POST", path, adm, `{} {}`), 400)
-	e.expect(e.do("POST", path, adm, `{"brief":"`+strings.Repeat("a", MaxBodyBytes)+`"}`), 413)
+	e.expect(e.do("POST", path, adm, `{"brief":"`+strings.Repeat("a", MaxContentBodyBytes)+`"}`), 413)
 	e.expect(e.do("POST", "/v1/admin/enrollments/not-a-uuid/tasks", adm, validTask(e.clock.Now())), 404)
 	e.expect(e.do("POST", "/v1/admin/enrollments/"+uuid.NewString()+"/tasks", adm, validTask(e.clock.Now())), 404)
 }

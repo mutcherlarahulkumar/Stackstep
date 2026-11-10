@@ -92,6 +92,10 @@ extension type const JsonReader(Json raw) {
     }
     throw ContractViolation(key, 'one of ${values.map(wire).join(', ')}, got "$value"');
   }
+
+  /// Like [enumValue], but a null value is allowed (an unknown string still throws).
+  E? enumValueOrNull<E extends Enum>(String key, List<E> values, String Function(E) wire) =>
+      stringOrNull(key) == null ? null : enumValue(key, values, wire);
 }
 
 /// Decodes a top-level JSON value as an object.

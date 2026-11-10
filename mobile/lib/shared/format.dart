@@ -70,3 +70,12 @@ String taskTimeLabel(Task t, DateTime now) => switch (t.status) {
 
 /// Honest label for who is behind a persona (same words as the web app).
 String personaTag(Persona p) => p.autoReply ? 'Mentor · some replies automatic' : 'Played by a mentor';
+
+/// "Starts tomorrow" or "Starts Thu 5 Nov" for an internship that hasn't begun (start is YYYY-MM-DD).
+String startsCaption(String start, DateTime now) {
+  final day = DateTime.tryParse(start);
+  if (day == null) return 'Starts soon';
+  final tomorrow = DateTime(now.year, now.month, now.day + 1);
+  if (day.year == tomorrow.year && day.month == tomorrow.month && day.day == tomorrow.day) return 'Starts tomorrow';
+  return 'Starts ${DateFormat('EEE d MMM').format(day)}';
+}

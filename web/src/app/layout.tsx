@@ -11,6 +11,7 @@ export const metadata: Metadata = {
   description:
     "A 30- or 60-day virtual internship with a team lead in your chats, real pull requests on your own GitHub, and a certificate anyone can verify.",
   applicationName: "Stackstep",
+  appleWebApp: { capable: true, title: "Stackstep", statusBarStyle: "default" },
 };
 
 export const viewport: Viewport = {

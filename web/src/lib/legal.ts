@@ -52,8 +52,7 @@ export const PRIVACY: readonly LegalSection[] = [
   {
     heading: "Your choices",
     points: [
-      "Download everything we hold about you as a JSON file from the account menu (“Download my data”).",
-      "Ask your program admin to correct or delete your data.",
+      "Ask your program admin for a copy of your data, or to correct or delete it.",
       "We don't sell your data or show ads, and we don't use tracking cookies. We store your sign-in session in your browser.",
     ],
   },

@@ -1,6 +1,7 @@
 package httpapi
 
 import (
+	"bytes"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -8,14 +9,22 @@ import (
 	"net/http"
 	"strconv"
 	"strings"
+	"unicode/utf8"
 
 	"github.com/gin-gonic/gin"
 
 	"github.com/mutcherlarahulkumar/stackstep/backend/internal/apperr"
 )
 
-// MaxBodyBytes caps every request body.
+// MaxBodyBytes caps ordinary request bodies.
 const MaxBodyBytes = 64 << 10
+
+// MaxContentBodyBytes fits five 20,000-character Markdown documents, JSON-escaped.
+const MaxContentBodyBytes = 1 << 20
+
+// MaxFlowDraftBodyBytes bounds a whole flow draft containing inline lessons.
+// A draft must fit this total byte limit as well as the individual field bounds.
+const MaxFlowDraftBodyBytes = 8 << 20
 
 // MaxImportBodyBytes caps a bulk enrollment (500 rows with long names and emails).
 const MaxImportBodyBytes = 512 << 10
@@ -60,7 +69,14 @@ func decodeLimit(c *gin.Context, dst any, limit int64) error {
 		return apperr.New(apperr.CodeBadRequest, "Content-Type must be application/json.")
 	}
 	r := http.MaxBytesReader(c.Writer, c.Request.Body, limit)
-	dec := json.NewDecoder(r)
+	body, err := io.ReadAll(r)
+	if err != nil {
+		return decodeError(err)
+	}
+	if !utf8.Valid(body) {
+		return apperr.New(apperr.CodeBadRequest, "Request body must be valid UTF-8.")
+	}
+	dec := json.NewDecoder(bytes.NewReader(body))
 	dec.DisallowUnknownFields()
 	if err := dec.Decode(dst); err != nil {
 		return decodeError(err)

@@ -221,6 +221,10 @@ type meResp struct {
 		ID        uuid.UUID `json:"id"`
 		DayNumber int       `json:"day_number"`
 		Status    string    `json:"status"`
+		StartDate string    `json:"start_date"`
+		Flow      *struct {
+			Name string `json:"name"`
+		} `json:"flow"`
 	} `json:"enrollment"`
 }
 

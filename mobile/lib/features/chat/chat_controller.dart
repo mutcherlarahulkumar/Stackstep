@@ -119,9 +119,11 @@ final class ChatController extends AsyncNotifier<ChatState> {
         case MessageFrame(:final message) when target.contains(message):
           _receive([message]);
           if (!target.isMine(message)) unawaited(_markRead());
+        case ReactionFrame(:final message) when target.contains(message):
+          _receive([message]);
         case ReadyFrame():
           unawaited(_catchUp());
-        case MessageFrame() || TaskFrame():
+        case MessageFrame() || TaskFrame() || MailFrame() || ReactionFrame():
           break;
       }
     });
@@ -163,6 +165,25 @@ final class ChatController extends AsyncNotifier<ChatState> {
       );
     } on Exception {
       if (ref.mounted) state = AsyncData(state.value!.copyWith(loadingOlder: false));
+    }
+  }
+
+  /// Our side of the conversation: the student, or staff speaking as the persona.
+  Author get _side => target.enrollmentId == null ? Author.student : Author.persona;
+
+  bool reacted(Message m, ReactionEmoji e) => m.reactions.any((r) => r.emoji == e && r.by == _side);
+
+  /// Toggles our reaction straight away; rolls back if the server refuses.
+  Future<String?> toggleReaction(Message m, ReactionEmoji e) async {
+    final on = !reacted(m, e);
+    _receive([m.withReaction(e, _side, on: on)]);
+    try {
+      final saved = await _api.react(m.id, e, on: on, staff: target.enrollmentId != null);
+      if (ref.mounted) _receive([saved]);
+      return null;
+    } on Exception catch (err) {
+      if (ref.mounted) _receive([m]);
+      return messageFor(err);
     }
   }
 

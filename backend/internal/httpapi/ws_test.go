@@ -91,7 +91,11 @@ func TestWebSocketDeliversMessagesAndTasks(t *testing.T) {
 	time.Sleep(100 * time.Millisecond) // let LISTEN register
 
 	e.expect(send(e, stu, uuid.New(), "hello"), 201)
+	// Other packages' tests share this database's NOTIFY channel; skip anything that isn't ours.
 	f := readFrame(t, c)
+	for i := 0; i < 5 && (f.Message == nil || f.Message.Body != "hello"); i++ {
+		f = readFrame(t, c)
+	}
 	if f.Type != frameMessage || f.Message.Author != "student" || f.Message.Body != "hello" {
 		t.Fatalf("student frame = %+v", f)
 	}

@@ -1,6 +1,6 @@
 "use client";
 
-import { Award, BadgeCheck, ExternalLink, FileBadge } from "lucide-react";
+import { Award, BadgeCheck, ExternalLink, FileBadge, TreePine } from "lucide-react";
 import Link from "next/link";
 import { type ReactNode } from "react";
 
@@ -15,7 +15,6 @@ import { useProgress } from "@/lib/wallet-queries";
 
 import { ErrorState, ListSkeleton } from "../app/state";
 
-/** Header button: the internship day bar on wide screens, an award icon on phones. */
 /** The one progress control in the header: share of tasks done; points and the certificate inside. */
 export function ProgressButton({ enrollment }: { enrollment: Enrollment }) {
   const q = useProgress();
@@ -23,9 +22,9 @@ export function ProgressButton({ enrollment }: { enrollment: Enrollment }) {
   return (
     <Sheet>
       <SheetTrigger asChild>
-        <Button variant="outline" size="sm" className="gap-2 rounded-full" data-testid="open-progress" aria-label="Your progress and certificate">
+        <Button variant="outline" size="sm" className="gap-2 rounded-full" data-testid="open-progress" data-tour="progress" aria-label="Your progress and certificate">
           <Award className="text-primary" aria-hidden />
-          {pct === undefined ? "Progress" : <span className="tabular-nums">{pct}% done</span>}
+          {pct === undefined ? <span className="max-sm:sr-only">Progress</span> : <span className="tabular-nums">{pct}%<span className="max-sm:sr-only"> done</span></span>}
         </Button>
       </SheetTrigger>
       <SheetContent className="w-full overflow-y-auto sm:max-w-md">
@@ -35,7 +34,13 @@ export function ProgressButton({ enrollment }: { enrollment: Enrollment }) {
             Day {enrollment.day_number} of {enrollment.program.days}. Your team lead issues your certificate when you&apos;re done.
           </SheetDescription>
         </SheetHeader>
-        <div className="px-4 pb-6">
+        <div className="flex flex-col gap-4 px-4 pb-6">
+          <Button asChild variant="outline" className="justify-start gap-3 border-emerald-500/40 bg-emerald-500/5" data-testid="open-attendance">
+            <Link href="/attendance">
+              <TreePine className="text-emerald-600" aria-hidden /> Show attendance
+              <span className="text-muted-foreground ml-auto text-xs">Your forest</span>
+            </Link>
+          </Button>
           <ProgressBody />
         </div>
       </SheetContent>

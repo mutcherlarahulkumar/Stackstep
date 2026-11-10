@@ -27,6 +27,12 @@ const go = {
   ApplicantAction: read("backend/internal/domain/application.go"),
   ApplicationAuthor: read("backend/internal/domain/application.go"),
   ApplicationDecision: read("backend/internal/domain/application.go"),
+  CalendarKind: read("backend/internal/domain/calendar.go"),
+  MailKind: read("backend/internal/domain/mail.go"),
+  Audience: read("backend/internal/domain/mail.go"),
+  ReactionEmoji: read("backend/internal/domain/chat.go"),
+  ClassStatus: read("backend/internal/domain/class.go"),
+  AttendanceStatus: read("backend/internal/domain/attendance.go"),
 };
 const goType = {
   Role: "Role",
@@ -48,6 +54,12 @@ const goType = {
   ApplicantAction: "ApplicantAction",
   ApplicationAuthor: "ApplicationAuthor",
   ApplicationDecision: "ApplicationDecision",
+  CalendarKind: "CalendarKind",
+  MailKind: "MailKind",
+  Audience: "Audience",
+  ReactionEmoji: "ReactionEmoji",
+  ClassStatus: "ClassStatus",
+  AttendanceStatus: "AttendanceStatus",
 };
 const ts = read("web/src/lib/api/schemas.ts");
 const tsConst = {
@@ -70,6 +82,12 @@ const tsConst = {
   ApplicantAction: "APPLICANT_ACTIONS",
   ApplicationAuthor: "APPLICATION_AUTHORS",
   ApplicationDecision: "APPLICATION_DECISIONS",
+  CalendarKind: "CALENDAR_KINDS",
+  MailKind: "MAIL_KINDS",
+  Audience: "AUDIENCES",
+  ReactionEmoji: "REACTION_EMOJIS",
+  ClassStatus: "CLASS_STATUSES",
+  AttendanceStatus: "ATTENDANCE_STATUSES",
 };
 const dart = read("mobile/lib/api/models.dart");
 const dartEnum = { ...goType, ErrorCode: "ErrorCode" };

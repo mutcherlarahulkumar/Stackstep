@@ -1,10 +1,10 @@
 "use client";
 
-import QRCode from "qrcode";
 import { forwardRef, useMemo } from "react";
 
 import { type Certificate } from "@/lib/api/schemas";
 import { certificateWording, dateOnlyLabel, formatCode, verifyPath } from "@/lib/certificate";
+import { qrPath } from "@/lib/qr";
 
 /** A4 landscape at 96 dpi; prints edge to edge and exports crisp at 2x. */
 export const ART_WIDTH = 1123;
@@ -32,19 +32,6 @@ export function wrap(text: string, max: number): string[] {
   }
   if (line) lines.push(line);
   return lines;
-}
-
-/** The QR code as one SVG path (1 unit per module). */
-function qrPath(text: string): { d: string; size: number } {
-  const qr = QRCode.create(text, { errorCorrectionLevel: "M" });
-  const { size, data } = qr.modules;
-  let d = "";
-  for (let y = 0; y < size; y++) {
-    for (let x = 0; x < size; x++) {
-      if (data[y * size + x]) d += `M${x} ${y}h1v1h-1z`;
-    }
-  }
-  return { d, size };
 }
 
 /** A small L-shaped flourish for each corner of the inner frame. */

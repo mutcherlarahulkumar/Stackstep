@@ -2,10 +2,14 @@ package httpapi
 
 import (
 	"net/http"
+	"time"
 
 	"github.com/gin-gonic/gin"
+	"github.com/google/uuid"
 
 	"github.com/mutcherlarahulkumar/stackstep/backend/internal/app"
+	"github.com/mutcherlarahulkumar/stackstep/backend/internal/apperr"
+	"github.com/mutcherlarahulkumar/stackstep/backend/internal/domain"
 	"github.com/mutcherlarahulkumar/stackstep/backend/internal/store"
 )
 
@@ -26,8 +30,13 @@ func (s *Server) staffThreads(c *gin.Context) {
 		s.fail(c, err)
 		return
 	}
+	enrollment, err := optionalUUIDQuery(c, "enrollment_id")
+	if err != nil {
+		s.fail(c, err)
+		return
+	}
 	rows, next, err := s.workspace.StaffThreads(c.Request.Context(), currentUser(c), store.StaffThreadFilter{
-		PersonaID: persona, Unread: unread, After: cursor, Limit: limit,
+		PersonaID: persona, EnrollmentID: enrollment, Unread: unread, After: cursor, Limit: limit,
 	})
 	if err != nil {
 		s.fail(c, err)
@@ -127,4 +136,55 @@ func (s *Server) broadcast(c *gin.Context) {
 		}
 	}
 	c.JSON(http.StatusOK, gin.H{"sent": sent, "items": items})
+}
+
+type inboxStudentDTO struct {
+	Student      threadStudentDTO        `json:"student"`
+	EnrollmentID uuid.UUID               `json:"enrollment_id"`
+	Status       domain.EnrollmentStatus `json:"status"`
+	CohortName   *string                 `json:"cohort_name"`
+	FlowName     *string                 `json:"flow_name"`
+	DayNumber    int                     `json:"day_number"`
+	Unread       int                     `json:"unread"`
+	Threads      int                     `json:"threads"`
+	LastAt       *time.Time              `json:"last_at"`
+}
+
+// inboxStudents lists every student in scope for the inbox, filtered by flow, cohort or name.
+func (s *Server) inboxStudents(c *gin.Context) {
+	flow, err := optionalUUIDQuery(c, "flow_id")
+	if err != nil {
+		s.fail(c, err)
+		return
+	}
+	cohort, err := optionalUUIDQuery(c, "cohort_id")
+	if err != nil {
+		s.fail(c, err)
+		return
+	}
+	offset, ok := queryInt(c, "offset", 0)
+	if !ok || offset < 0 || offset > 100000 {
+		s.fail(c, apperr.Validation(map[string]string{"offset": "Must be 0 or more."}))
+		return
+	}
+	q := c.Query("q")
+	if len([]rune(q)) > 100 {
+		s.fail(c, apperr.Validation(map[string]string{"q": "Search for at most 100 characters."}))
+		return
+	}
+	rows, next, err := s.workspace.InboxStudents(c.Request.Context(), currentUser(c), store.InboxStudentFilter{FlowID: flow, CohortID: cohort, Search: q, Offset: offset})
+	if err != nil {
+		s.fail(c, err)
+		return
+	}
+	items := make([]inboxStudentDTO, len(rows))
+	for i, r := range rows {
+		items[i] = inboxStudentDTO{Student: threadStudentDTO{Name: r.Name, GitHubLogin: r.Login, AvatarURL: r.Avatar}, EnrollmentID: r.EnrollmentID,
+			Status: r.Status, CohortName: r.CohortName, FlowName: r.FlowName, DayNumber: r.DayNumber, Unread: r.Unread, Threads: r.Threads, LastAt: utcPtr(r.LastAt)}
+	}
+	var nextOffset *int
+	if next >= 0 {
+		nextOffset = &next
+	}
+	c.JSON(http.StatusOK, gin.H{"items": items, "next_offset": nextOffset})
 }

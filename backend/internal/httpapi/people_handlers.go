@@ -33,7 +33,8 @@ type cohortDTO struct {
 	CollegeID   *uuid.UUID        `json:"college_id"`
 	CollegeName *string           `json:"college_name"`
 	Program     programDTO        `json:"program"`
-	StartDate   string            `json:"start_date"`
+	FlowID      *uuid.UUID        `json:"flow_id"`
+	FlowName    *string           `json:"flow_name"`
 	SeatsTotal  int               `json:"seats_total"`
 	SeatsUsed   int               `json:"seats_used"`
 	// Feature 15: the fee and whether the cohort takes applications.
@@ -44,7 +45,7 @@ type cohortDTO struct {
 func toCohort(r store.CohortRow) cohortDTO {
 	p := r.Cohort.Program
 	return cohortDTO{ID: r.Cohort.ID, Kind: r.Cohort.Kind, Name: r.Cohort.Name, CollegeID: r.Cohort.CollegeID, CollegeName: r.CollegeName,
-		Program: programDTO{Slug: p.Slug, Days: p.Days, Track: p.Track}, StartDate: r.Cohort.StartDate.Format(time.DateOnly),
+		Program: programDTO{Slug: p.Slug, Days: p.Days, Track: p.Track}, FlowID: r.Cohort.FlowID, FlowName: r.Cohort.FlowName,
 		SeatsTotal: r.Cohort.SeatsTotal, SeatsUsed: r.SeatsUsed, FeeINR: r.Cohort.FeeINR, ApplicationsOpen: r.Cohort.ApplicationsOpen}
 }
 
@@ -132,8 +133,7 @@ type createCohortReq struct {
 	Name        string            `json:"name"`
 	CollegeID   *uuid.UUID        `json:"college_id"`
 	ProgramSlug string            `json:"program_slug"`
-	StartDate   *string           `json:"start_date"`
-	Timezone    string            `json:"timezone"`
+	FlowID      *uuid.UUID        `json:"flow_id"`
 	SeatsTotal  int               `json:"seats_total"`
 }
 
@@ -143,23 +143,35 @@ func (s *Server) createCohort(c *gin.Context) {
 		s.fail(c, err)
 		return
 	}
-	start, err := parseDate(req.StartDate, "start_date")
-	if err != nil {
-		s.fail(c, err)
-		return
-	}
-	if start == nil {
-		s.fail(c, apperr.Validation(map[string]string{"start_date": "Pick a start date."}))
-		return
-	}
 	row, err := s.workspace.CreateCohort(c.Request.Context(), currentUser(c), app.CohortInput{
-		Kind: req.Kind, Name: req.Name, CollegeID: req.CollegeID, ProgramSlug: req.ProgramSlug, StartDate: *start, Timezone: req.Timezone, SeatsTotal: req.SeatsTotal,
+		Kind: req.Kind, Name: req.Name, CollegeID: req.CollegeID, ProgramSlug: req.ProgramSlug, FlowID: req.FlowID, SeatsTotal: req.SeatsTotal,
 	})
 	if err != nil {
 		s.fail(c, err)
 		return
 	}
 	c.JSON(http.StatusCreated, toCohort(row))
+}
+
+func (s *Server) setCohortFlow(c *gin.Context) {
+	id, err := pathUUID(c, "id")
+	if err != nil {
+		s.fail(c, err)
+		return
+	}
+	var req struct {
+		FlowID *uuid.UUID `json:"flow_id"`
+	}
+	if err := decode(c, &req); err != nil {
+		s.fail(c, err)
+		return
+	}
+	row, err := s.workspace.SetCohortFlow(c.Request.Context(), currentUser(c), id, req.FlowID)
+	if err != nil {
+		s.fail(c, err)
+		return
+	}
+	c.JSON(http.StatusOK, toCohort(row))
 }
 
 // enrollSettings are the fields shared by one enrollment and a bulk import.

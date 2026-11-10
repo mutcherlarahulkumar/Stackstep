@@ -6,6 +6,7 @@ import 'package:stackstep/api/models.dart';
 import 'package:stackstep/core/config.dart';
 import 'package:stackstep/core/providers.dart';
 import 'package:stackstep/core/theme.dart';
+import 'package:stackstep/features/attendance/attendance_screen.dart';
 import 'package:stackstep/features/tasks/task_work.dart';
 import 'package:stackstep/shared/errors.dart';
 import 'package:stackstep/shared/format.dart';
@@ -73,6 +74,14 @@ class ProgressDetails extends StatelessWidget {
     return ListView(
       padding: const EdgeInsets.all(Space.lg),
       children: [
+        ShadButton.outline(
+          key: const Key('open-attendance'),
+          width: double.infinity,
+          leading: const Icon(LucideIcons.treePine, size: 16, color: Color(0xFF16A34A)),
+          onPressed: () => Navigator.of(context).push(MaterialPageRoute<void>(builder: (_) => const AttendanceScreen())),
+          child: const Text('Show attendance'),
+        ),
+        const SizedBox(height: Space.lg),
         Row(
           children: [
             Expanded(

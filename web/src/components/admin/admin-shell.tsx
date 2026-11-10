@@ -1,7 +1,7 @@
 "use client";
 
 import { useQuery } from "@tanstack/react-query";
-import { BookCopy, Building2, ChartColumn, ChevronDown, ClipboardCheck, Inbox, QrCode, ReceiptIndianRupee, Route, Send, Settings2, UserPlus, UserRoundCog, Users, UsersRound, type LucideIcon } from "lucide-react";
+import { BookCopy, Building2, ChartColumn, ChevronDown, ClipboardCheck, Inbox, Megaphone, QrCode, Video, ReceiptIndianRupee, Route, Send, Settings2, UserPlus, UserRoundCog, Users, UsersRound, type LucideIcon } from "lucide-react";
 import Link from "next/link";
 import { type ReactNode } from "react";
 
@@ -22,8 +22,9 @@ import { useIsDesktop } from "@/lib/use-desktop";
 import { useBrowserNotifications, useUnreadTitle } from "@/lib/use-notifications";
 
 import { personaMap, useAllPersonas } from "./catalog-queries";
+import { TourHost, type TourStep } from "../help/tour";
 
-export type Section = "report" | "overview" | "people" | "reviews" | "students" | "inbox" | "flows" | "library" | "personas" | "assign" | "applications" | "payments" | "colleges" | "cohorts";
+export type Section = "report" | "overview" | "people" | "reviews" | "students" | "inbox" | "flows" | "library" | "personas" | "assign" | "applications" | "payments" | "colleges" | "cohorts" | "announcements" | "classes";
 
 type NavItem = { id: Section; href: string; label: string; icon: LucideIcon };
 
@@ -33,12 +34,14 @@ const DESKTOP_NAV: NavItem[] = [
   { id: "reviews", href: "/admin/reviews", label: "Reviews", icon: ClipboardCheck },
   { id: "applications", href: "/admin/applications", label: "Applications", icon: ReceiptIndianRupee },
   { id: "inbox", href: "/admin/inbox", label: "Inbox", icon: Inbox },
+  { id: "announcements", href: "/admin/announcements", label: "Announce", icon: Megaphone },
+  { id: "classes", href: "/admin/classes", label: "Classes", icon: Video },
   { id: "overview", href: "/admin/overview", label: "Insights", icon: ChartColumn },
 ];
 
 /** Set up once, change rarely: behind one menu so the bar stays short. */
 const SETUP_NAV: (NavItem & { hint: string })[] = [
-  { id: "people", href: "/admin/people", label: "People", icon: UserPlus, hint: "Enroll students by hand, manage staff" },
+  { id: "people", href: "/admin/people", label: "People", icon: UserPlus, hint: "Everyone, profiles, notes, enrollment and staff" },
   { id: "colleges", href: "/admin/colleges", label: "Colleges", icon: Building2, hint: "Institutions you work with" },
   { id: "cohorts", href: "/admin/cohorts", label: "Cohorts", icon: UsersRound, hint: "Batches, seats, fees and admissions" },
   { id: "payments", href: "/admin/payments", label: "Payments", icon: QrCode, hint: "UPI ID and QR students pay to" },
@@ -96,7 +99,7 @@ function Frame({ me, section, phone, children }: { me: Me; section: Section; pho
               const active = n.id === (ACTIVE_FOR[section] ?? section);
               const count = n.id === "inbox" ? unread : n.id === "reviews" ? waiting : n.id === "applications" ? applicants : 0;
               return (
-                <Link key={n.id} href={n.href} aria-current={active ? "page" : undefined} className={cn(NAV_LINK, active && "border-b-primary text-foreground")}>
+                <Link key={n.id} href={n.href} aria-current={active ? "page" : undefined} className={cn(NAV_LINK, active && "border-b-primary text-foreground")} data-tour={`nav-${n.id}`}>
                   <n.icon className="size-4" aria-hidden />
                   <span className={cn(!desktop && n.id !== section && "sr-only sm:not-sr-only")}>{n.label}</span>
                   {count > 0 ? (
@@ -125,9 +128,22 @@ function Frame({ me, section, phone, children }: { me: Me; section: Section; pho
           </SectionBoundary>
         )}
       </main>
+      <TourHost steps={ADMIN_TOUR} />
     </div>
   );
 }
+
+const ADMIN_TOUR: TourStep[] = [
+  { title: "Welcome to the console", body: "A quick look at where everything lives. Every page also has an info note at the top that explains it." },
+  { target: "nav-students", title: "Students", body: "Everyone with an open internship. Open a student to see their board, assign tasks, check their wallet and issue certificates." },
+  { target: "nav-reviews", title: "Reviews", body: "Hand-ins waiting for you, oldest first, with authenticity warnings and an optional AI draft you edit before sending." },
+  { target: "nav-applications", title: "Applications", body: "New applicants and their UPI payment proofs. Approve, flag what to fix, or reject, and chat with them in place." },
+  { target: "nav-inbox", title: "Inbox", body: "Pick a student by flow or cohort, then a persona, then reply in that chat as the persona. Broadcast to many at once." },
+  { target: "nav-announcements", title: "Announcements", body: "Mail everyone, one flow, one cohort or a class's invitees. It lands in each student's Mail." },
+  { target: "nav-classes", title: "Live classes", body: "Schedule a class and invites go out by mail. Host it in the browser with screen share, drawing, voice, chat and Q&A." },
+  { target: "nav-overview", title: "Insights", body: "Who is active, stuck or ahead, per cohort, with a weekly report for placement cells." },
+  { target: "nav-setup", title: "Setup", body: "People (everyone, profiles, notes and attendance), colleges, cohorts, payments, flows, the task library and personas." },
+];
 
 const NAV_LINK =
   // Equal borders top and bottom keep the label on the header's centre line; the bottom one turns into the active underline.
@@ -152,7 +168,7 @@ function SetupMenu({ section }: { section: Section }) {
   const current = SETUP_NAV.find((n) => n.id === section);
   return (
     <DropdownMenu>
-      <DropdownMenuTrigger className={cn(NAV_LINK, "cursor-pointer", active && "border-b-primary text-foreground")} data-testid="nav-setup">
+      <DropdownMenuTrigger className={cn(NAV_LINK, "cursor-pointer", active && "border-b-primary text-foreground")} data-testid="nav-setup" data-tour="nav-setup">
         <Settings2 className="size-4" aria-hidden />
         {current ? `Setup · ${current.label}` : "Setup"}
         <ChevronDown className="size-3.5 opacity-60" aria-hidden />

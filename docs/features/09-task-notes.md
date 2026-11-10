@@ -10,7 +10,6 @@ write down what they tried, and a reviewer reading the hand-in gets the context.
 - Saving empty text with sharing off removes the note. 20,000 characters; Markdown whitespace is
   kept. Explicit save (Ctrl/Cmd+Enter on web) with an "Unsaved changes" indicator.
 - Write / Preview, rendered with the same safe Markdown as the AI helper (no raw HTML).
-- Included in "Download my data".
 - App: notes sit below the task's actions so the main button stays in reach.
 
 ## Edge cases

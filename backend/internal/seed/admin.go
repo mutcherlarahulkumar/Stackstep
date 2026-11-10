@@ -34,7 +34,7 @@ func Flush(ctx context.Context, q store.Q, mode FlushMode) error {
 	switch mode {
 	case FlushAll:
 		if _, err := q.Exec(ctx, `TRUNCATE task_notes, task_submissions, quiz_attempts, points_ledger, credit_ledger, ai_messages, ai_conversations,
-			certificates, task_events, chat_threads, chat_messages, tasks, enrollments, flow_items, flow_versions, flows,
+			mail_recipients, mails, announcements, classes, staff_notes, attendance, certificates, task_events, chat_threads, chat_messages, tasks, enrollments, flow_items, flow_versions, flows,
 			task_templates, personas, cohorts, login_codes, refresh_tokens, users, colleges RESTART IDENTITY CASCADE`); err != nil {
 			return fmt.Errorf("truncate: %w", err)
 		}
@@ -66,6 +66,11 @@ func flushDemo(ctx context.Context, q store.Q) error {
 		{`UPDATE payment_settings SET updated_by = NULL WHERE updated_by IN (SELECT id FROM demo_users)`, nil},
 		// The seeded UPI details and sample QR are not real; clear them so nobody pays into them.
 		{`UPDATE payment_settings SET upi_id = '', payee_name = '', note = '', qr_image = NULL, qr_type = NULL WHERE upi_id = 'stackstep@okaxis'`, nil},
+		// Feature 21: demo users' mailboxes and the demo admin's announcements go.
+		{`DELETE FROM mail_recipients WHERE user_id IN (SELECT id FROM demo_users)`, nil},
+		{`DELETE FROM announcements WHERE sent_by IN (SELECT id FROM demo_users)`, nil},
+		{`DELETE FROM classes WHERE host_id IN (SELECT id FROM demo_users)`, nil},
+		{`DELETE FROM mails m WHERE NOT EXISTS (SELECT 1 FROM mail_recipients r WHERE r.mail_id = m.id)`, nil},
 		{`DELETE FROM credit_ledger WHERE enrollment_id IN (SELECT id FROM demo_enr)`, nil},
 		{`DELETE FROM points_ledger WHERE enrollment_id IN (SELECT id FROM demo_enr)`, nil},
 		{`DELETE FROM ai_messages WHERE enrollment_id IN (SELECT id FROM demo_enr)`, nil},
@@ -78,9 +83,14 @@ func flushDemo(ctx context.Context, q store.Q) error {
 		{`DELETE FROM task_events WHERE task_id IN (SELECT id FROM demo_tasks)`, nil},
 		{`DELETE FROM tasks WHERE id IN (SELECT id FROM demo_tasks)`, nil},
 		{`DELETE FROM enrollments WHERE id IN (SELECT id FROM demo_enr)`, nil},
+		// Real cohorts that followed a demo flow keep going without one until an admin picks another.
+		{`UPDATE cohorts SET flow_id = NULL WHERE flow_id IN (SELECT id FROM flows WHERE id = $1 OR created_by IN (SELECT id FROM demo_users))`, []any{ReactFlowID}},
 		{`DELETE FROM flow_versions WHERE flow_id IN (SELECT id FROM flows WHERE id = $1 OR created_by IN (SELECT id FROM demo_users))`, []any{ReactFlowID}},
 		{`DELETE FROM flows WHERE id = $1 OR created_by IN (SELECT id FROM demo_users)`, []any{ReactFlowID}},
 		{`DELETE FROM task_templates WHERE created_by IN (SELECT id FROM demo_users)`, nil},
+		// Feature 25: notes about or by demo users, and their attendance.
+		{`DELETE FROM staff_notes WHERE subject_id IN (SELECT id FROM demo_users) OR author_id IN (SELECT id FROM demo_users)`, nil},
+		{`DELETE FROM attendance WHERE user_id IN (SELECT id FROM demo_users)`, nil},
 		{`DELETE FROM refresh_tokens WHERE user_id IN (SELECT id FROM demo_users)`, nil},
 		{`DELETE FROM login_codes WHERE user_id IN (SELECT id FROM demo_users)`, nil},
 		{`DELETE FROM users WHERE id IN (SELECT id FROM demo_users)`, nil},
@@ -89,7 +99,8 @@ func flushDemo(ctx context.Context, q store.Q) error {
 		   AND NOT EXISTS (SELECT 1 FROM chat_messages m WHERE m.persona_id = p.id)
 		   AND NOT EXISTS (SELECT 1 FROM chat_threads th WHERE th.persona_id = p.id)
 		   AND NOT EXISTS (SELECT 1 FROM task_templates tt WHERE tt.persona_id = p.id)
-		   AND NOT EXISTS (SELECT 1 FROM flow_items fi WHERE fi.persona_id = p.id)`, []any{demoPersonas}},
+		   AND NOT EXISTS (SELECT 1 FROM flow_items fi WHERE fi.persona_id = p.id)
+		   AND NOT EXISTS (SELECT 1 FROM mails ml WHERE ml.persona_id = p.id)`, []any{demoPersonas}},
 		{`DELETE FROM cohorts c WHERE c.name IN ('ANITS Batch 1', $1) AND NOT EXISTS (SELECT 1 FROM enrollments e WHERE e.cohort_id = c.id)
 		   AND NOT EXISTS (SELECT 1 FROM applications a WHERE a.cohort_id = c.id)`, []any{OpenCohortName}},
 		{`DELETE FROM colleges col WHERE col.name = 'ANITS'

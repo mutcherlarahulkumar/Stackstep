@@ -62,6 +62,7 @@ type Item struct {
 	Due       int    // minutes after release
 	Window    int    // > 0 makes it a surprise inside this many minutes
 	Brief     string // Markdown
+	Documents []domain.TaskDocument
 	Resources []domain.Resource
 	Quiz      *domain.Quiz
 	Practice  *domain.Practice
@@ -116,7 +117,7 @@ func TemplateID(key string) uuid.UUID {
 
 // Spec turns an item into the task spec the app stores.
 func (it Item) Spec() (domain.TaskSpec, error) {
-	content := domain.TaskContent{Resources: it.Resources, Quiz: it.Quiz, Practice: it.Practice, Rubric: it.Rubric}
+	content := domain.TaskContent{Documents: it.taskDocuments(), Resources: it.Resources, Quiz: it.Quiz, Practice: it.Practice, Rubric: it.Rubric}
 	if content.Resources == nil {
 		content.Resources = []domain.Resource{}
 	}

@@ -172,10 +172,25 @@ final class ApiClient {
 
   Future<List<Task>> myTasks() async => asObject(await _send('GET', '/v1/me/tasks')).list('items', Task.fromJson);
 
+  Future<Calendar> myCalendar() async => Calendar.fromJson(asObject(await _send('GET', '/v1/me/calendar')));
+
+  Future<Attendance> myAttendance() async => Attendance.fromJson(asObject(await _send('GET', '/v1/me/attendance')));
+
+  Future<MailPage> myMail({String? cursor, int limit = 50}) async =>
+      MailPage.fromJson(asObject(await _send('GET', '/v1/me/mail', query: {'limit': '$limit', 'cursor': ?cursor})));
+
+  /// Reads one letter; opening it marks it read.
+  Future<Mail> openMail(String id) async => Mail.fromJson(asObject(await _send('GET', '/v1/me/mail/$id')));
+
   Future<List<Thread>> threads() async => asObject(await _send('GET', '/v1/me/threads')).list('items', Thread.fromJson);
 
   Future<Page<Message>> messages(String personaId, {String? cursor, int limit = 50}) async =>
       _messagePage(await _send('GET', '/v1/me/threads/$personaId/messages', query: {'limit': '$limit', 'cursor': ?cursor}));
+
+  /// Adds or removes the caller's reaction: students on their conversations, staff as the persona.
+  Future<Message> react(String messageId, ReactionEmoji emoji, {required bool on, required bool staff}) async => Message.fromJson(
+    asObject(await _send('POST', '/v1/${staff ? 'admin' : 'me'}/messages/$messageId/reactions', body: {'emoji': emoji.wire, 'on': on})),
+  );
 
   Future<Message> sendMessage(String personaId, {required String clientId, required String body}) async =>
       Message.fromJson(asObject(await _send('POST', '/v1/me/threads/$personaId/messages', body: {'client_id': clientId, 'body': body})));
@@ -276,7 +291,7 @@ final class ApiClient {
     return Page(items: j.list('items', StudentRow.fromJson), nextCursor: j.stringOrNull('next_cursor'));
   }
 
-  Future<Task> createTask(String enrollmentId, CreateTaskInput input) async => Task.fromJson(
+  Future<Task> createTask(String enrollmentId, CreateTaskInput input, {List<TaskDocument> documents = const []}) async => Task.fromJson(
     asObject(
       await _send(
         'POST',
@@ -290,6 +305,9 @@ final class ApiClient {
           'scheduled_for': input.scheduledFor?.toUtc().toIso8601String(),
           'due_at': input.dueAt.toUtc().toIso8601String(),
           'content': {
+            'documents': [
+              for (final document in documents) {'title': document.title, 'body': document.body},
+            ],
             'resources': [
               for (final r in input.resources) {'title': r.title, 'url': r.url},
             ],

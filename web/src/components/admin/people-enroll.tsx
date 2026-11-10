@@ -18,12 +18,11 @@ import { Textarea } from "@/components/ui/textarea";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { type EnrollSettings } from "@/lib/api/client";
 import { type Cohort, type ImportResult, type Me } from "@/lib/api/schemas";
-import { MAX_IMPORT_ROWS, normalizeLogin, parseRoster, TIMEZONES, todayISO, validLogin, type ImportRow } from "@/lib/people";
+import { firstWorkingDay, MAX_IMPORT_ROWS, normalizeLogin, parseRoster, TIMEZONES, validLogin, type ImportRow } from "@/lib/people";
 import { itemErrorMessage } from "@/lib/api/errors";
 import { useSession } from "@/lib/session";
 
 import { choiceItem } from "../app/choice";
-import { DatePicker } from "../app/date-picker";
 import { FileDrop } from "../app/file-drop";
 import { ListSkeleton } from "../app/state";
 import { useFlows } from "./catalog-queries";
@@ -46,7 +45,7 @@ export function useColleges() {
   return useQuery({ queryKey: ["colleges"], queryFn: () => api.colleges() });
 }
 
-type Settings = { cohortId: string; programSlug: string; startDate: string; timezone: string; flowId: string };
+type Settings = { cohortId: string; programSlug: string; timezone: string; flowId: string };
 
 const browserZone = () => {
   try {
@@ -61,7 +60,6 @@ function initialSettings(isAdmin: boolean, cohorts: readonly Cohort[]): Settings
   return {
     cohortId: isAdmin ? NONE : (first?.id ?? NONE),
     programSlug: "",
-    startDate: "",
     timezone: TIMEZONES.includes(browserZone()) ? browserZone() : "Asia/Kolkata",
     flowId: NONE,
   };
@@ -72,13 +70,13 @@ function toApi(s: Settings): EnrollSettings {
   return {
     cohort_id: cohort,
     program_slug: cohort ? undefined : s.programSlug,
-    start_date: s.startDate || null,
+    start_date: null, // everyone starts the day after they join
     timezone: s.timezone,
     flow_id: s.flowId === NONE ? null : s.flowId,
   };
 }
 
-/** Cohort, program, start date, time zone and flow: shared by one enrollment and an import. */
+/** Cohort, program, time zone and flow: shared by one enrollment and an import. Day 1 is always tomorrow. */
 function SettingsFields({
   me,
   value,
@@ -102,8 +100,10 @@ function SettingsFields({
   const flowChoices = (flows.data ?? []).filter((f) => !f.archived && f.published_version !== null && (days === null || f.days === days));
   const zones = TIMEZONES.includes(value.timezone) ? TIMEZONES : [value.timezone, ...TIMEZONES];
   const set = (patch: Partial<Settings>) => onChange({ ...value, ...patch });
-  // The server allows starts up to 30 days back; computed once so render stays pure.
-  const [minStart] = useState(() => todayISO(new Date(Date.now() - 30 * 86_400_000)));
+  // Computed once per zone so render stays pure.
+  const [now] = useState(() => new Date());
+  const startsOn = firstWorkingDay(value.timezone, now);
+  const cohortFlow = cohort?.flow_name ?? null;
   return (
     <>
       <Field data-invalid={!!errors.cohort_id}>
@@ -125,7 +125,7 @@ function SettingsFields({
           <FieldError>{errors.cohort_id}</FieldError>
         ) : cohort ? (
           <FieldDescription>
-            {cohort.college_name ?? "Independent group"} · starts {cohort.start_date}
+            {cohort.college_name ?? "Independent group"} · {cohortFlow ? `follows ${cohortFlow}` : "no flow picked yet"}
           </FieldDescription>
         ) : null}
       </Field>
@@ -149,16 +149,11 @@ function SettingsFields({
       ) : null}
       <div className="grid gap-4 sm:grid-cols-2">
         <Field data-invalid={!!errors.start_date}>
-          <FieldLabel htmlFor={`${idPrefix}-start`}>Start date</FieldLabel>
-          <DatePicker
-            id={`${idPrefix}-start`}
-            value={value.startDate}
-            min={minStart}
-            onChange={(v) => set({ startDate: v })}
-            invalid={!!errors.start_date}
-            placeholder={cohort ? "Cohort's start date" : "Pick a date"}
-          />
-          {errors.start_date ? <FieldError>{errors.start_date}</FieldError> : <FieldDescription>{cohort ? "Leave empty to use the cohort's date." : "Day 1 of the internship."}</FieldDescription>}
+          <FieldLabel>Day 1</FieldLabel>
+          <p className="bg-muted/50 flex h-9 items-center rounded-md border px-3 text-sm" data-testid="enroll-starts">
+            Tomorrow, {startsOn}
+          </p>
+          {errors.start_date ? <FieldError>{errors.start_date}</FieldError> : <FieldDescription>Every internship starts the day after joining.</FieldDescription>}
         </Field>
         <Field data-invalid={!!errors.timezone}>
           <FieldLabel htmlFor={`${idPrefix}-tz`}>Time zone</FieldLabel>
@@ -184,7 +179,7 @@ function SettingsFields({
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value={NONE}>No flow yet, assign tasks by hand</SelectItem>
+            <SelectItem value={NONE}>{cohortFlow ? `The cohort's flow, ${cohortFlow}` : "No flow yet, assign tasks by hand"}</SelectItem>
             {flowChoices.map((f) => (
               <SelectItem key={f.id} value={f.id}>
                 {f.name} · {f.days} days
@@ -192,7 +187,7 @@ function SettingsFields({
             ))}
           </SelectContent>
         </Select>
-        {errors.flow_id ? <FieldError>{errors.flow_id}</FieldError> : <FieldDescription>Schedules the flow&apos;s tasks day by day from the start date.</FieldDescription>}
+        {errors.flow_id ? <FieldError>{errors.flow_id}</FieldError> : <FieldDescription>Schedules the flow&apos;s tasks day by day from tomorrow.</FieldDescription>}
       </Field>
     </>
   );
@@ -257,7 +252,6 @@ function EnrollOne({ me, cohorts }: { me: Me; cohorts: readonly Cohort[] }) {
     const e: Record<string, string | undefined> = {};
     if (!validLogin(login)) e.github_login = "Enter a GitHub username using letters, digits and single hyphens.";
     if (settings.cohortId === NONE && !settings.programSlug) e.program_slug = "Pick a program.";
-    if (settings.cohortId === NONE && !settings.startDate) e.start_date = "Pick a start date.";
     setErrors(e);
     setFormError(null);
     if (Object.values(e).some(Boolean)) return;
@@ -377,7 +371,6 @@ function ImportRoster({ me, cohorts }: { me: Me; cohorts: readonly Cohort[] }) {
     if (good.length === 0) e.rows = "Add at least one valid row.";
     if (tooMany) e.rows = `Import at most ${MAX_IMPORT_ROWS} students at once.`;
     if (settings.cohortId === NONE && !settings.programSlug) e.program_slug = "Pick a program.";
-    if (settings.cohortId === NONE && !settings.startDate) e.start_date = "Pick a start date.";
     setErrors(e);
     setFormError(null);
     if (Object.values(e).some(Boolean)) return;

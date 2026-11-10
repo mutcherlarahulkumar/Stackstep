@@ -70,6 +70,7 @@ export const message = (o: Record<string, unknown> = {}) => ({
   client_id: null,
   sent_at: "2026-11-04T04:30:00Z",
   automated: false,
+  reactions: [],
   ...o,
 });
 

@@ -25,7 +25,7 @@ export function Wordmark({ className }: { className?: string }) {
   return (
     <span className={cn("inline-flex items-center gap-2 font-semibold tracking-tight", className)}>
       <BrandMark />
-      Stackstep
+      <span>Stackstep</span>
     </span>
   );
 }

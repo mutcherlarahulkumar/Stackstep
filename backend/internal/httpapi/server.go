@@ -24,6 +24,7 @@ import (
 	"github.com/mutcherlarahulkumar/stackstep/backend/internal/app"
 	"github.com/mutcherlarahulkumar/stackstep/backend/internal/apperr"
 	"github.com/mutcherlarahulkumar/stackstep/backend/internal/auth"
+	"github.com/mutcherlarahulkumar/stackstep/backend/internal/classroom"
 	"github.com/mutcherlarahulkumar/stackstep/backend/internal/clock"
 	"github.com/mutcherlarahulkumar/stackstep/backend/internal/config"
 	"github.com/mutcherlarahulkumar/stackstep/backend/internal/domain"
@@ -50,10 +51,13 @@ type Server struct {
 	drafter      *app.Drafter
 	admissions   *app.Admissions
 	hub          *realtime.Hub
+	classes      *classroom.Hub
 	log          *slog.Logger
 	signInLimit  *ipLimiter
 	refreshLimit *ipLimiter
 	reportLimit  *ipLimiter
+	helpLimit    *ipLimiter
+	seen         sync.Map // user id → when last-seen was last written
 }
 
 // Deps are the server's collaborators.
@@ -75,14 +79,23 @@ type Deps struct {
 
 // New builds a Server.
 func New(d Deps) *Server {
+	maxPeers := d.Config.ClassMaxPeers
+	if maxPeers == 0 {
+		maxPeers = 60
+	}
+	if len(d.Config.ClassICEServers) == 0 {
+		d.Config.ClassICEServers = config.DefaultICEServers
+	}
 	return &Server{
-		cfg: d.Config, store: d.Store, clock: d.Clock, signer: d.Signer, states: d.States, github: d.GitHub,
+		classes: classroom.NewHub(maxPeers, d.Clock.Now),
+		cfg:     d.Config, store: d.Store, clock: d.Clock, signer: d.Signer, states: d.States, github: d.GitHub,
 		sessions: d.Sessions, workspace: d.Workspace, helper: d.Helper, drafter: d.Drafter, admissions: d.Admissions, hub: d.Hub, log: d.Log,
 		// Sign-in is the brute-force target; refresh runs on every page load, so it gets more room.
 		signInLimit:  newIPLimiter(perMinute(d.Config.AuthRatePerMinute), d.Config.AuthRatePerMinute),
 		refreshLimit: newIPLimiter(perMinute(4*d.Config.AuthRatePerMinute), 4*d.Config.AuthRatePerMinute),
 		// Crash reports from the web app: plenty for a real problem, not a log flood.
 		reportLimit: newIPLimiter(perMinute(20), 20),
+		helpLimit:   newIPLimiter(perMinute(12), 6),
 	}
 }
 
@@ -119,17 +132,25 @@ func (s *Server) Handler() http.Handler {
 	a.POST("/logout", session, s.logout)
 	// The web app reports its crashes here (logged, never stored); no sign-in needed.
 	v1.POST("/client-errors", s.limit(s.reportLimit), s.clientError)
+	// The help bot answers from the student guide; anyone may ask, a few times a minute.
+	v1.POST("/help/ask", s.limit(s.helpLimit), s.askHelp)
 
 	authed := v1.Group("", s.authenticate)
 	authed.GET("/me", s.me)
-	authed.GET("/me/export", s.exportMe)
 	authed.POST("/me/consent", s.consent)
 	authed.POST("/me/onboarded", s.onboarded)
 	authed.GET("/me/tasks", s.myTasks)
+	authed.GET("/me/calendar", s.myCalendar)
+	authed.GET("/me/attendance", s.myAttendance)
+	authed.GET("/me/mail", s.myMail)
+	authed.GET("/me/classes", s.myClasses)
+	authed.GET("/classes/:id", s.getClass)
+	authed.GET("/me/mail/:id", s.openMail)
 	authed.GET("/me/threads", s.myThreads)
 	authed.GET("/me/threads/:persona/messages", s.myMessages)
 	authed.POST("/me/threads/:persona/messages", s.sendMessage)
 	authed.POST("/me/threads/:persona/read", s.markRead)
+	authed.POST("/me/messages/:id/reactions", s.react)
 	authed.POST("/tasks/:id/transitions", s.transition)
 	authed.POST("/tasks/:id/quiz", s.submitQuiz)
 	authed.GET("/tasks/:id/note", s.myNote)
@@ -160,6 +181,7 @@ func (s *Server) Handler() http.Handler {
 	admin.GET("/cohorts", s.listCohorts)
 	admin.POST("/cohorts", s.createCohort)
 	admin.PATCH("/cohorts/:id/admissions", s.setCohortAdmissions)
+	admin.PUT("/cohorts/:id/flow", s.setCohortFlow)
 	admin.GET("/applications", s.listApplications)
 	admin.GET("/applications/:id", s.getApplication)
 	admin.POST("/applications/:id/decision", s.decideApplication)
@@ -203,12 +225,26 @@ func (s *Server) Handler() http.Handler {
 	admin.POST("/flows/:id/assign", s.bulkAssign)
 
 	admin.GET("/threads", s.staffThreads)
+	admin.GET("/inbox/students", s.inboxStudents)
 	admin.GET("/threads/:enrollment/:persona/messages", s.staffMessages)
 	admin.POST("/threads/:enrollment/:persona/messages", s.staffSend)
 	admin.POST("/threads/:enrollment/:persona/read", s.staffMarkRead)
 	admin.POST("/broadcasts", s.broadcast)
+	admin.POST("/messages/:id/reactions", s.react)
+	admin.GET("/announcements", s.listAnnouncements)
+	admin.GET("/classes", s.staffClasses)
+	admin.POST("/classes", s.scheduleClass)
+	admin.POST("/classes/:id/status", s.setClassStatus)
+	admin.POST("/announcements", s.announce)
+	admin.GET("/users", s.listUsers)
+	admin.GET("/users/:id", s.personProfile)
+	admin.POST("/users/:id/sign-out", s.signOutEverywhere)
+	admin.POST("/users/:id/notes", s.addStaffNote)
+	admin.PATCH("/notes/:id", s.editStaffNote)
+	admin.DELETE("/notes/:id", s.deleteStaffNote)
 
 	v1.GET("/ws", s.websocket)
+	v1.GET("/classes/:id/ws", s.classSocket)
 	return r
 }
 
@@ -276,7 +312,7 @@ func (s *Server) cors(c *gin.Context) {
 		h.Set("Access-Control-Allow-Origin", origin)
 		h.Set("Access-Control-Allow-Credentials", "true")
 		h.Set("Access-Control-Allow-Headers", "Authorization, Content-Type, X-Client, X-Request-Id")
-		h.Set("Access-Control-Allow-Methods", "GET, POST, PUT, PATCH, OPTIONS")
+		h.Set("Access-Control-Allow-Methods", "GET, POST, PUT, PATCH, DELETE, OPTIONS")
 		h.Set("Access-Control-Max-Age", "600")
 		h.Add("Vary", "Origin")
 	}
@@ -328,16 +364,38 @@ func (s *Server) authenticate(c *gin.Context) {
 }
 
 func (s *Server) userFromToken(ctx context.Context, raw string) (domain.User, error) {
-	id, err := s.signer.VerifyAccess(raw, s.clock.Now())
+	now := s.clock.Now()
+	id, issued, err := s.signer.VerifyAccess(raw, now)
 	if err != nil {
 		return domain.User{}, apperr.New(apperr.CodeUnauthenticated, "Your session expired. Sign in again.")
 	}
 	// Load fresh on every request so role changes and removals apply immediately.
-	u, err := store.GetUser(ctx, s.store.Pool, id)
+	u, signedOut, err := store.UserForAuth(ctx, s.store.Pool, id)
 	if errors.Is(err, store.ErrNotFound) {
 		return domain.User{}, apperr.New(apperr.CodeUnauthenticated, "Your account no longer exists.")
 	}
-	return u, err
+	if err != nil {
+		return domain.User{}, err
+	}
+	// Tokens carry whole seconds: anything issued up to the second of a sign-out is refused.
+	if signedOut != nil && !issued.After(signedOut.Truncate(time.Second)) {
+		return domain.User{}, apperr.New(apperr.CodeUnauthenticated, "You were signed out. Sign in with GitHub again.")
+	}
+	s.touch(ctx, id, now)
+	return u, nil
+}
+
+// touch records when a user was last active, at most once every couple of minutes.
+func (s *Server) touch(ctx context.Context, id uuid.UUID, now time.Time) {
+	if last, ok := s.seen.Load(id); ok {
+		if t, ok := last.(time.Time); ok && now.Sub(t) < 2*time.Minute {
+			return
+		}
+	}
+	s.seen.Store(id, now)
+	if err := store.TouchUser(ctx, s.store.Pool, id, now); err != nil {
+		s.log.Warn("touch user", "err", err)
+	}
 }
 
 func (s *Server) requireStaff(c *gin.Context) {

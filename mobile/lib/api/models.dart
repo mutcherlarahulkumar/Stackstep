@@ -352,6 +352,15 @@ final class Resource {
   final String url;
 }
 
+/// Authored reading stored with a task, so opening it needs no external website.
+final class TaskDocument {
+  const TaskDocument({required this.title, required this.body});
+  factory TaskDocument.fromJson(JsonReader j) => TaskDocument(title: j.string('title'), body: j.string('body'));
+
+  final String title;
+  final String body;
+}
+
 final class QuizQuestion {
   const QuizQuestion({required this.prompt, required this.options, required this.answer});
   factory QuizQuestion.fromJson(JsonReader j) =>
@@ -372,9 +381,10 @@ final class Quiz {
 }
 
 final class TaskContent {
-  const TaskContent({required this.resources, required this.quiz, this.practice, this.rubric = const []});
+  const TaskContent({required this.resources, required this.quiz, this.practice, this.rubric = const [], this.documents = const []});
   factory TaskContent.fromJson(JsonReader j) => TaskContent(
     resources: j.list('resources', Resource.fromJson),
+    documents: j.raw['documents'] == null ? const [] : j.list('documents', TaskDocument.fromJson),
     quiz: switch (j.objectOrNull('quiz')) {
       final q? => Quiz.fromJson(q),
       null => null,
@@ -386,6 +396,7 @@ final class TaskContent {
     rubric: j.valuesOrNull<String>('rubric') ?? const [],
   );
   final List<Resource> resources;
+  final List<TaskDocument> documents;
   final Quiz? quiz;
 
   /// DSA example tests. The app shows them; running code happens in the web app.
@@ -491,6 +502,7 @@ final class Message {
     required this.clientId,
     required this.sentAt,
     required this.automated,
+    this.reactions = const [],
   });
 
   factory Message.fromJson(JsonReader j) => Message(
@@ -503,6 +515,7 @@ final class Message {
     clientId: j.stringOrNull('client_id'),
     sentAt: j.dateTime('sent_at'),
     automated: j.boolean('automated'),
+    reactions: j.list('reactions', Reaction.fromJson),
   );
 
   final String id;
@@ -516,6 +529,50 @@ final class Message {
 
   /// A persona message no admin wrote (AI or scripted reply, acknowledgement, announcement).
   final bool automated;
+
+  /// Oldest first; each side leaves each emoji at most once.
+  final List<Reaction> reactions;
+
+  /// This message with [by]'s [emoji] added or removed (for an instant, optimistic update).
+  Message withReaction(ReactionEmoji emoji, Author by, {required bool on}) => Message(
+    id: id,
+    enrollmentId: enrollmentId,
+    personaId: personaId,
+    author: author,
+    body: body,
+    taskId: taskId,
+    clientId: clientId,
+    sentAt: sentAt,
+    automated: automated,
+    reactions: [
+      ...reactions.where((r) => !(r.emoji == emoji && r.by == by)),
+      if (on) Reaction(emoji: emoji, by: by),
+    ],
+  );
+}
+
+/// The reactions a message can get.
+enum ReactionEmoji {
+  thumbsUp('thumbs_up', '👍'),
+  heart('heart', '❤️'),
+  party('party', '🎉'),
+  laugh('laugh', '😂'),
+  thinking('thinking', '🤔'),
+  eyes('eyes', '👀');
+
+  ReactionEmoji(this.wire, this.glyph);
+  final String wire;
+  final String glyph;
+}
+
+final class Reaction {
+  const Reaction({required this.emoji, required this.by});
+
+  factory Reaction.fromJson(JsonReader j) =>
+      Reaction(emoji: j.enumValue('emoji', ReactionEmoji.values, (e) => e.wire), by: j.enumValue('by', Author.values, (a) => a.wire));
+
+  final ReactionEmoji emoji;
+  final Author by;
 }
 
 final class Page<T> {
@@ -565,7 +622,9 @@ sealed class Frame {
       'ready' => const ReadyFrame(),
       'message' => MessageFrame(Message.fromJson(j.object('message'))),
       'task' => TaskFrame(Task.fromJson(j.object('task'))),
-      final other => throw ContractViolation('type', 'ready, message or task, got "$other"'),
+      'mail' => MailFrame(Mail.fromJson(j.object('mail'))),
+      'reaction' => ReactionFrame(Message.fromJson(j.object('message'))),
+      final other => throw ContractViolation('type', 'ready, message, task, mail or reaction, got "$other"'),
     };
   }
 }
@@ -582,6 +641,18 @@ final class MessageFrame extends Frame {
 final class TaskFrame extends Frame {
   const TaskFrame(this.task);
   final Task task;
+}
+
+/// A message's reactions changed. Never counts as unread.
+final class ReactionFrame extends Frame {
+  const ReactionFrame(this.message);
+  final Message message;
+}
+
+/// A new letter arrived (no body); refresh the mailbox.
+final class MailFrame extends Frame {
+  const MailFrame(this.mail);
+  final Mail mail;
 }
 
 final class Persona {
@@ -1146,4 +1217,245 @@ final class ApplicationSummary {
   final String? cohortName;
   final int openCohorts;
   final bool enrolled;
+}
+
+/// What a calendar entry stands for (feature 20).
+enum CalendarKind {
+  task('task'),
+  surprise('surprise'),
+  classSession('class');
+
+  CalendarKind(this.wire);
+  final String wire;
+}
+
+/// One thing on a student's calendar. Unreleased entries have no task ID; surprise entries
+/// have no title or time until they land.
+class CalendarEntry {
+  const CalendarEntry({
+    required this.kind,
+    required this.date,
+    required this.day,
+    required this.at,
+    required this.dueAt,
+    required this.released,
+    required this.taskId,
+    required this.title,
+    required this.taskType,
+    required this.status,
+    required this.personaId,
+    required this.classId,
+  });
+
+  factory CalendarEntry.fromJson(JsonReader j) => CalendarEntry(
+    kind: j.enumValue('kind', CalendarKind.values, (k) => k.wire),
+    date: DateTime.parse(j.string('date')),
+    day: j.integer('day'),
+    at: j.dateTimeOrNull('at'),
+    dueAt: j.dateTimeOrNull('due_at'),
+    released: j.boolean('released'),
+    taskId: j.stringOrNull('task_id'),
+    title: j.stringOrNull('title'),
+    taskType: j.enumValueOrNull('task_type', TaskType.values, (t) => t.wire),
+    status: j.enumValueOrNull('status', TaskStatus.values, (s) => s.wire),
+    personaId: j.stringOrNull('persona_id'),
+    classId: j.stringOrNull('class_id'),
+  );
+
+  final CalendarKind kind;
+
+  /// Calendar date in the student's time zone (no time part).
+  final DateTime date;
+  final int day;
+  final DateTime? at;
+  final DateTime? dueAt;
+  final bool released;
+  final String? taskId;
+  final String? title;
+  final TaskType? taskType;
+  final TaskStatus? status;
+  final String? personaId;
+  final String? classId;
+}
+
+/// A student's internship laid out by day.
+class Calendar {
+  const Calendar({required this.startDate, required this.endDate, required this.timezone, required this.items});
+
+  factory Calendar.fromJson(JsonReader j) => Calendar(
+    startDate: DateTime.parse(j.string('start_date')),
+    endDate: DateTime.parse(j.string('end_date')),
+    timezone: j.string('timezone'),
+    items: j.list('items', CalendarEntry.fromJson),
+  );
+
+  final DateTime startDate;
+  final DateTime endDate;
+  final String timezone;
+  final List<CalendarEntry> items;
+
+  /// Entries grouped by date, in order.
+  Map<DateTime, List<CalendarEntry>> get byDate {
+    final out = <DateTime, List<CalendarEntry>>{};
+    for (final e in items) {
+      (out[e.date] ??= []).add(e);
+    }
+    return out;
+  }
+}
+
+/// Why a letter arrived (feature 21).
+enum MailKind {
+  announcement('announcement', 'Announcement'),
+  welcome('welcome', 'Welcome'),
+  review('review', 'Review'),
+  certificate('certificate', 'Certificate'),
+  classInvite('class', 'Live class');
+
+  MailKind(this.wire, this.label);
+  final String wire;
+  final String label;
+}
+
+/// Who an announcement goes to (written on the desktop console; listed here for the contract).
+enum Audience {
+  all('all'),
+  flow('flow'),
+  cohort('cohort'),
+  classInvitees('class');
+
+  Audience(this.wire);
+  final String wire;
+}
+
+/// One letter. [body] is only present once it has been opened.
+final class Mail {
+  const Mail({
+    required this.id,
+    required this.kind,
+    required this.subject,
+    required this.preview,
+    required this.body,
+    required this.fromName,
+    required this.personaId,
+    required this.taskId,
+    required this.classId,
+    required this.createdAt,
+    required this.read,
+  });
+
+  factory Mail.fromJson(JsonReader j) => Mail(
+    id: j.string('id'),
+    kind: j.enumValue('kind', MailKind.values, (k) => k.wire),
+    subject: j.string('subject'),
+    preview: j.string('preview'),
+    body: j.stringOrNull('body'),
+    fromName: j.string('from_name'),
+    personaId: j.stringOrNull('persona_id'),
+    taskId: j.stringOrNull('task_id'),
+    classId: j.stringOrNull('class_id'),
+    createdAt: j.dateTime('created_at'),
+    read: j.boolean('read'),
+  );
+
+  final String id;
+  final MailKind kind;
+  final String subject;
+  final String preview;
+  final String? body;
+  final String fromName;
+  final String? personaId;
+  final String? taskId;
+  final String? classId;
+  final DateTime createdAt;
+  final bool read;
+
+  /// This letter, marked read.
+  Mail asRead() => Mail(
+    id: id,
+    kind: kind,
+    subject: subject,
+    preview: preview,
+    body: body,
+    fromName: fromName,
+    personaId: personaId,
+    taskId: taskId,
+    classId: classId,
+    createdAt: createdAt,
+    read: true,
+  );
+}
+
+/// A page of the mailbox and the unread count.
+final class MailPage {
+  const MailPage({required this.items, required this.nextCursor, required this.unread});
+
+  factory MailPage.fromJson(JsonReader j) =>
+      MailPage(items: j.list('items', Mail.fromJson), nextCursor: j.stringOrNull('next_cursor'), unread: j.integer('unread'));
+
+  final List<Mail> items;
+  final String? nextCursor;
+  final int unread;
+}
+
+/// Where a live class is (feature 23). The room itself opens in the browser.
+/// How a day of the internship went (feature 25).
+enum AttendanceStatus {
+  present('present'),
+  missed('missed'),
+  pending('pending');
+
+  AttendanceStatus(this.wire);
+  final String wire;
+}
+
+enum ClassStatus {
+  scheduled('scheduled'),
+  live('live'),
+  ended('ended'),
+  cancelled('cancelled');
+
+  ClassStatus(this.wire);
+  final String wire;
+}
+
+/// One day of the internship so far (feature 25).
+class AttendanceDay {
+  const AttendanceDay({required this.date, required this.day, required this.status, required this.seat, required this.firstSeenAt});
+
+  factory AttendanceDay.fromJson(JsonReader j) => AttendanceDay(
+    date: DateTime.parse(j.string('date')),
+    day: j.integer('day'),
+    status: j.enumValue('status', AttendanceStatus.values, (s) => s.wire),
+    seat: j.integerOrNull('seat'),
+    firstSeenAt: j.dateTimeOrNull('first_seen_at'),
+  );
+
+  /// Calendar date in the student's time zone (no time part).
+  final DateTime date;
+  final int day;
+  final AttendanceStatus status;
+
+  /// Arrival order that day, across everyone; only when present.
+  final int? seat;
+  final DateTime? firstSeenAt;
+}
+
+/// Day 1 to today, with totals and the current streak.
+class Attendance {
+  const Attendance({required this.days, required this.present, required this.missed, required this.streak});
+
+  factory Attendance.fromJson(JsonReader j) => Attendance(
+    days: j.list('days', AttendanceDay.fromJson),
+    present: j.integer('present'),
+    missed: j.integer('missed'),
+    streak: j.integer('streak'),
+  );
+
+  final List<AttendanceDay> days;
+  final int present;
+  final int missed;
+  final int streak;
+
+  int get percent => present + missed == 0 ? 0 : (present * 100 / (present + missed)).round();
 }

@@ -180,7 +180,8 @@ func listenOnce(ctx context.Context, pool *pgxpool.Pool, hub *Hub, encode Encode
 			log.Error("bad notification payload", "err", err)
 			continue
 		}
-		if !hub.Has(EnrollmentTopic(ev.EnrollmentID)) && !hub.HasStaff() {
+		// Mail fans out to many readers, so the encoder checks who is connected itself.
+		if ev.Kind != store.EventMail && !hub.Has(EnrollmentTopic(ev.EnrollmentID)) && !hub.HasStaff() {
 			continue
 		}
 		deliveries, err := encode(ctx, ev)

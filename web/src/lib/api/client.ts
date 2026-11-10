@@ -2,7 +2,7 @@ import { type z } from "zod";
 
 import { ApiError, NetworkError, toErrorCode } from "./errors";
 import * as S from "./schemas";
-import { type CohortKind, type EnrollmentStatus } from "./schemas";
+import { type Audience, type CohortKind, type EnrollmentStatus, type ReactionEmoji } from "./schemas";
 
 /**
  * Talks to the Go API through the same-origin /api proxy. The access token lives in memory
@@ -24,6 +24,7 @@ export type CreateTaskInput = {
 /** Example tests are edited as JSON text and parsed when sent (see wireContent). */
 export type PracticeDraft = { function_name: string; starter: string; tests: { args: string; expected: string }[] };
 export type ContentInput = {
+  documents?: S.TaskDocument[];
   resources: S.Resource[];
   quiz: { questions: { prompt: string; options: string[]; answer: number }[]; pass_percent: number } | null;
   practice: PracticeDraft | null;
@@ -74,16 +75,32 @@ export type ApplicationDecisionInput = {
   expected_version: number;
 };
 
-type Method = "GET" | "POST" | "PUT" | "PATCH";
+type Method = "GET" | "POST" | "PUT" | "PATCH" | "DELETE";
 export type PersonInput = { github_login: string; name?: string; email?: string };
 export type EnrollSettings = { cohort_id: string | null; program_slug?: string; start_date: string | null; timezone: string; flow_id: string | null };
+export type ClassInput = {
+  title: string;
+  description: string;
+  starts_at: string;
+  duration_minutes: number;
+  audience: Audience;
+  flow_id?: string | null;
+  cohort_id?: string | null;
+};
+export type AnnouncementInput = {
+  subject: string;
+  body: string;
+  audience: Audience;
+  flow_id?: string | null;
+  cohort_id?: string | null;
+  class_id?: string | null;
+};
 export type CohortInput = {
   kind: CohortKind;
   name: string;
   college_id: string | null;
   program_slug: string;
-  start_date: string;
-  timezone: string;
+  flow_id: string | null;
   seats_total: number;
 };
 
@@ -163,15 +180,84 @@ export class ApiClient {
     return this.send("POST", "/v1/me/onboarded", S.Account);
   }
 
-  /** Everything we hold about the caller, as a JSON file. */
-  async exportMyData(): Promise<{ blob: Blob; filename: string }> {
-    const res = await this.raw("GET", "/v1/me/export", {});
-    const name = /filename="([^"]+)"/.exec(res.headers.get("Content-Disposition") ?? "")?.[1] ?? "stackstep-my-data.json";
-    return { blob: await res.blob(), filename: name };
-  }
-
   async myTasks() {
     return (await this.send("GET", "/v1/me/tasks", S.TaskList)).items;
+  }
+
+  calendar() {
+    return this.send("GET", "/v1/me/calendar", S.Calendar);
+  }
+
+  /** The help assistant; works signed in or out. */
+  askHelp(question: string, history: S.HelpTurn[]) {
+    return this.send("POST", "/v1/help/ask", S.HelpAnswer, { body: { question, history }, auth: false });
+  }
+
+  myAttendance() {
+    return this.send("GET", "/v1/me/attendance", S.Attendance);
+  }
+
+  users(f: { q?: string; kind?: S.UserKind; cohortId?: string | null; flowId?: string | null; cursor?: string | null }) {
+    return this.send("GET", "/v1/admin/users", S.UserPage, {
+      query: { q: f.q || null, kind: f.kind ?? null, cohort_id: f.cohortId ?? null, flow_id: f.flowId ?? null, cursor: f.cursor ?? null },
+    });
+  }
+
+  profile(id: string) {
+    return this.send("GET", `/v1/admin/users/${seg(id)}`, S.Profile);
+  }
+
+  signOutEverywhere(id: string) {
+    return this.send("POST", `/v1/admin/users/${seg(id)}/sign-out`, null);
+  }
+
+  addStaffNote(userId: string, body: string) {
+    return this.send("POST", `/v1/admin/users/${seg(userId)}/notes`, S.StaffNote, { body: { body } });
+  }
+
+  editStaffNote(id: string, patch: { body?: string; done?: boolean }) {
+    return this.send("PATCH", `/v1/admin/notes/${seg(id)}`, S.StaffNote, { body: patch });
+  }
+
+  deleteStaffNote(id: string) {
+    return this.send("DELETE", `/v1/admin/notes/${seg(id)}`, null);
+  }
+
+  async myClasses() {
+    return (await this.send("GET", "/v1/me/classes", S.LiveClassList)).items;
+  }
+
+  async staffClasses() {
+    return (await this.send("GET", "/v1/admin/classes", S.LiveClassList)).items;
+  }
+
+  liveClass(id: string) {
+    return this.send("GET", `/v1/classes/${seg(id)}`, S.ClassDetail);
+  }
+
+  scheduleClass(input: ClassInput) {
+    return this.send("POST", "/v1/admin/classes", S.LiveClass, { body: input });
+  }
+
+  setClassStatus(id: string, status: "ended" | "cancelled") {
+    return this.send("POST", `/v1/admin/classes/${seg(id)}/status`, S.LiveClass, { body: { status } });
+  }
+
+  myMail(cursor: string | null = null) {
+    return this.send("GET", "/v1/me/mail", S.MailPage, { query: { cursor } });
+  }
+
+  /** Reads one letter; opening it marks it read. */
+  openMail(id: string) {
+    return this.send("GET", `/v1/me/mail/${seg(id)}`, S.Mail);
+  }
+
+  async announcements() {
+    return (await this.send("GET", "/v1/admin/announcements", S.AnnouncementList)).items;
+  }
+
+  announce(input: AnnouncementInput) {
+    return this.send("POST", "/v1/admin/announcements", S.Announcement, { body: input });
   }
 
   async threads() {
@@ -305,6 +391,10 @@ export class ApiClient {
 
   createCohort(input: CohortInput) {
     return this.send("POST", "/v1/admin/cohorts", S.Cohort, { body: input });
+  }
+
+  setCohortFlow(id: string, flowId: string | null) {
+    return this.send("PUT", `/v1/admin/cohorts/${seg(id)}/flow`, S.Cohort, { body: { flow_id: flowId } });
   }
 
   setCohortAdmissions(id: string, feeInr: number | null, open: boolean) {
@@ -446,11 +536,24 @@ export class ApiClient {
 
   // ---- Inbox ----
 
-  staffThreads(opts: { personaId?: string | null; unreadOnly?: boolean; cursor?: string | null; limit?: number } = {}) {
+  /** Adds or removes the caller's reaction: students on their own chats, staff as the persona. */
+  react(messageId: string, emoji: ReactionEmoji, on: boolean, staff: boolean) {
+    return this.send("POST", `/v1/${staff ? "admin" : "me"}/messages/${seg(messageId)}/reactions`, S.Message, { body: { emoji, on } });
+  }
+
+  /** Every student in scope for the inbox, unread first. */
+  inboxStudents(opts: { flowId?: string | null; cohortId?: string | null; q?: string; offset?: number } = {}) {
+    return this.send("GET", "/v1/admin/inbox/students", S.InboxStudentPage, {
+      query: { flow_id: opts.flowId ?? null, cohort_id: opts.cohortId ?? null, q: opts.q?.trim() ? opts.q.trim() : null, offset: opts.offset ? String(opts.offset) : null },
+    });
+  }
+
+  staffThreads(opts: { personaId?: string | null; enrollmentId?: string | null; unreadOnly?: boolean; cursor?: string | null; limit?: number } = {}) {
     return this.send("GET", "/v1/admin/threads", S.StaffThreadPage, {
       query: {
         limit: String(opts.limit ?? 30),
         persona_id: opts.personaId ?? null,
+        enrollment_id: opts.enrollmentId ?? null,
         unread: opts.unreadOnly ? "true" : null,
         cursor: opts.cursor ?? null,
       },

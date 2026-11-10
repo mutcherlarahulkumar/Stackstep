@@ -9,12 +9,15 @@ import 'package:stackstep/features/account/onboarding_sheet.dart';
 import 'package:stackstep/features/admin/assign_screen.dart';
 import 'package:stackstep/features/admin/broadcast_screen.dart';
 import 'package:stackstep/features/apply/application_status.dart';
+import 'package:stackstep/features/calendar/calendar_screen.dart';
 import 'package:stackstep/features/chat/inbox_controller.dart';
 import 'package:stackstep/features/chat/inbox_screen.dart';
+import 'package:stackstep/features/mail/mail_screen.dart';
 import 'package:stackstep/features/progress/progress_screen.dart';
 import 'package:stackstep/features/tasks/board_screen.dart';
 import 'package:stackstep/features/tasks/task_work.dart';
 import 'package:stackstep/shared/brand_mark.dart';
+import 'package:stackstep/shared/format.dart';
 
 class _AccountMenu extends ConsumerWidget {
   const _AccountMenu({required this.user});
@@ -31,8 +34,6 @@ class _AccountMenu extends ConsumerWidget {
             return await openLink(context, AppConfig.webUrl('/privacy'));
           case 'terms':
             return await openLink(context, AppConfig.webUrl('/terms'));
-          case 'data':
-            return await openLink(context, AppConfig.webUrl('/workspace'));
           case 'out':
             break;
           default:
@@ -54,7 +55,6 @@ class _AccountMenu extends ConsumerWidget {
       itemBuilder: (_) => [
         PopupMenuItem(enabled: false, child: Text('${user.name}\n@${user.githubLogin}')),
         const PopupMenuDivider(),
-        const PopupMenuItem(value: 'data', child: Text('Download my data (on the web)')),
         const PopupMenuItem(value: 'privacy', child: Text('Privacy')),
         const PopupMenuItem(value: 'terms', child: Text('Terms')),
         const PopupMenuDivider(),
@@ -92,6 +92,7 @@ class _StudentShellState extends ConsumerState<StudentShell> {
     final e = widget.me.enrollment!;
     final t = ShadTheme.of(context);
     final unread = totalUnread(ref.watch(studentInboxProvider).value ?? const []);
+    final mailUnread = ref.watch(mailProvider).value?.unread ?? 0;
     return Scaffold(
       appBar: AppBar(
         titleSpacing: Space.lg,
@@ -103,12 +104,17 @@ class _StudentShellState extends ConsumerState<StudentShell> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(_tab == 0 ? 'Chats' : 'Your board', style: t.textTheme.large),
+                  Text(switch (_tab) {
+                    0 => 'Chats',
+                    1 => 'Your board',
+                    2 => 'Calendar',
+                    _ => 'Mail',
+                  }, style: t.textTheme.large),
                   Text(
                     e.status == EnrollmentStatus.paused
                         ? 'Internship paused'
                         : e.dayNumber == 0
-                        ? 'Starts ${e.startDate}'
+                        ? startsCaption(e.startDate, DateTime.now())
                         : 'Day ${e.dayNumber} of ${e.program.days}',
                     style: t.textTheme.muted.copyWith(fontSize: 12),
                   ),
@@ -132,6 +138,18 @@ class _StudentShellState extends ConsumerState<StudentShell> {
             }),
           ),
           BoardScreen(focusTaskId: _focusTask, onFocusHandled: () => _focusTask = null),
+          CalendarScreen(
+            onOpenTask: (id) => setState(() {
+              _focusTask = id;
+              _tab = 1;
+            }),
+          ),
+          MailScreen(
+            onOpenTask: (id) => setState(() {
+              _focusTask = id;
+              _tab = 1;
+            }),
+          ),
         ],
       ),
       bottomNavigationBar: NavigationBar(
@@ -143,6 +161,12 @@ class _StudentShellState extends ConsumerState<StudentShell> {
             label: 'Chats',
           ),
           const NavigationDestination(icon: Icon(LucideIcons.squareKanban), label: 'Tasks'),
+          const NavigationDestination(key: Key('nav-calendar'), icon: Icon(LucideIcons.calendarDays), label: 'Calendar'),
+          NavigationDestination(
+            key: const Key('nav-mail'),
+            icon: _Badged(count: mailUnread, child: const Icon(LucideIcons.mail)),
+            label: 'Mail',
+          ),
         ],
       ),
     );

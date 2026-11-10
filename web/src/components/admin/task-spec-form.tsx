@@ -17,6 +17,7 @@ import { PersonaAvatar } from "../app/persona-avatar";
 import { TYPE_ICON } from "../app/task-badges";
 import { REVIEW_HINT, REVIEW_LABEL } from "./assign-task-form";
 import { PracticeEditor, QuizEditor, ResourcesEditor, RubricEditor } from "./content-editors";
+import { DocumentsEditor } from "./documents-editor";
 
 /** A task spec as the admin edits it: quiz answers are always set. */
 export type SpecDraft = TemplateInput;
@@ -113,6 +114,7 @@ export function SpecFields({
   personas,
   idPrefix,
   showWindow = true,
+  onImportingChange,
 }: {
   value: SpecDraft;
   onChange: (next: SpecDraft) => void;
@@ -121,6 +123,7 @@ export function SpecFields({
   idPrefix: string;
   /** Surprise windows apply to flows and library tasks, not one-off assignments. */
   showWindow?: boolean;
+  onImportingChange?: (busy: boolean) => void;
 }) {
   const set = <K extends keyof SpecDraft>(k: K, v: SpecDraft[K]) => onChange({ ...value, [k]: v });
   const titleLen = runeLength(normalizeLine(value.title));
@@ -183,7 +186,7 @@ export function SpecFields({
       <Field data-invalid={!!errors.brief}>
         <FieldLabel htmlFor={id("brief")}>Brief</FieldLabel>
         <Textarea id={id("brief")} rows={5} value={value.brief} onChange={(e) => set("brief", e.target.value)} placeholder="What done looks like, links, the branch name." aria-invalid={!!errors.brief} />
-        {errors.brief ? <FieldError>{errors.brief}</FieldError> : <FieldDescription>Optional · up to {Bounds.briefMax.toLocaleString()} characters</FieldDescription>}
+        {errors.brief ? <FieldError>{errors.brief}</FieldError> : <FieldDescription>Markdown supported · up to {Bounds.briefMax.toLocaleString()} characters</FieldDescription>}
       </Field>
       <Field data-invalid={!!errors.review_mode}>
         <FieldLabel>Review</FieldLabel>
@@ -221,6 +224,7 @@ export function SpecFields({
       {value.type === "dsa" ? (
         <PracticeEditor value={value.content.practice} onChange={(practice) => set("content", { ...value.content, practice })} errors={errors} idPrefix={id("practice")} />
       ) : null}
+      <DocumentsEditor onImportingChange={onImportingChange} value={value.content.documents ?? []} onChange={(update) => set("content", { ...value.content, documents: update(value.content.documents ?? []) })} errors={errors} idPrefix={id("docs")} />
       <ResourcesEditor value={value.content.resources} onChange={(resources) => set("content", { ...value.content, resources })} errors={errors} idPrefix={id("links")} />
       <div className="grid gap-4 sm:grid-cols-2">
         <Field data-invalid={!!errors.release_time}>

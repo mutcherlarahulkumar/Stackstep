@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
+	"sort"
 	"strings"
 	"sync"
 	"time"
@@ -294,6 +295,14 @@ func (w *Workspace) Transition(ctx context.Context, u domain.User, taskID uuid.U
 			if err := store.RecordReview(ctx, q, t.ID, u.ID, ticks, now); err != nil {
 				return fmt.Errorf("record review: %w", err)
 			}
+			// The decision also lands in the student's mail, so it isn't lost in a busy chat.
+			persona, err := store.GetPersona(ctx, q, t.PersonaID)
+			if err != nil {
+				return fmt.Errorf("review persona: %w", err)
+			}
+			if _, err := store.InsertMail(ctx, q, reviewMail(t, in.To == domain.StatusDone, note, ticks, persona), []uuid.UUID{e.UserID}, now); err != nil {
+				return err
+			}
 		}
 		if err := awardFinished(ctx, q, out, now); err != nil {
 			return err
@@ -383,6 +392,9 @@ func pageMessages(ctx context.Context, q store.Q, enrollmentID, personaID uuid.U
 	}
 	msgs, err := store.ListMessages(ctx, q, enrollmentID, personaID, now, before, limit+1)
 	if err != nil {
+		return nil, "", err
+	}
+	if err := store.AttachReactions(ctx, q, msgs); err != nil {
 		return nil, "", err
 	}
 	next := ""
@@ -708,4 +720,45 @@ func (w *Workspace) handIn(ctx context.Context, q store.Q, e domain.Enrollment, 
 		return fmt.Errorf("hand-in reply: %w", err)
 	}
 	return nil
+}
+
+// Calendar is a student's internship laid out by day.
+type Calendar struct {
+	Enrollment domain.Enrollment
+	Entries    []domain.CalendarEntry
+}
+
+// StudentCalendar returns the signed-in student's calendar: tasks already out, tasks coming up
+// with their time, and surprise tasks as a day marker only.
+func (w *Workspace) StudentCalendar(ctx context.Context, u domain.User) (Calendar, error) {
+	e, err := w.requireEnrollment(ctx, u)
+	if err != nil {
+		return Calendar{}, err
+	}
+	rows, err := store.CalendarTasks(ctx, w.Store.Pool, e.ID)
+	if err != nil {
+		return Calendar{}, err
+	}
+	now := w.Clock.Now()
+	entries := domain.CalendarFor(e, rows, now)
+	classes, err := store.StudentClasses(ctx, w.Store.Pool, e, now)
+	if err != nil {
+		return Calendar{}, err
+	}
+	loc := e.Location()
+	for _, c := range classes {
+		at, ends := c.StartsAt, domain.ClassEnds(c.StartsAt, c.DurationMinutes)
+		y, m, d := at.In(loc).Date()
+		id, title := c.ID, c.Title
+		entries = append(entries, domain.CalendarEntry{Kind: domain.CalendarClass, Date: time.Date(y, m, d, 0, 0, 0, 0, time.UTC), Day: e.DayNumber(at),
+			At: &at, DueAt: &ends, Released: c.Status == domain.ClassLive, Title: &title, ClassID: &id})
+	}
+	sort.SliceStable(entries, func(i, j int) bool {
+		if !entries[i].Date.Equal(entries[j].Date) {
+			return entries[i].Date.Before(entries[j].Date)
+		}
+		ai, aj := entries[i].At, entries[j].At
+		return ai != nil && (aj == nil || ai.Before(*aj))
+	})
+	return Calendar{Enrollment: e, Entries: entries}, nil
 }

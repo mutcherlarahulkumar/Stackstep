@@ -12,6 +12,7 @@ import 'package:stackstep/core/theme.dart';
 import 'package:stackstep/features/ai/markdown_view.dart';
 import 'package:stackstep/features/chat/inbox_controller.dart';
 import 'package:stackstep/features/tasks/board_controller.dart';
+import 'package:stackstep/features/tasks/task_documents.dart';
 import 'package:stackstep/features/tasks/task_notes.dart';
 import 'package:stackstep/features/tasks/task_work.dart';
 import 'package:stackstep/shared/errors.dart';
@@ -177,6 +178,19 @@ class TaskCard extends ConsumerWidget {
                 Row(children: [TypeBadge(task.type), const Spacer(), StatusBadge(task.status)]),
                 const SizedBox(height: Space.md),
                 Text(task.title, style: t.textTheme.large, maxLines: 2, overflow: TextOverflow.ellipsis),
+                if (task.content.documents.isNotEmpty) ...[
+                  const SizedBox(height: Space.sm),
+                  Row(
+                    children: [
+                      Icon(LucideIcons.bookOpen, size: 14, color: t.colorScheme.mutedForeground),
+                      const SizedBox(width: 6),
+                      Text(
+                        task.content.documents.length == 1 ? 'Guide included' : '${task.content.documents.length} guides included',
+                        style: t.textTheme.small.copyWith(color: t.colorScheme.mutedForeground),
+                      ),
+                    ],
+                  ),
+                ],
                 const SizedBox(height: Space.sm),
                 Row(
                   children: [
@@ -334,7 +348,8 @@ class _TaskSheetState extends ConsumerState<TaskSheet> {
           if (task.brief.isEmpty)
             Text('No brief for this one. Ask ${persona?.name ?? 'your lead'} in chat if anything is unclear.', style: t.textTheme.muted)
           else
-            MarkdownView(task.brief),
+            SelectionArea(child: MarkdownView(task.brief)),
+          TaskDocuments(documents: task.content.documents),
           ResourceLinks(resources: task.content.resources),
           if (task.content.rubric.isNotEmpty) RubricCard(criteria: task.content.rubric, ticks: task.submission?.rubric),
           if (task.submission case final sub?) SubmissionCard(submission: sub),

@@ -1,6 +1,6 @@
 "use client";
 
-import { AlarmClock, ChevronRight, CalendarClock, Clock, Coffee, Footprints } from "lucide-react";
+import { AlarmClock, BookOpen, ChevronRight, CalendarClock, Clock, Coffee, Footprints } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
 
@@ -16,7 +16,8 @@ import { dateTimeLabel, dueLabel, isOverdue, taskTimeLabel } from "@/lib/format"
 import { cn } from "@/lib/utils";
 import { studentMoves } from "@/lib/validation";
 
-import { SafeMarkdown } from "../ai/markdown";
+import { DocumentMarkdown } from "../app/document-markdown";
+import { TaskDocuments } from "./task-documents";
 import { InfoNote } from "../app/info-note";
 import { PersonaAvatar } from "../app/persona-avatar";
 import { EmptyState, ErrorState } from "../app/state";
@@ -99,7 +100,7 @@ export function BoardPanel({
     <div className="flex min-h-0 flex-1 flex-col">
       <div className="flex min-h-0 flex-1 flex-col gap-6 overflow-y-auto p-4 sm:px-6">
         <InfoNote id="student-board" title="Your tasks">
-          Your team posts tasks here day by day. Open one to read the brief, do the work in your own GitHub repository and hand in the
+          Your team posts tasks here day by day. Open one to read the brief and its guides, do the work in your own GitHub repository and hand in the
           pull request link. It then waits for review, and your team lead approves it or asks for changes in chat.
         </InfoNote>
         <section aria-labelledby="board-todo" className="flex flex-col gap-3">
@@ -172,6 +173,12 @@ function TaskCard({ task, persona, onOpen }: { task: Task; persona: Persona | un
         <button type="button" onClick={onOpen} className="text-left font-medium leading-snug outline-none after:absolute after:inset-0 after:rounded-[inherit]">
           {task.title}
         </button>
+        {task.content.documents.length > 0 ? (
+          <span className="text-muted-foreground flex items-center gap-1.5 text-xs">
+            <BookOpen className="size-3.5" aria-hidden />
+            {task.content.documents.length === 1 ? "Guide included" : `${task.content.documents.length} guides included`}
+          </span>
+        ) : null}
         <div className="flex items-center justify-between gap-2">
           <p className={cn("flex items-center gap-1.5 text-sm", overdue ? "text-destructive font-medium" : "text-muted-foreground")}>
             {overdue ? <AlarmClock className="size-3.5" aria-hidden /> : <Clock className="size-3.5" aria-hidden />}
@@ -249,12 +256,11 @@ function TaskSheet({
               </Alert>
               <h3 className="mt-6 mb-2 text-sm font-medium">Brief</h3>
               {task.brief ? (
-                <div className="text-sm" data-testid="task-brief">
-                  <SafeMarkdown>{task.brief}</SafeMarkdown>
-                </div>
+                <div className="text-sm" data-testid="task-brief"><DocumentMarkdown>{task.brief}</DocumentMarkdown></div>
               ) : (
                 <p className="text-muted-foreground text-sm">No brief for this one. Ask {persona?.name ?? "your lead"} in chat if anything is unclear.</p>
               )}
+              <TaskDocuments key={task.id} documents={task.content.documents} />
               <ResourceList resources={task.content.resources} />
               <RubricView criteria={task.content.rubric} submission={task.submission} />
               {task.submission ? <SubmissionCard submission={task.submission} title="Your hand-in" /> : null}
