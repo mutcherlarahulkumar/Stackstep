@@ -70,6 +70,7 @@ test("people: colleges, cohorts, enroll by login, roster import, internship stat
   await expect(admin.getByRole("heading", { name: "People" })).toBeVisible();
 
   // Enroll a login that has never signed in, on the React flow.
+  await admin.getByRole("tab", { name: "Enroll students" }).click();
   await expect(admin.getByRole("complementary", { name: "Enroll students by hand" })).toBeVisible();
   const one = admin.locator("form").first();
   await admin.getByTestId("enroll-submit").click();

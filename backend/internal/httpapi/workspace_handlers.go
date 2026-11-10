@@ -12,6 +12,10 @@ import (
 
 func (s *Server) me(c *gin.Context) {
 	u := currentUser(c)
+	// Opening Stackstep marks the day present (feature 25). It never blocks loading.
+	if err := s.workspace.MarkPresent(c.Request.Context(), u); err != nil {
+		s.log.Warn("mark attendance", "user", u.ID, "err", err)
+	}
 	e, err := s.workspace.OpenEnrollment(c.Request.Context(), u)
 	if err != nil {
 		s.fail(c, err)

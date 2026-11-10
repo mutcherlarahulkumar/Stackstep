@@ -32,6 +32,7 @@ const go = {
   Audience: read("backend/internal/domain/mail.go"),
   ReactionEmoji: read("backend/internal/domain/chat.go"),
   ClassStatus: read("backend/internal/domain/class.go"),
+  AttendanceStatus: read("backend/internal/domain/attendance.go"),
 };
 const goType = {
   Role: "Role",
@@ -58,6 +59,7 @@ const goType = {
   Audience: "Audience",
   ReactionEmoji: "ReactionEmoji",
   ClassStatus: "ClassStatus",
+  AttendanceStatus: "AttendanceStatus",
 };
 const ts = read("web/src/lib/api/schemas.ts");
 const tsConst = {
@@ -85,6 +87,7 @@ const tsConst = {
   Audience: "AUDIENCES",
   ReactionEmoji: "REACTION_EMOJIS",
   ClassStatus: "CLASS_STATUSES",
+  AttendanceStatus: "ATTENDANCE_STATUSES",
 };
 const dart = read("mobile/lib/api/models.dart");
 const dartEnum = { ...goType, ErrorCode: "ErrorCode" };

@@ -14,6 +14,7 @@ export const TASK_TYPES = ["feature", "bug_fix", "dsa", "doc_reading", "quiz", "
 export const TASK_STATUSES = ["todo", "in_progress", "in_review", "changes_requested", "done", "cancelled"] as const;
 export const CALENDAR_KINDS = ["task", "surprise", "class"] as const;
 export const CLASS_STATUSES = ["scheduled", "live", "ended", "cancelled"] as const;
+export const ATTENDANCE_STATUSES = ["present", "missed", "pending"] as const;
 export const REACTION_EMOJIS = ["thumbs_up", "heart", "party", "laugh", "thinking", "eyes"] as const;
 export const MAIL_KINDS = ["announcement", "welcome", "review", "certificate", "class"] as const;
 export const AUDIENCES = ["all", "flow", "cohort", "class"] as const;
@@ -788,3 +789,60 @@ export const LiveClassList = z.object({ items: z.array(LiveClass) });
 export const IceServer = z.object({ urls: z.array(z.string()), username: z.string().optional(), credential: z.string().optional() });
 export const ClassDetail = LiveClass.extend({ role: z.enum(["host", "student"]), ice_servers: z.array(IceServer) });
 export type ClassDetail = z.output<typeof ClassDetail>;
+
+export const AttendanceStatus = z.enum(ATTENDANCE_STATUSES);
+export type AttendanceStatus = z.output<typeof AttendanceStatus>;
+export const AttendanceDay = z.object({
+  date,
+  day: z.int().min(1).max(60),
+  status: AttendanceStatus,
+  seat: z.int().min(1).nullable(),
+  first_seen_at: timestamp.nullable(),
+});
+export type AttendanceDay = z.output<typeof AttendanceDay>;
+export const Attendance = z.object({
+  days: z.array(AttendanceDay),
+  present: z.int().min(0),
+  missed: z.int().min(0),
+  streak: z.int().min(0),
+});
+export type Attendance = z.output<typeof Attendance>;
+
+export const USER_KINDS = ["all", "interns", "applicants", "staff", "today"] as const;
+export type UserKind = (typeof USER_KINDS)[number];
+export const UserRow = z.object({
+  user: User,
+  created_at: timestamp,
+  last_seen_at: timestamp.nullable(),
+  enrollment: Enrollment.nullable(),
+  cohort: z.object({ id: z.uuid(), name: z.string() }).nullable(),
+  college_name: z.string().nullable(),
+  applications: z.int().min(0),
+});
+export type UserRow = z.output<typeof UserRow>;
+export const UserPage = z.object({ items: z.array(UserRow), next_cursor: z.string().nullable() });
+export type UserPage = z.output<typeof UserPage>;
+export const StaffNote = z.object({
+  id: z.uuid(),
+  body: z.string(),
+  done: z.boolean(),
+  done_at: timestamp.nullable(),
+  author_name: z.string(),
+  created_at: timestamp,
+  updated_at: timestamp,
+});
+export type StaffNote = z.output<typeof StaffNote>;
+export const Profile = z.object({
+  user: User,
+  github_url: z.url(),
+  created_at: timestamp,
+  last_seen_at: timestamp.nullable(),
+  signed_out_at: timestamp.nullable(),
+  enrollments: z.array(z.object({ enrollment: Enrollment, cohort_name: z.string().nullable(), college_name: z.string().nullable() })),
+  applications: z.array(
+    z.object({ id: z.uuid(), status: ApplicationStatus, cohort_name: z.string(), phone: z.string(), college: z.string(), created_at: timestamp }),
+  ),
+  attendance: Attendance.nullable(),
+  notes: z.array(StaffNote),
+});
+export type Profile = z.output<typeof Profile>;

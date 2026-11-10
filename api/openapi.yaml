@@ -220,6 +220,17 @@ paths:
       responses:
         "200": { description: Calendar, content: { application/json: { schema: { $ref: "#/components/schemas/Calendar" } } } }
         "409": { $ref: "#/components/responses/Error" }
+  /v1/me/attendance:
+    get:
+      tags: [student]
+      operationId: myAttendance
+      summary: Your attendance, day 1 to today
+      description: >-
+        A day counts as present when you open Stackstep on it (in your time zone). Seat is the
+        order you arrived in that day, across everyone. Today stays pending until you open it.
+      responses:
+        "200": { description: Attendance, content: { application/json: { schema: { $ref: "#/components/schemas/Attendance" } } } }
+        "409": { $ref: "#/components/responses/Error" }
   /v1/me/mail:
     get:
       tags: [mail]
@@ -1650,6 +1661,100 @@ paths:
         "403": { $ref: "#/components/responses/Error" }
         "404": { $ref: "#/components/responses/Error" }
         "422": { $ref: "#/components/responses/Error" }
+  /v1/admin/users:
+    get:
+      tags: [people]
+      operationId: listUsers
+      summary: Everyone who signed in or was added, most recently seen first
+      description: College admins only see people of their college.
+      parameters:
+        - { name: q, in: query, schema: { type: string, maxLength: 100 }, description: "Name, GitHub login or email" }
+        - { name: kind, in: query, schema: { type: string, enum: [all, interns, applicants, staff, today], default: all } }
+        - { name: cohort_id, in: query, schema: { type: string, format: uuid } }
+        - { name: flow_id, in: query, schema: { type: string, format: uuid } }
+        - { name: limit, in: query, schema: { type: integer, minimum: 1, maximum: 100, default: 50 } }
+        - { name: cursor, in: query, schema: { type: string } }
+      responses:
+        "200":
+          description: People
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [items, next_cursor]
+                properties:
+                  items: { type: array, items: { $ref: "#/components/schemas/UserRow" } }
+                  next_cursor: { type: [string, "null"] }
+        "403": { $ref: "#/components/responses/Error" }
+        "422": { $ref: "#/components/responses/Error" }
+  /v1/admin/users/{id}:
+    get:
+      tags: [people]
+      operationId: personProfile
+      summary: Everything about one person, with their internships, applications, attendance and staff notes
+      parameters: [{ name: id, in: path, required: true, schema: { type: string, format: uuid } }]
+      responses:
+        "200": { description: Profile, content: { application/json: { schema: { $ref: "#/components/schemas/Profile" } } } }
+        "404": { $ref: "#/components/responses/Error" }
+  /v1/admin/users/{id}/sign-out:
+    post:
+      tags: [people]
+      operationId: signOutEverywhere
+      summary: Sign a person out of every device, so they must sign in with GitHub again
+      description: Platform admins only, and not on themselves.
+      parameters: [{ name: id, in: path, required: true, schema: { type: string, format: uuid } }]
+      responses:
+        "204": { description: Signed out }
+        "403": { $ref: "#/components/responses/Error" }
+        "404": { $ref: "#/components/responses/Error" }
+        "422": { $ref: "#/components/responses/Error" }
+  /v1/admin/users/{id}/notes:
+    post:
+      tags: [people]
+      operationId: addStaffNote
+      summary: Keep a private note about a person (staff only see it)
+      parameters: [{ name: id, in: path, required: true, schema: { type: string, format: uuid } }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [body]
+              properties: { body: { type: string, minLength: 1, maxLength: 2000 } }
+      responses:
+        "201": { description: Note, content: { application/json: { schema: { $ref: "#/components/schemas/StaffNote" } } } }
+        "404": { $ref: "#/components/responses/Error" }
+        "422": { $ref: "#/components/responses/Error" }
+  /v1/admin/notes/{id}:
+    patch:
+      tags: [people]
+      operationId: editStaffNote
+      summary: Change a note's text or tick it off
+      parameters: [{ name: id, in: path, required: true, schema: { type: string, format: uuid } }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              properties:
+                body: { type: string, minLength: 1, maxLength: 2000 }
+                done: { type: boolean }
+      responses:
+        "200": { description: Note, content: { application/json: { schema: { $ref: "#/components/schemas/StaffNote" } } } }
+        "404": { $ref: "#/components/responses/Error" }
+        "422": { $ref: "#/components/responses/Error" }
+    delete:
+      tags: [people]
+      operationId: deleteStaffNote
+      summary: Delete a note
+      parameters: [{ name: id, in: path, required: true, schema: { type: string, format: uuid } }]
+      responses:
+        "204": { description: Deleted }
+        "404": { $ref: "#/components/responses/Error" }
   /v1/admin/announcements:
     get:
       tags: [mail]
@@ -1987,6 +2092,78 @@ components:
         end_date: { type: string, format: date }
         timezone: { type: string }
         items: { type: array, items: { $ref: "#/components/schemas/CalendarEntry" } }
+    AttendanceStatus: { type: string, enum: [present, missed, pending] }
+    AttendanceDay:
+      type: object
+      required: [date, day, status, seat, first_seen_at]
+      properties:
+        date: { type: string, format: date }
+        day: { type: integer, minimum: 1, maximum: 60 }
+        status: { $ref: "#/components/schemas/AttendanceStatus" }
+        seat: { type: [integer, "null"], minimum: 1, description: Arrival order that day; only when present }
+        first_seen_at: { type: [string, "null"], format: date-time }
+    Attendance:
+      type: object
+      required: [days, present, missed, streak]
+      properties:
+        days: { type: array, items: { $ref: "#/components/schemas/AttendanceDay" } }
+        present: { type: integer, minimum: 0 }
+        missed: { type: integer, minimum: 0 }
+        streak: { type: integer, minimum: 0, description: Present days in a row up to today }
+    UserRow:
+      type: object
+      required: [user, created_at, last_seen_at, enrollment, cohort, college_name, applications]
+      properties:
+        user: { $ref: "#/components/schemas/User" }
+        created_at: { type: string, format: date-time }
+        last_seen_at: { type: [string, "null"], format: date-time }
+        enrollment: { oneOf: [{ $ref: "#/components/schemas/Enrollment" }, { type: "null" }], description: "The open internship, else the latest" }
+        cohort: { oneOf: [{ type: object, required: [id, name], properties: { id: { type: string, format: uuid }, name: { type: string } } }, { type: "null" }] }
+        college_name: { type: [string, "null"] }
+        applications: { type: integer, minimum: 0 }
+    StaffNote:
+      type: object
+      required: [id, body, done, done_at, author_name, created_at, updated_at]
+      properties:
+        id: { type: string, format: uuid }
+        body: { type: string }
+        done: { type: boolean }
+        done_at: { type: [string, "null"], format: date-time }
+        author_name: { type: string }
+        created_at: { type: string, format: date-time }
+        updated_at: { type: string, format: date-time }
+    Profile:
+      type: object
+      required: [user, github_url, created_at, last_seen_at, signed_out_at, enrollments, applications, attendance, notes]
+      properties:
+        user: { $ref: "#/components/schemas/User" }
+        github_url: { type: string, format: uri }
+        created_at: { type: string, format: date-time }
+        last_seen_at: { type: [string, "null"], format: date-time }
+        signed_out_at: { type: [string, "null"], format: date-time }
+        enrollments:
+          type: array
+          items:
+            type: object
+            required: [enrollment, cohort_name, college_name]
+            properties:
+              enrollment: { $ref: "#/components/schemas/Enrollment" }
+              cohort_name: { type: [string, "null"] }
+              college_name: { type: [string, "null"] }
+        applications:
+          type: array
+          items:
+            type: object
+            required: [id, status, cohort_name, phone, college, created_at]
+            properties:
+              id: { type: string, format: uuid }
+              status: { $ref: "#/components/schemas/ApplicationStatus" }
+              cohort_name: { type: string }
+              phone: { type: string }
+              college: { type: string }
+              created_at: { type: string, format: date-time }
+        attendance: { oneOf: [{ $ref: "#/components/schemas/Attendance" }, { type: "null" }] }
+        notes: { type: array, items: { $ref: "#/components/schemas/StaffNote" } }
     Author: { type: string, enum: [student, persona] }
     ErrorCode:
       type: string

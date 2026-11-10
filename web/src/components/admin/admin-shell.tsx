@@ -40,7 +40,7 @@ const DESKTOP_NAV: NavItem[] = [
 
 /** Set up once, change rarely: behind one menu so the bar stays short. */
 const SETUP_NAV: (NavItem & { hint: string })[] = [
-  { id: "people", href: "/admin/people", label: "People", icon: UserPlus, hint: "Enroll students by hand, manage staff" },
+  { id: "people", href: "/admin/people", label: "People", icon: UserPlus, hint: "Everyone, profiles, notes, enrollment and staff" },
   { id: "colleges", href: "/admin/colleges", label: "Colleges", icon: Building2, hint: "Institutions you work with" },
   { id: "cohorts", href: "/admin/cohorts", label: "Cohorts", icon: UsersRound, hint: "Batches, seats, fees and admissions" },
   { id: "payments", href: "/admin/payments", label: "Payments", icon: QrCode, hint: "UPI ID and QR students pay to" },

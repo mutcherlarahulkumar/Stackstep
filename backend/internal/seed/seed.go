@@ -167,7 +167,56 @@ func Run(ctx context.Context, q store.Q, now time.Time) error {
 	if err := seedAnnouncement(ctx, q, ids[AdminLogin], now.Add(-2*time.Hour)); err != nil {
 		return err
 	}
+	if err := seedPeople(ctx, q, ids, start, now); err != nil {
+		return err
+	}
 	return seedClass(ctx, q, ids[AdminLogin], now)
+}
+
+// seedPeople gives the demo students some attendance history and Asha a couple of staff
+// notes, so profiles and the forest have something to show (feature 25).
+func seedPeople(ctx context.Context, q store.Q, ids map[string]uuid.UUID, start, now time.Time) error {
+	// Days before today: 1 means present (with the seat), 0 means missed.
+	history := map[string][]int{StudentLogin: {2, 1}, Student2Login: {1, 0}, IndieStudentLogin: {0, 3}}
+	for login, days := range history {
+		for i, seat := range days {
+			if seat == 0 {
+				continue
+			}
+			day := start.AddDate(0, 0, i)
+			seen := day.Add(time.Duration(9+seat)*time.Hour - 330*time.Minute) // mid-morning in India
+			if _, err := q.Exec(ctx, `INSERT INTO attendance (user_id, day, seat, first_seen_at) VALUES ($1, $2::date, $3, $4)
+				ON CONFLICT DO NOTHING`, ids[login], day, seat, seen); err != nil {
+				return fmt.Errorf("attendance %s: %w", login, err)
+			}
+		}
+		if _, err := q.Exec(ctx, `UPDATE users SET last_seen_at = $2 WHERE id = $1 AND last_seen_at IS NULL`, ids[login], now.Add(-3*time.Hour)); err != nil {
+			return err
+		}
+	}
+	var has bool
+	if err := q.QueryRow(ctx, `SELECT EXISTS (SELECT 1 FROM staff_notes WHERE subject_id = $1)`, ids[StudentLogin]).Scan(&has); err != nil || has {
+		return err
+	}
+	notes := []struct {
+		body string
+		done bool
+	}{
+		{"Strong on React basics. Push her towards testing by week 2.", false},
+		{"Called about the late standup on day 2. Sorted, she had exams.", true},
+	}
+	for i, n := range notes {
+		at := now.Add(-time.Duration(i+1) * 26 * time.Hour)
+		var done *time.Time
+		if n.done {
+			done = &at
+		}
+		if _, err := q.Exec(ctx, `INSERT INTO staff_notes (subject_id, author_id, body, done_at, created_at, updated_at) VALUES ($1, $2, $3, $4, $5, $5)`,
+			ids[StudentLogin], ids[AdminLogin], n.body, done, at); err != nil {
+			return fmt.Errorf("staff note: %w", err)
+		}
+	}
+	return nil
 }
 
 // seedClass schedules one live class for everyone tomorrow at 6 PM (India), once.

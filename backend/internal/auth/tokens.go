@@ -64,8 +64,9 @@ func (s *Signer) IssueAccess(userID uuid.UUID, now time.Time) (string, time.Time
 	return tok, exp, nil
 }
 
-// VerifyAccess checks signature, algorithm, issuer, audience and expiry, and returns the user id.
-func (s *Signer) VerifyAccess(raw string, now time.Time) (uuid.UUID, error) {
+// VerifyAccess checks signature, algorithm, issuer, audience and expiry, and returns the user id
+// and when the token was issued.
+func (s *Signer) VerifyAccess(raw string, now time.Time) (uuid.UUID, time.Time, error) {
 	var claims accessClaims
 	_, err := jwt.ParseWithClaims(raw, &claims, func(*jwt.Token) (any, error) { return s.key, nil },
 		jwt.WithValidMethods([]string{jwt.SigningMethodHS256.Alg()}),
@@ -76,13 +77,13 @@ func (s *Signer) VerifyAccess(raw string, now time.Time) (uuid.UUID, error) {
 		jwt.WithTimeFunc(func() time.Time { return now }),
 	)
 	if err != nil {
-		return uuid.Nil, ErrInvalidToken
+		return uuid.Nil, time.Time{}, ErrInvalidToken
 	}
 	id, err := uuid.Parse(claims.Subject)
-	if err != nil {
-		return uuid.Nil, ErrInvalidToken
+	if err != nil || claims.IssuedAt == nil {
+		return uuid.Nil, time.Time{}, ErrInvalidToken
 	}
-	return id, nil
+	return id, claims.IssuedAt.Time, nil
 }
 
 // NewOpaqueToken returns a random URL-safe token and its SHA-256 hash for storage.

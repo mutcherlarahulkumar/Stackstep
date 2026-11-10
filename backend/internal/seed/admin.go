@@ -34,7 +34,7 @@ func Flush(ctx context.Context, q store.Q, mode FlushMode) error {
 	switch mode {
 	case FlushAll:
 		if _, err := q.Exec(ctx, `TRUNCATE task_notes, task_submissions, quiz_attempts, points_ledger, credit_ledger, ai_messages, ai_conversations,
-			mail_recipients, mails, announcements, classes, certificates, task_events, chat_threads, chat_messages, tasks, enrollments, flow_items, flow_versions, flows,
+			mail_recipients, mails, announcements, classes, staff_notes, attendance, certificates, task_events, chat_threads, chat_messages, tasks, enrollments, flow_items, flow_versions, flows,
 			task_templates, personas, cohorts, login_codes, refresh_tokens, users, colleges RESTART IDENTITY CASCADE`); err != nil {
 			return fmt.Errorf("truncate: %w", err)
 		}
@@ -88,6 +88,9 @@ func flushDemo(ctx context.Context, q store.Q) error {
 		{`DELETE FROM flow_versions WHERE flow_id IN (SELECT id FROM flows WHERE id = $1 OR created_by IN (SELECT id FROM demo_users))`, []any{ReactFlowID}},
 		{`DELETE FROM flows WHERE id = $1 OR created_by IN (SELECT id FROM demo_users)`, []any{ReactFlowID}},
 		{`DELETE FROM task_templates WHERE created_by IN (SELECT id FROM demo_users)`, nil},
+		// Feature 25: notes about or by demo users, and their attendance.
+		{`DELETE FROM staff_notes WHERE subject_id IN (SELECT id FROM demo_users) OR author_id IN (SELECT id FROM demo_users)`, nil},
+		{`DELETE FROM attendance WHERE user_id IN (SELECT id FROM demo_users)`, nil},
 		{`DELETE FROM refresh_tokens WHERE user_id IN (SELECT id FROM demo_users)`, nil},
 		{`DELETE FROM login_codes WHERE user_id IN (SELECT id FROM demo_users)`, nil},
 		{`DELETE FROM users WHERE id IN (SELECT id FROM demo_users)`, nil},

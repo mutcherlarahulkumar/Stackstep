@@ -1399,6 +1399,16 @@ final class MailPage {
 }
 
 /// Where a live class is (feature 23). The room itself opens in the browser.
+/// How a day of the internship went (feature 25).
+enum AttendanceStatus {
+  present('present'),
+  missed('missed'),
+  pending('pending');
+
+  AttendanceStatus(this.wire);
+  final String wire;
+}
+
 enum ClassStatus {
   scheduled('scheduled'),
   live('live'),

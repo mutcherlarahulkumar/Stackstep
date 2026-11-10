@@ -56,6 +56,7 @@ type Server struct {
 	signInLimit  *ipLimiter
 	refreshLimit *ipLimiter
 	reportLimit  *ipLimiter
+	seen         sync.Map // user id → when last-seen was last written
 }
 
 // Deps are the server's collaborators.
@@ -136,6 +137,7 @@ func (s *Server) Handler() http.Handler {
 	authed.POST("/me/onboarded", s.onboarded)
 	authed.GET("/me/tasks", s.myTasks)
 	authed.GET("/me/calendar", s.myCalendar)
+	authed.GET("/me/attendance", s.myAttendance)
 	authed.GET("/me/mail", s.myMail)
 	authed.GET("/me/classes", s.myClasses)
 	authed.GET("/classes/:id", s.getClass)
@@ -230,6 +232,12 @@ func (s *Server) Handler() http.Handler {
 	admin.POST("/classes", s.scheduleClass)
 	admin.POST("/classes/:id/status", s.setClassStatus)
 	admin.POST("/announcements", s.announce)
+	admin.GET("/users", s.listUsers)
+	admin.GET("/users/:id", s.personProfile)
+	admin.POST("/users/:id/sign-out", s.signOutEverywhere)
+	admin.POST("/users/:id/notes", s.addStaffNote)
+	admin.PATCH("/notes/:id", s.editStaffNote)
+	admin.DELETE("/notes/:id", s.deleteStaffNote)
 
 	v1.GET("/ws", s.websocket)
 	v1.GET("/classes/:id/ws", s.classSocket)
@@ -300,7 +308,7 @@ func (s *Server) cors(c *gin.Context) {
 		h.Set("Access-Control-Allow-Origin", origin)
 		h.Set("Access-Control-Allow-Credentials", "true")
 		h.Set("Access-Control-Allow-Headers", "Authorization, Content-Type, X-Client, X-Request-Id")
-		h.Set("Access-Control-Allow-Methods", "GET, POST, PUT, PATCH, OPTIONS")
+		h.Set("Access-Control-Allow-Methods", "GET, POST, PUT, PATCH, DELETE, OPTIONS")
 		h.Set("Access-Control-Max-Age", "600")
 		h.Add("Vary", "Origin")
 	}
@@ -352,16 +360,38 @@ func (s *Server) authenticate(c *gin.Context) {
 }
 
 func (s *Server) userFromToken(ctx context.Context, raw string) (domain.User, error) {
-	id, err := s.signer.VerifyAccess(raw, s.clock.Now())
+	now := s.clock.Now()
+	id, issued, err := s.signer.VerifyAccess(raw, now)
 	if err != nil {
 		return domain.User{}, apperr.New(apperr.CodeUnauthenticated, "Your session expired. Sign in again.")
 	}
 	// Load fresh on every request so role changes and removals apply immediately.
-	u, err := store.GetUser(ctx, s.store.Pool, id)
+	u, signedOut, err := store.UserForAuth(ctx, s.store.Pool, id)
 	if errors.Is(err, store.ErrNotFound) {
 		return domain.User{}, apperr.New(apperr.CodeUnauthenticated, "Your account no longer exists.")
 	}
-	return u, err
+	if err != nil {
+		return domain.User{}, err
+	}
+	// Tokens carry whole seconds: anything issued up to the second of a sign-out is refused.
+	if signedOut != nil && !issued.After(signedOut.Truncate(time.Second)) {
+		return domain.User{}, apperr.New(apperr.CodeUnauthenticated, "You were signed out. Sign in with GitHub again.")
+	}
+	s.touch(ctx, id, now)
+	return u, nil
+}
+
+// touch records when a user was last active, at most once every couple of minutes.
+func (s *Server) touch(ctx context.Context, id uuid.UUID, now time.Time) {
+	if last, ok := s.seen.Load(id); ok {
+		if t, ok := last.(time.Time); ok && now.Sub(t) < 2*time.Minute {
+			return
+		}
+	}
+	s.seen.Store(id, now)
+	if err := store.TouchUser(ctx, s.store.Pool, id, now); err != nil {
+		s.log.Warn("touch user", "err", err)
+	}
 }
 
 func (s *Server) requireStaff(c *gin.Context) {

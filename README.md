@@ -55,6 +55,8 @@ Each has a spec with every edge case and the test that covers it, in [`docs/feat
 20. **Live classes** — screen sharing, drawing on the screen, voice, chat, Q&A and raised
     hands in the browser; nothing but the schedule is stored.
 21. **Get the app** — a download page that detects the phone, with install steps and fixes.
+22. **People admin** — everyone in one directory, a full profile per person with staff notes
+    as to-dos, sign out everywhere, and attendance as a seat map and a 3D forest.
 
 An additional guided 30-day React edition includes self-contained lessons, deliberate practice
 and recovery days. See [`docs/CURRICULUM.md`](docs/CURRICULUM.md) for its learning path

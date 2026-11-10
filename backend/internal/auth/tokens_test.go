@@ -24,11 +24,11 @@ func TestAccessTokenRoundTrip(t *testing.T) {
 	if !exp.Equal(now.Add(AccessTTL)) {
 		t.Fatalf("exp = %v", exp)
 	}
-	got, err := s.VerifyAccess(tok, now.Add(time.Minute))
+	got, _, err := s.VerifyAccess(tok, now.Add(time.Minute))
 	if err != nil || got != id {
 		t.Fatalf("verify = %v, %v", got, err)
 	}
-	if _, err := s.VerifyAccess(tok, now.Add(AccessTTL+time.Second)); err == nil {
+	if _, _, err := s.VerifyAccess(tok, now.Add(AccessTTL+time.Second)); err == nil {
 		t.Fatal("expired token accepted")
 	}
 }
@@ -43,7 +43,7 @@ func TestAuthRejectsForgedTokens(t *testing.T) {
 		ExpiresAt: jwt.NewNumericDate(now.Add(time.Hour)),
 	}).SignedString(jwt.UnsafeAllowNoneSignatureType)
 	for name, tok := range map[string]string{"other key": forged, "alg none": none, "garbage": "a.b.c", "empty": ""} {
-		if _, err := s.VerifyAccess(tok, now); err == nil {
+		if _, _, err := s.VerifyAccess(tok, now); err == nil {
 			t.Errorf("%s: accepted", name)
 		}
 	}

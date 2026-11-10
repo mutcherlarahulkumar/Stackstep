@@ -52,10 +52,10 @@ describe("calendar timeline (CA8)", () => {
       ],
       "Asia/Kolkata",
     );
-    const by = Object.fromEntries(placed.map((p) => [p.entry.title, p]));
-    expect(by.Standup).toMatchObject({ top: 570, height: 30, col: 0, cols: 2 });
-    expect(by["Two Sum"]).toMatchObject({ col: 1, cols: 2 });
-    expect(by.Class).toMatchObject({ top: 18 * 60, height: 60, cols: 1 });
+    const by = new Map(placed.map((p) => [p.entry.title ?? "", p]));
+    expect(by.get("Standup")).toMatchObject({ top: 570, height: 30, col: 0, cols: 2 });
+    expect(by.get("Two Sum")).toMatchObject({ col: 1, cols: 2 });
+    expect(by.get("Class")).toMatchObject({ top: 18 * 60, height: 60, cols: 1 });
   });
   it("lays out days, weeks and months and moves between them", () => {
     expect(daysOf("week", "2026-11-12")[0]).toBe("2026-11-09");

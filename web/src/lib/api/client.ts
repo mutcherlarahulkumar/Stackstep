@@ -75,7 +75,7 @@ export type ApplicationDecisionInput = {
   expected_version: number;
 };
 
-type Method = "GET" | "POST" | "PUT" | "PATCH";
+type Method = "GET" | "POST" | "PUT" | "PATCH" | "DELETE";
 export type PersonInput = { github_login: string; name?: string; email?: string };
 export type EnrollSettings = { cohort_id: string | null; program_slug?: string; start_date: string | null; timezone: string; flow_id: string | null };
 export type ClassInput = {
@@ -180,13 +180,42 @@ export class ApiClient {
     return this.send("POST", "/v1/me/onboarded", S.Account);
   }
 
-  /** Everything we hold about the caller, as a JSON file. */
   async myTasks() {
     return (await this.send("GET", "/v1/me/tasks", S.TaskList)).items;
   }
 
   calendar() {
     return this.send("GET", "/v1/me/calendar", S.Calendar);
+  }
+
+  myAttendance() {
+    return this.send("GET", "/v1/me/attendance", S.Attendance);
+  }
+
+  users(f: { q?: string; kind?: S.UserKind; cohortId?: string | null; flowId?: string | null; cursor?: string | null }) {
+    return this.send("GET", "/v1/admin/users", S.UserPage, {
+      query: { q: f.q || null, kind: f.kind ?? null, cohort_id: f.cohortId ?? null, flow_id: f.flowId ?? null, cursor: f.cursor ?? null },
+    });
+  }
+
+  profile(id: string) {
+    return this.send("GET", `/v1/admin/users/${seg(id)}`, S.Profile);
+  }
+
+  signOutEverywhere(id: string) {
+    return this.send("POST", `/v1/admin/users/${seg(id)}/sign-out`, null);
+  }
+
+  addStaffNote(userId: string, body: string) {
+    return this.send("POST", `/v1/admin/users/${seg(userId)}/notes`, S.StaffNote, { body: { body } });
+  }
+
+  editStaffNote(id: string, patch: { body?: string; done?: boolean }) {
+    return this.send("PATCH", `/v1/admin/notes/${seg(id)}`, S.StaffNote, { body: patch });
+  }
+
+  deleteStaffNote(id: string) {
+    return this.send("DELETE", `/v1/admin/notes/${seg(id)}`, null);
   }
 
   async myClasses() {
