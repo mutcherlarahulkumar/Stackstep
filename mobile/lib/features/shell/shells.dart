@@ -12,6 +12,7 @@ import 'package:stackstep/features/apply/application_status.dart';
 import 'package:stackstep/features/calendar/calendar_screen.dart';
 import 'package:stackstep/features/chat/inbox_controller.dart';
 import 'package:stackstep/features/chat/inbox_screen.dart';
+import 'package:stackstep/features/help/help_screen.dart';
 import 'package:stackstep/features/mail/mail_screen.dart';
 import 'package:stackstep/features/progress/progress_screen.dart';
 import 'package:stackstep/features/tasks/board_screen.dart';
@@ -30,6 +31,9 @@ class _AccountMenu extends ConsumerWidget {
       offset: const Offset(0, 48),
       onSelected: (v) async {
         switch (v) {
+          case 'help':
+            Navigator.of(context).push(MaterialPageRoute<void>(builder: (_) => const HelpScreen()));
+            return;
           case 'privacy':
             return await openLink(context, AppConfig.webUrl('/privacy'));
           case 'terms':
@@ -55,6 +59,7 @@ class _AccountMenu extends ConsumerWidget {
       itemBuilder: (_) => [
         PopupMenuItem(enabled: false, child: Text('${user.name}\n@${user.githubLogin}')),
         const PopupMenuDivider(),
+        const PopupMenuItem(value: 'help', child: Text('Help')),
         const PopupMenuItem(value: 'privacy', child: Text('Privacy')),
         const PopupMenuItem(value: 'terms', child: Text('Terms')),
         const PopupMenuDivider(),

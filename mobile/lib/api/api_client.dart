@@ -174,6 +174,23 @@ final class ApiClient {
 
   Future<Calendar> myCalendar() async => Calendar.fromJson(asObject(await _send('GET', '/v1/me/calendar')));
 
+  /// The help assistant answers from the student guide; it needs no sign-in.
+  Future<HelpAnswer> askHelp(String question, List<({String role, String content})> history) async => HelpAnswer.fromJson(
+    asObject(
+      await _send(
+        'POST',
+        '/v1/help/ask',
+        body: {
+          'question': question,
+          'history': [
+            for (final h in history) {'role': h.role, 'content': h.content},
+          ],
+        },
+        auth: false,
+      ),
+    ),
+  );
+
   Future<Attendance> myAttendance() async => Attendance.fromJson(asObject(await _send('GET', '/v1/me/attendance')));
 
   Future<MailPage> myMail({String? cursor, int limit = 50}) async =>

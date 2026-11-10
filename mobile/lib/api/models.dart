@@ -1459,3 +1459,17 @@ class Attendance {
 
   int get percent => present + missed == 0 ? 0 : (present * 100 / (present + missed)).round();
 }
+
+/// The help assistant's answer and the guide topics it drew on (feature 26).
+class HelpAnswer {
+  const HelpAnswer({required this.answer, required this.ai, required this.topics});
+
+  factory HelpAnswer.fromJson(JsonReader j) =>
+      HelpAnswer(answer: j.string('answer'), ai: j.boolean('ai'), topics: j.list('topics', (t) => t.string('title')));
+
+  final String answer;
+
+  /// False when the guide's own words came back (no AI, or it was busy).
+  final bool ai;
+  final List<String> topics;
+}

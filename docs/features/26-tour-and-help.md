@@ -28,6 +28,7 @@ phone app, paused internships, privacy and where to get more help. It never cove
 - Each answer names the topics it came from. Suggested questions get people started.
 - Anyone can ask, signed in or not: it's on the home page, Get the app, the workspace (in
   the header), Mail, Calendar and Attendance. It is not shown in the staff console.
+- In the phone app it is under the account menu, **Help**, as its own chat screen.
 - `POST /v1/help/ask` needs no sign-in and is limited to a few questions a minute per visitor.
 
 ## Edge cases
@@ -41,6 +42,7 @@ phone app, paused internships, privacy and where to get more help. It never cove
 | HB5 | Blank, too long, or a forged system turn | 422 | backend `TestHelpBot` |
 | HB6 | Signed out on the home page | The panel opens and answers; Escape closes it | E2E `help.spec.ts` |
 | HB7 | Topic search | Common questions find the right topic first; nonsense finds none | backend `TestSearch` |
+| HB8 | App | Strict decoding; no auth header; suggestions ask straight away; recent turns go along; the source topic shows | Flutter `help_test.dart` |
 | TR1 | Workspace tour from the account menu | Steps in order; arrow keys move; Finish ends it | E2E `help.spec.ts` |
 | TR2 | Tour from the help panel | Starts the same tour; the close button ends it | E2E `help.spec.ts` |
 | TR3 | Console | A staff tour from the account menu; no help assistant | E2E `help.spec.ts` |
