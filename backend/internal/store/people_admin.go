@@ -35,8 +35,12 @@ func TouchUser(ctx context.Context, q Q, id uuid.UUID, now time.Time) error {
 }
 
 // MarkAttendance records the student's first visit on a local date. The seat is the order
-// they arrived in that day. Later visits the same day change nothing.
+// they arrived in that day. Later visits the same day change nothing. Run it in a
+// transaction: a per-day lock keeps two students arriving together from sharing a seat.
 func MarkAttendance(ctx context.Context, q Q, userID uuid.UUID, day, now time.Time) error {
+	if _, err := q.Exec(ctx, `SELECT pg_advisory_xact_lock(hashtext('attendance:' || $1::date::text))`, day); err != nil {
+		return fmt.Errorf("attendance lock: %w", err)
+	}
 	_, err := q.Exec(ctx, `
 		INSERT INTO attendance (user_id, day, seat, first_seen_at)
 		SELECT $1, $2::date, (SELECT count(*) + 1 FROM attendance a WHERE a.day = $2::date), $3
@@ -123,8 +127,7 @@ func ListUsers(ctx context.Context, q Q, f UserFilter, now time.Time) ([]UserDir
 		add("(u.college_id = ? OR le.college_id = ?)", *f.College)
 	}
 	if f.Search != "" {
-		pattern := "%" + strings.NewReplacer(`\`, `\\`, "%", `\%`, "_", `\_`).Replace(f.Search) + "%"
-		add("(u.name ILIKE ? OR u.github_login ILIKE ? OR u.email ILIKE ?)", pattern)
+		add("(u.name ILIKE ? OR u.github_login ILIKE ? OR u.email ILIKE ?)", likePattern(f.Search))
 	}
 	if f.Cohort != nil {
 		add("le.cohort_id = ?", *f.Cohort)

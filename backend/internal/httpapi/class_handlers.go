@@ -232,7 +232,12 @@ func (s *Server) classSocket(c *gin.Context) {
 			case <-ctx.Done():
 				return
 			case <-peer.Closed():
-				_ = conn.Close(websocket.StatusNormalClosure, "class ended")
+				if peer.Ended() {
+					_ = conn.Close(classCloseClosed, "class ended")
+				} else {
+					// It fell behind and was dropped; the client reconnects and gets the room afresh.
+					_ = conn.Close(websocket.StatusTryAgainLater, "reconnect")
+				}
 				return
 			case b := <-peer.Outbox():
 				wctx, cancel := context.WithTimeout(ctx, wsWriteTimeout)

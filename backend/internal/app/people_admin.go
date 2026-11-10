@@ -3,6 +3,7 @@ package app
 import (
 	"context"
 	"errors"
+	"time"
 	"unicode/utf8"
 
 	"github.com/google/uuid"
@@ -33,7 +34,18 @@ func (w *Workspace) MarkPresent(ctx context.Context, u domain.User) error {
 	if e.Status != domain.EnrollmentActive || day.Before(e.StartDate) || day.After(e.EndDate) {
 		return nil
 	}
-	return store.MarkAttendance(ctx, w.Store.Pool, u.ID, day, now)
+	// Skip the write when this student was marked today within the last few minutes. The
+	// short window means a wiped database is re-marked soon after, not the next day.
+	if v, ok := w.marked.Load(u.ID); ok {
+		if m, ok := v.(markedDay); ok && m.day.Equal(day) && now.Sub(m.at) < 10*time.Minute {
+			return nil
+		}
+	}
+	if err := w.Store.Tx(ctx, func(q store.Q) error { return store.MarkAttendance(ctx, q, u.ID, day, now) }); err != nil {
+		return err
+	}
+	w.marked.Store(u.ID, markedDay{day: day, at: now})
+	return nil
 }
 
 // attendanceOf builds the record for an enrollment.

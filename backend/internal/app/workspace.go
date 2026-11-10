@@ -32,6 +32,14 @@ type Workspace struct {
 	Background func(func())
 
 	bg sync.WaitGroup
+	// marked remembers who was marked present recently (user id → markedDay), so opening
+	// the app again doesn't write attendance on every page load.
+	marked sync.Map
+}
+
+type markedDay struct {
+	day time.Time
+	at  time.Time
 }
 
 // later runs f after the current request, tracked so Drain can wait for it on shutdown.

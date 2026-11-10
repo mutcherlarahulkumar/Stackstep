@@ -13,6 +13,7 @@ import (
 	"sort"
 	"strconv"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/google/uuid"
@@ -48,6 +49,7 @@ type Peer struct {
 	send   chan []byte
 	closed chan struct{}
 	once   sync.Once
+	ended  atomic.Bool // closed because the class ended, not because it fell behind
 
 	hand bool
 	mic  bool // allowed to speak
@@ -69,6 +71,10 @@ func (p *Peer) Outbox() <-chan []byte { return p.send }
 
 // Closed fires when the room drops the peer (slow consumer, class ended).
 func (p *Peer) Closed() <-chan struct{} { return p.closed }
+
+// Ended reports whether the peer was closed because the class ended. Otherwise it fell
+// behind and may reconnect.
+func (p *Peer) Ended() bool { return p.ended.Load() }
 
 func (p *Peer) close() { p.once.Do(func() { close(p.closed) }) }
 
@@ -129,6 +135,7 @@ type Room struct {
 	strokes   []Stroke
 	presenter string
 	ended     bool
+	gone      bool // removed from the hub; joiners must make a new room
 	seq       int
 	empty     *time.Timer
 }
@@ -241,6 +248,7 @@ func (r *Room) dropLocked(p *Peer) {
 	p.close()
 	if r.presenter == p.ID {
 		r.presenter = ""
+		r.strokes = nil // clients clear the drawing when nobody presents; keep the room in step
 		r.broadcast(Out{Type: "presenter", Presenter: r.presenterPtr()}, "")
 	}
 	r.broadcast(Out{Type: "peer_left", PeerID: p.ID}, "")
@@ -266,15 +274,22 @@ func NewHub(maxPeers int, now func() time.Time) *Hub {
 
 // Join adds a peer and sends them the room as it is now; everyone else hears they arrived.
 func (h *Hub) Join(classID uuid.UUID, p *Peer) (*Room, error) {
-	h.mu.Lock()
-	r := h.rooms[classID]
-	if r == nil {
-		r = &Room{ClassID: classID, peers: map[string]*Peer{}}
-		h.rooms[classID] = r
+	var r *Room
+	for {
+		h.mu.Lock()
+		r = h.rooms[classID]
+		if r == nil {
+			r = &Room{ClassID: classID, peers: map[string]*Peer{}}
+			h.rooms[classID] = r
+		}
+		h.mu.Unlock()
+		r.mu.Lock()
+		if !r.gone {
+			break
+		}
+		// The grace timer forgot this room between the lookup and the lock; use a fresh one.
+		r.mu.Unlock()
 	}
-	h.mu.Unlock()
-
-	r.mu.Lock()
 	defer r.mu.Unlock()
 	if r.ended {
 		return nil, ErrEnded
@@ -312,17 +327,19 @@ func (h *Hub) Leave(r *Room, p *Peer) {
 }
 
 func (h *Hub) forget(r *Room) {
+	// Hub lock first, then the room's: nobody can take this room from the map and join it
+	// while we decide, and a joiner that already has it sees gone and starts again.
+	h.mu.Lock()
+	defer h.mu.Unlock()
 	r.mu.Lock()
-	still := len(r.peers) == 0
-	r.mu.Unlock()
-	if !still {
+	defer r.mu.Unlock()
+	if len(r.peers) != 0 {
 		return
 	}
-	h.mu.Lock()
+	r.gone = true
 	if h.rooms[r.ClassID] == r {
 		delete(h.rooms, r.ClassID)
 	}
-	h.mu.Unlock()
 }
 
 // Live reports whether a class has a room right now and how many are in it.
@@ -351,6 +368,7 @@ func (h *Hub) End(classID uuid.UUID) {
 	r.ended = true
 	r.broadcast(Out{Type: "ended"}, "")
 	for _, p := range r.peers {
+		p.ended.Store(true)
 		p.close()
 	}
 	r.peers = map[string]*Peer{}
@@ -479,6 +497,7 @@ func (r *Room) Handle(p *Peer, in In, now time.Time) (end bool) {
 			r.presenter = p.ID
 		} else if r.presenter == p.ID {
 			r.presenter = ""
+			r.strokes = nil
 		}
 		r.broadcast(Out{Type: "presenter", Presenter: r.presenterPtr()}, "")
 	case "signal":

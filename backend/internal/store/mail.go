@@ -149,13 +149,15 @@ func GetMailHead(ctx context.Context, q Q, id uuid.UUID) (Mail, error) {
 // AudienceStudents resolves an announcement's readers: students with an open internship
 // (active or paused) on the flow or in the cohort, limited to a college when college is set.
 func AudienceStudents(ctx context.Context, q Q, a domain.Audience, flow, cohort, college *uuid.UUID) ([]uuid.UUID, error) {
+	// A student without a cohort belongs to their own college, as everywhere else.
 	rows, err := q.Query(ctx, `SELECT DISTINCT e.user_id FROM enrollments e
+		JOIN users u ON u.id = e.user_id
 		LEFT JOIN cohorts co ON co.id = e.cohort_id
 		LEFT JOIN flow_versions fv ON fv.id = e.flow_version_id
 		WHERE e.status IN ('active', 'paused')
 		  AND ($1 <> 'flow' OR fv.flow_id = $2)
 		  AND ($1 <> 'cohort' OR e.cohort_id = $3)
-		  AND ($4::uuid IS NULL OR co.college_id = $4)`, string(a), flow, cohort, college)
+		  AND ($4::uuid IS NULL OR COALESCE(co.college_id, u.college_id) = $4)`, string(a), flow, cohort, college)
 	if err != nil {
 		return nil, fmt.Errorf("audience: %w", err)
 	}

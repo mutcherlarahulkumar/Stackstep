@@ -364,9 +364,9 @@ func InboxStudents(ctx context.Context, q Q, now time.Time, f InboxStudentFilter
 		  AND ($2::uuid IS NULL OR COALESCE(co.college_id, u.college_id) = $2)
 		  AND ($3::uuid IS NULL OR fv.flow_id = $3)
 		  AND ($4::uuid IS NULL OR e.cohort_id = $4)
-		  AND ($5 = '' OR u.name ILIKE '%' || $5 || '%' OR u.github_login ILIKE '%' || $5 || '%')
+		  AND ($5 = '' OR u.name ILIKE $5 OR u.github_login ILIKE $5)
 		ORDER BY (COALESCE(s.unread, 0) > 0) DESC, s.last_at DESC NULLS LAST, lower(u.name), e.id
-		OFFSET $6 LIMIT $7`, now, f.College, f.FlowID, f.CohortID, f.Search, f.Offset, f.Limit)
+		OFFSET $6 LIMIT $7`, now, f.College, f.FlowID, f.CohortID, likePattern(f.Search), f.Offset, f.Limit)
 	if err != nil {
 		return nil, fmt.Errorf("inbox students: %w", err)
 	}

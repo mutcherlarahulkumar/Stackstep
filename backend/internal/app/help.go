@@ -59,7 +59,7 @@ func (h *Helper) AskHelp(ctx context.Context, question string, history []ai.Mess
 		topics = help.Search(lookup, 4)
 	}
 	out := HelpAnswer{Answer: help.Fallback(topics), Topics: topics}
-	if !h.Limits.Enabled() || h.AI == nil || !h.limiter().Allow() {
+	if !h.Limits.Enabled() || h.AI == nil || !h.helpLimiter().Allow() {
 		return out, nil
 	}
 	ctx, cancel := context.WithTimeout(ctx, 20*time.Second)
