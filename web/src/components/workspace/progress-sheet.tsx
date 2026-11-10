@@ -22,9 +22,9 @@ export function ProgressButton({ enrollment }: { enrollment: Enrollment }) {
   return (
     <Sheet>
       <SheetTrigger asChild>
-        <Button variant="outline" size="sm" className="gap-2 rounded-full" data-testid="open-progress" aria-label="Your progress and certificate">
+        <Button variant="outline" size="sm" className="gap-2 rounded-full" data-testid="open-progress" data-tour="progress" aria-label="Your progress and certificate">
           <Award className="text-primary" aria-hidden />
-          {pct === undefined ? "Progress" : <span className="tabular-nums">{pct}% done</span>}
+          {pct === undefined ? <span className="max-sm:sr-only">Progress</span> : <span className="tabular-nums">{pct}%<span className="max-sm:sr-only"> done</span></span>}
         </Button>
       </SheetTrigger>
       <SheetContent className="w-full overflow-y-auto sm:max-w-md">

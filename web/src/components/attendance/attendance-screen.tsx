@@ -12,6 +12,7 @@ import { useSession } from "@/lib/session";
 import { AppHeader } from "../app/app-header";
 import { RequireSession } from "../app/guard";
 import { EmptyState, ErrorState, ListSkeleton } from "../app/state";
+import { HelpWidget } from "../help/help-widget";
 import { AttendanceSeats, AttendanceStats, Forest } from "./attendance";
 
 export function AttendanceScreen() {
@@ -65,6 +66,7 @@ function AttendanceView({ me }: { me: Me }) {
           </>
         )}
       </main>
+      <HelpWidget />
     </div>
   );
 }

@@ -26,10 +26,12 @@ import {
 
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { detectPlatform, type Platform } from "@/lib/platform";
+import { DEFAULT_ANDROID_URL, detectPlatform, type Platform } from "@/lib/platform";
+import { useSession } from "@/lib/session";
 import { qrPath } from "@/lib/qr";
 import { cn } from "@/lib/utils";
 
+import { HelpWidget } from "../help/help-widget";
 import { Reveal } from "../home/reveal";
 import { SiteNav } from "../home/site-nav";
 import { PhoneInHand, SCREEN_COUNT } from "./phone";
@@ -190,7 +192,10 @@ const FAQ: { q: string; a: ReactNode; for?: Platform }[] = [
   },
 ];
 
-export function DownloadScreen({ links }: { links: AppLinks }) {
+export function DownloadScreen() {
+  const { config } = useSession();
+  // The links come from the server's settings; the APK default works until they load.
+  const links: AppLinks = { android: config?.androidUrl ?? DEFAULT_ANDROID_URL, ios: config?.iosUrl ?? null };
   const platform = usePlatform();
   const p = useHeroScroll();
   const [tab, setTab] = useState<"android" | "ios" | null>(null);
@@ -427,6 +432,7 @@ export function DownloadScreen({ links }: { links: AppLinks }) {
         </nav>
         <span>© Stackstep</span>
       </footer>
+      <HelpWidget />
     </div>
   );
 }

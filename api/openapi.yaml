@@ -28,6 +28,8 @@ tags:
     description: Endpoints that need no sign-in
   - name: inbox
     description: Admin conversations with students, as manager personas
+  - name: help
+    description: The student help assistant
   - name: people
     description: Colleges, cohorts, enrollment (one or by CSV), internship status and staff roles
   - name: mail
@@ -220,6 +222,53 @@ paths:
       responses:
         "200": { description: Calendar, content: { application/json: { schema: { $ref: "#/components/schemas/Calendar" } } } }
         "409": { $ref: "#/components/responses/Error" }
+  /v1/help/ask:
+    post:
+      tags: [help]
+      operationId: askHelp
+      summary: Ask the help assistant how to use Stackstep (student side only)
+      description: >-
+        Answers from Stackstep's student guide. With the AI configured the model writes the answer
+        from the matching topics; otherwise the best topic is returned as written (ai false). No
+        sign-in needed; limited to a few questions a minute per visitor.
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [question]
+              properties:
+                question: { type: string, minLength: 1, maxLength: 500 }
+                history:
+                  type: array
+                  maxItems: 6
+                  description: The latest turns of this conversation, oldest first
+                  items:
+                    type: object
+                    additionalProperties: false
+                    required: [role, content]
+                    properties:
+                      role: { type: string, enum: [user, assistant] }
+                      content: { type: string, minLength: 1, maxLength: 1500 }
+      responses:
+        "200":
+          description: Answer
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [answer, ai, topics]
+                properties:
+                  answer: { type: string }
+                  ai: { type: boolean }
+                  topics:
+                    type: array
+                    items: { type: object, required: [id, title], properties: { id: { type: string }, title: { type: string } } }
+        "422": { $ref: "#/components/responses/Error" }
+        "429": { $ref: "#/components/responses/Error" }
   /v1/me/attendance:
     get:
       tags: [student]

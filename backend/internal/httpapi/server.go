@@ -56,6 +56,7 @@ type Server struct {
 	signInLimit  *ipLimiter
 	refreshLimit *ipLimiter
 	reportLimit  *ipLimiter
+	helpLimit    *ipLimiter
 	seen         sync.Map // user id → when last-seen was last written
 }
 
@@ -94,6 +95,7 @@ func New(d Deps) *Server {
 		refreshLimit: newIPLimiter(perMinute(4*d.Config.AuthRatePerMinute), 4*d.Config.AuthRatePerMinute),
 		// Crash reports from the web app: plenty for a real problem, not a log flood.
 		reportLimit: newIPLimiter(perMinute(20), 20),
+		helpLimit:   newIPLimiter(perMinute(12), 6),
 	}
 }
 
@@ -130,6 +132,8 @@ func (s *Server) Handler() http.Handler {
 	a.POST("/logout", session, s.logout)
 	// The web app reports its crashes here (logged, never stored); no sign-in needed.
 	v1.POST("/client-errors", s.limit(s.reportLimit), s.clientError)
+	// The help bot answers from the student guide; anyone may ask, a few times a minute.
+	v1.POST("/help/ask", s.limit(s.helpLimit), s.askHelp)
 
 	authed := v1.Group("", s.authenticate)
 	authed.GET("/me", s.me)

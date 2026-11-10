@@ -59,6 +59,7 @@ import { AppHeader } from "../app/app-header";
 import { RequireSession } from "../app/guard";
 import { TYPE_ICON } from "../app/task-badges";
 import { EmptyState, ErrorState, ListSkeleton } from "../app/state";
+import { HelpWidget } from "../help/help-widget";
 
 export function useCalendar() {
   const { api } = useSession();
@@ -112,6 +113,7 @@ function Shell({ me, children }: { me: Me; children: ReactNode }) {
       <main id="main" className="flex min-h-0 flex-1 flex-col">
         {children}
       </main>
+      <HelpWidget />
     </div>
   );
 }

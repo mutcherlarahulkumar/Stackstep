@@ -361,7 +361,12 @@ export const Frame = z.discriminatedUnion("type", [
 ]);
 export type Frame = z.output<typeof Frame>;
 
-export const RuntimeConfig = z.object({ wsUrl: z.string().min(1) });
+export const RuntimeConfig = z.object({
+  wsUrl: z.string().min(1),
+  /** Get the app links; older servers leave them out. */
+  androidUrl: z.string().min(1).optional(),
+  iosUrl: z.string().min(1).nullable().optional(),
+});
 export type RuntimeConfig = z.output<typeof RuntimeConfig>;
 
 export const CreditEntry = z.object({
@@ -846,3 +851,12 @@ export const Profile = z.object({
   notes: z.array(StaffNote),
 });
 export type Profile = z.output<typeof Profile>;
+
+export const HelpAnswer = z.object({
+  answer: z.string(),
+  ai: z.boolean(),
+  topics: z.array(z.object({ id: z.string(), title: z.string() })),
+});
+export type HelpAnswer = z.output<typeof HelpAnswer>;
+export type HelpTurn = { role: "user" | "assistant"; content: string };
+

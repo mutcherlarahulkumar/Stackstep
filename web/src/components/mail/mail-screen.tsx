@@ -18,6 +18,7 @@ import { AppHeader } from "../app/app-header";
 import { RequireSession } from "../app/guard";
 import { outline, Prose, readingMinutes } from "../app/prose";
 import { EmptyState, ErrorState, ListSkeleton } from "../app/state";
+import { HelpWidget } from "../help/help-widget";
 
 export const MAIL_STYLE: Record<MailKind, { label: string; icon: LucideIcon; tone: string }> = {
   announcement: { label: "Announcement", icon: Megaphone, tone: "bg-violet-500/12 text-violet-700 dark:text-violet-300" },
@@ -142,6 +143,7 @@ function MailView({ me }: { me: Me }) {
           <div className="flex h-full flex-col">{list}</div>
         )}
       </main>
+      <HelpWidget />
     </div>
   );
 }

@@ -15,6 +15,7 @@ test("get the app on a desktop shows both phones and a QR code (DL2)", async ({
 }) => {
   await page.goto("/download");
   const ctas = page.getByTestId("download-ctas");
+  await expect(page.getByTestId("download-qr")).toBeVisible();
   await expect(ctas.getByTestId("download-android")).toHaveAttribute(
     "href",
     /stackstep\.apk$/,
@@ -41,6 +42,8 @@ test.describe("on an Android phone", () => {
   }) => {
     await page.goto("/download");
     const ctas = page.getByTestId("download-ctas");
+    // The buttons settle once the page knows the device.
+    await expect(ctas.getByTestId("download-android")).toHaveCount(1);
     await expect(ctas.getByTestId("download-android")).toBeVisible();
     await expect(ctas.getByTestId("download-ios")).toHaveCount(0);
     await expect(page.getByTestId("download-qr")).toHaveCount(0);

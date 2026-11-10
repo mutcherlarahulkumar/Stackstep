@@ -1,7 +1,7 @@
 "use client";
 
 import { useMutation } from "@tanstack/react-query";
-import { ArrowLeft, ArrowRight, GitPullRequest, MessagesSquare, Sparkles, SquareKanban, type LucideIcon } from "lucide-react";
+import { ArrowLeft, ArrowRight, GitPullRequest, MessagesSquare, Sparkles, SquareKanban, type LucideIcon, Compass } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
 
@@ -12,6 +12,7 @@ import { messageFor } from "@/lib/api/errors";
 import { GUIDE, type GuideIcon } from "@/lib/onboarding";
 import { useSession } from "@/lib/session";
 import { cn } from "@/lib/utils";
+import { startTour } from "../help/tour";
 
 const ICON: Record<GuideIcon, LucideIcon> = {
   board: SquareKanban,
@@ -70,10 +71,23 @@ export function OnboardingDialog() {
               </Button>
             ) : null}
             {last ? (
-              <Button onClick={finish} disabled={done.isPending} data-testid="onboarding-done">
-                {done.isPending ? <Spinner data-icon="inline-start" /> : null}
-                Let&apos;s go
-              </Button>
+              <>
+                <Button
+                  variant="outline"
+                  onClick={() => {
+                    finish();
+                    // Let the dialog close before the spotlight measures the page.
+                    setTimeout(startTour, 250);
+                  }}
+                  data-testid="onboarding-tour"
+                >
+                  <Compass data-icon="inline-start" aria-hidden /> Show me around
+                </Button>
+                <Button onClick={finish} disabled={done.isPending} data-testid="onboarding-done">
+                  {done.isPending ? <Spinner data-icon="inline-start" /> : null}
+                  Let&apos;s go
+                </Button>
+              </>
             ) : (
               <Button onClick={() => setStep(step + 1)} data-testid="onboarding-next">
                 Next <ArrowRight data-icon="inline-end" aria-hidden />

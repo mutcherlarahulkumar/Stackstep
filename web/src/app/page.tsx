@@ -25,6 +25,7 @@ import { HeroDemo } from "@/components/home/hero-demo";
 import { Reveal } from "@/components/home/reveal";
 import { PrimaryCta, SiteNav } from "@/components/home/site-nav";
 import { VerifyBand } from "@/components/home/verify-band";
+import { HelpWidget } from "@/components/help/help-widget";
 import { Wordmark } from "@/components/app/brand";
 import { Button } from "@/components/ui/button";
 
@@ -268,6 +269,7 @@ export default function Home() {
           <span>© Stackstep</span>
         </div>
       </footer>
+      <HelpWidget />
     </div>
   );
 }

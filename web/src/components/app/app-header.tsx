@@ -1,7 +1,8 @@
 "use client";
 
-import { Bell, BellOff, FileText, LogOut, ShieldCheck } from "lucide-react";
+import { Bell, BellOff, FileText, LogOut, ShieldCheck, Compass, Moon, Sun } from "lucide-react";
 import Link from "next/link";
+import { useTheme } from "next-themes";
 import { type ReactNode } from "react";
 import { toast } from "sonner";
 
@@ -22,12 +23,15 @@ import { useSession } from "@/lib/session";
 
 import { Wordmark } from "./brand";
 import { ThemeToggle } from "./theme-toggle";
+import { startTour, useTourAvailable } from "../help/tour";
 
 const ROLE_LABEL: Record<User["role"], string> = { student: "Intern", college_admin: "College admin", admin: "Admin" };
 
 export function AppHeader({ user, children }: { user: User; children?: ReactNode }) {
   const { signOut } = useSession();
   const notifications = useNotificationToggle();
+  const tour = useTourAvailable();
+  const { resolvedTheme, setTheme } = useTheme();
   const toggleNotifications = async () => {
     const next = await notifications.toggle();
     if (next === "on") toast.success("Notifications on. You'll hear about messages and reviews while Stackstep is in the background.");
@@ -37,10 +41,12 @@ export function AppHeader({ user, children }: { user: User; children?: ReactNode
   return (
     <header className="bg-background/85 sticky top-0 z-40 print:hidden flex h-14 items-center gap-3 border-b px-4 backdrop-blur supports-backdrop-filter:bg-background/70 sm:px-6">
       <Link href="/" className="flex shrink-0 items-center rounded-md" aria-label="Stackstep home">
-        <Wordmark />
+        <Wordmark className="[&>span:last-child]:max-sm:sr-only" />
       </Link>
       <div className="flex min-w-0 flex-1 items-center gap-3">{children}</div>
-      <ThemeToggle />
+      <span className="max-sm:hidden">
+        <ThemeToggle />
+      </span>
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
           <Button variant="ghost" size="icon" className="rounded-full" aria-label="Account menu">
@@ -67,6 +73,15 @@ export function AppHeader({ user, children }: { user: User; children?: ReactNode
               </span>
             </DropdownMenuItem>
           )}
+          <DropdownMenuItem className="sm:hidden" onSelect={() => setTheme(resolvedTheme === "dark" ? "light" : "dark")}>
+            <Sun className="dark:hidden" aria-hidden />
+            <Moon className="hidden dark:block" aria-hidden /> {resolvedTheme === "dark" ? "Light mode" : "Dark mode"}
+          </DropdownMenuItem>
+          {tour ? (
+            <DropdownMenuItem onSelect={() => startTour()} data-testid="menu-tour">
+              <Compass aria-hidden /> Take the tour
+            </DropdownMenuItem>
+          ) : null}
           <DropdownMenuItem asChild>
             <Link href="/privacy" target="_blank">
               <ShieldCheck aria-hidden /> Privacy

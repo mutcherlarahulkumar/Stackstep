@@ -188,6 +188,11 @@ export class ApiClient {
     return this.send("GET", "/v1/me/calendar", S.Calendar);
   }
 
+  /** The help assistant; works signed in or out. */
+  askHelp(question: string, history: S.HelpTurn[]) {
+    return this.send("POST", "/v1/help/ask", S.HelpAnswer, { body: { question, history }, auth: false });
+  }
+
   myAttendance() {
     return this.send("GET", "/v1/me/attendance", S.Attendance);
   }

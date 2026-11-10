@@ -13,6 +13,8 @@ A public page at `/download` that helps anyone install the phone app.
 - Install steps for each platform, in tabs, opened on the visitor's own platform.
 - Troubleshooting questions and answers, with the visitor's platform first.
 - Linked from the site nav, the home page feature grid and both footers.
+- The links come from `/api/web-config` (`APP_ANDROID_URL`, `APP_IOS_URL`), so the page itself
+  is static and the right button shows as soon as the device is known.
 
 ## Edge cases
 
