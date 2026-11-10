@@ -2,7 +2,8 @@
 
 import { useInfiniteQuery, useQuery, useQueryClient } from "@tanstack/react-query";
 import { ArrowLeft, ChevronRight, Inbox, Megaphone, MessageSquarePlus, Search, UsersRound } from "lucide-react";
-import { useCallback, useDeferredValue, useMemo, useState } from "react";
+import { useSearchParams } from "next/navigation";
+import { useCallback, useDeferredValue, useEffect, useMemo, useRef, useState } from "react";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -40,6 +41,10 @@ export function InboxScreen() {
   const [student, setStudent] = useState<InboxStudent | null>(null);
   const [open, setOpen] = useState<Open | null>(null);
   const [broadcast, setBroadcast] = useState(false);
+  // A profile's Chats button links here with the student (?student=<login>&enrollment=<id>).
+  const params = useSearchParams();
+  const linkedLogin = params.get("student") ?? "";
+  const linkedEnrollment = params.get("enrollment");
   return (
     <AdminShell section="inbox" phone="allow">
       {(_me, desktop) => {
@@ -74,6 +79,8 @@ export function InboxScreen() {
         const left =
           mode === "students" ? (
             <StudentColumn
+              initialSearch={linkedLogin}
+              autoPick={linkedEnrollment}
               selected={student?.enrollment_id ?? open?.enrollmentId ?? null}
               onPick={(s) => {
                 setStudent(s);
@@ -187,15 +194,35 @@ function useInboxStudents(f: { flowId: string; cohortId: string; q: string }) {
   return query;
 }
 
-function StudentColumn({ selected, onPick }: { selected: string | null; onPick: (s: InboxStudent) => void }) {
+function StudentColumn({
+  selected,
+  onPick,
+  initialSearch = "",
+  autoPick = null,
+}: {
+  selected: string | null;
+  onPick: (s: InboxStudent) => void;
+  initialSearch?: string;
+  autoPick?: string | null;
+}) {
   const flows = useFlows();
   const cohorts = useCohorts();
   const [flowId, setFlowId] = useState(ANY);
   const [cohortId, setCohortId] = useState(ANY);
-  const [search, setSearch] = useState("");
+  const [search, setSearch] = useState(initialSearch);
   const q = useDeferredValue(search);
   const list = useInboxStudents({ flowId, cohortId, q });
   const items = useMemo(() => (list.data?.pages ?? []).flatMap((p) => p.items), [list.data]);
+  // Open the linked student once, as soon as their row loads.
+  const autoDone = useRef(false);
+  useEffect(() => {
+    if (autoDone.current || !autoPick) return;
+    const hit = items.find((s) => s.enrollment_id === autoPick);
+    if (hit) {
+      autoDone.current = true;
+      onPick(hit);
+    }
+  }, [items, autoPick, onPick]);
   const [now] = useState(() => new Date());
   return (
     <div className="flex min-h-0 flex-1 flex-col">
