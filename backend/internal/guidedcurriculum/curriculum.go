@@ -6,6 +6,7 @@ import (
 	"embed"
 	"encoding/json"
 	"fmt"
+	"strings"
 
 	"github.com/google/uuid"
 
@@ -101,7 +102,7 @@ func Entries(p Personas) ([]Entry, error) {
 		if err != nil {
 			return nil, fmt.Errorf("lesson %s: %w", t.lesson, err)
 		}
-		t.content.Documents = []domain.TaskDocument{{Title: "Guide: " + t.title, Body: string(body)}}
+		t.content.Documents = []domain.TaskDocument{{Title: "Guide: " + t.title, Body: strings.TrimRight(string(body), "\n") + "\n" + credits(t.content.Resources)}}
 		if t.content.Resources == nil {
 			t.content.Resources = []domain.Resource{}
 		}
@@ -144,4 +145,20 @@ func reactQuiz() *domain.Quiz {
 		{Prompt: "An old search response arrives after the latest search. What should the UI do?", Options: []string{"Always show the last response to arrive", "Ignore responses that do not belong to the active request", "Clear all filters"}, Answer: 1},
 		{Prompt: "What is an effect cleanup useful for?", Options: []string{"Removing subscriptions or cancelling obsolete work", "Mutating props before rendering", "Replacing validation"}, Answer: 0},
 	}}
+}
+
+// credits closes every lesson: who wrote it, and the free resources it builds on. The reader
+// opens each link in a new tab.
+func credits(rs []domain.Resource) string {
+	var b strings.Builder
+	b.WriteString("\n## Credits and further reading\n\n")
+	if len(rs) == 0 {
+		b.WriteString("Written in-house by the Stackstep team. Everything you need for this task is on this page.\n")
+		return b.String()
+	}
+	b.WriteString("Written in-house by the Stackstep team. It builds on these free resources, with thanks to their authors. Each link opens in a new tab.\n\n")
+	for _, r := range rs {
+		b.WriteString("- [" + r.Title + "](" + r.URL + ")\n")
+	}
+	return b.String()
 }

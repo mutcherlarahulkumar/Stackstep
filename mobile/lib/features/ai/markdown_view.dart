@@ -102,6 +102,37 @@ class _MarkdownViewState extends State<MarkdownView> {
           ),
         ];
       case 'blockquote':
+        final callout = _callout(node.children ?? const <md.Node>[]);
+        if (callout != null) {
+          final (label, icon, color, kids) = callout;
+          return [
+            Container(
+              padding: const EdgeInsets.all(Space.md),
+              decoration: BoxDecoration(
+                color: color.withValues(alpha: 0.08),
+                border: Border.all(color: color.withValues(alpha: 0.4)),
+                borderRadius: const BorderRadius.all(Radii.md),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Row(
+                    children: [
+                      Icon(icon, size: 16, color: color),
+                      const SizedBox(width: 6),
+                      Text(
+                        label,
+                        style: base.copyWith(fontWeight: FontWeight.w700, color: color),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 4),
+                  for (final c in kids) ..._block(context, c, depth),
+                ],
+              ),
+            ),
+          ];
+        }
         return [
           Container(
             padding: const EdgeInsets.only(left: Space.md),
@@ -123,6 +154,30 @@ class _MarkdownViewState extends State<MarkdownView> {
       default:
         return [Text.rich(_inline(context, node.children ?? const [], base))];
     }
+  }
+
+  /// GitHub-style callouts: a blockquote starting with `[!TIP]`, `[!NOTE]`, `[!IMPORTANT]`,
+  /// `[!WARNING]` or `[!CAUTION]` becomes a coloured box, matching the web reader.
+  static (String, IconData, Color, List<md.Node>)? _callout(List<md.Node> kids) {
+    final first = kids.isEmpty ? null : kids.first;
+    if (first is! md.Element || first.tag != 'p') return null;
+    final inner = first.children ?? const <md.Node>[];
+    final head = inner.isEmpty ? null : inner.first;
+    if (head is! md.Text) return null;
+    final m = RegExp(r'^\[!(\w+)\][ \t]*\n?').firstMatch(head.text);
+    if (m == null) return null;
+    final style = switch (m.group(1)?.toLowerCase()) {
+      'note' => ('Note', LucideIcons.info, const Color(0xFF0284C7)),
+      'tip' => ('Tip', LucideIcons.lightbulb, const Color(0xFF059669)),
+      'important' => ('Important', LucideIcons.info, const Color(0xFF7C3AED)),
+      'warning' => ('Watch out', LucideIcons.triangleAlert, const Color(0xFFD97706)),
+      'caution' => ('Careful', LucideIcons.octagonAlert, const Color(0xFFE11D48)),
+      _ => null,
+    };
+    if (style == null) return null;
+    final rest = head.text.substring(m.end);
+    final para = md.Element('p', [if (rest.isNotEmpty) md.Text(rest), ...inner.skip(1)]);
+    return (style.$1, style.$2, style.$3, [if ((para.children ?? const []).isNotEmpty) para, ...kids.skip(1)]);
   }
 
   Widget _listMarker(md.Element li, String marker, TextStyle base) {

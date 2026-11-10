@@ -46,6 +46,9 @@ payload; the server does not fetch arbitrary URLs to produce previews.
 | TD10 | Phone width, dark mode, long code, or wide table | Readable document; internal scrolling; controls remain reachable | Reader tests and visual review |
 | TD11 | Missing document data or malformed response | Strict client decoding rejects malformed content | Web/mobile model tests |
 | TD12 | Document-bearing request or complete flow exceeds transport cap | Bounded 413 response; ordinary limits stay in place | API request-size tests |
+| RD1 | Every reading task (not vivas or presentations) | Has an in-house lesson written by our team, not only links | backend `TestEveryPublishedCurriculumTaskHasAnInternalGuide` |
+| RD2 | A task with outside resources | The lesson ends with Credits and further reading; every link is http(s) and opens in a new tab | backend curriculum tests, web `prose.test.tsx` |
+| RD3 | Lesson style | A title, at least three sections, callouts (`> [!TIP]` and friends) shown as coloured boxes on web and in the app; no em dashes | backend `TestInHouseLessons`, Flutter `markdown_view_test.dart` |
 
 The native Flutter tests must be run with the pinned SDK before claiming mobile runtime
 verification. Web browser emulation is not evidence that the native app passed its tests.
