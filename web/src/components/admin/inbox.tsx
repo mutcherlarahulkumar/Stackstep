@@ -3,7 +3,7 @@
 import { useInfiniteQuery, useQuery, useQueryClient } from "@tanstack/react-query";
 import { ArrowLeft, ChevronRight, Inbox, Megaphone, MessageSquarePlus, Search, UsersRound } from "lucide-react";
 import { useSearchParams } from "next/navigation";
-import { useCallback, useDeferredValue, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useDeferredValue, useEffect, useMemo, useState } from "react";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -45,6 +45,8 @@ export function InboxScreen() {
   const params = useSearchParams();
   const linkedLogin = params.get("student") ?? "";
   const linkedEnrollment = params.get("enrollment");
+  // The link opens its student once; Back or a mode switch must not snap back to them.
+  const [usedLink, setUsedLink] = useState<string | null>(null);
   return (
     <AdminShell section="inbox" phone="allow">
       {(_me, desktop) => {
@@ -79,13 +81,14 @@ export function InboxScreen() {
         const left =
           mode === "students" ? (
             <StudentColumn
-              initialSearch={linkedLogin}
-              autoPick={linkedEnrollment}
+              initialSearch={usedLink === linkedEnrollment ? "" : linkedLogin}
+              autoPick={usedLink === linkedEnrollment ? null : linkedEnrollment}
               selected={student?.enrollment_id ?? open?.enrollmentId ?? null}
               onPick={(s) => {
                 setStudent(s);
                 setOpen(null);
               }}
+              onAutoPicked={setUsedLink}
             />
           ) : (
             <div className="min-h-0 flex-1 overflow-y-auto p-2">
@@ -199,11 +202,13 @@ function StudentColumn({
   onPick,
   initialSearch = "",
   autoPick = null,
+  onAutoPicked,
 }: {
   selected: string | null;
   onPick: (s: InboxStudent) => void;
   initialSearch?: string;
   autoPick?: string | null;
+  onAutoPicked?: (enrollmentId: string) => void;
 }) {
   const flows = useFlows();
   const cohorts = useCohorts();
@@ -213,16 +218,15 @@ function StudentColumn({
   const q = useDeferredValue(search);
   const list = useInboxStudents({ flowId, cohortId, q });
   const items = useMemo(() => (list.data?.pages ?? []).flatMap((p) => p.items), [list.data]);
-  // Open the linked student once, as soon as their row loads.
-  const autoDone = useRef(false);
+  // Open the linked student as soon as their row loads; the parent then marks the link used.
   useEffect(() => {
-    if (autoDone.current || !autoPick) return;
+    if (!autoPick) return;
     const hit = items.find((s) => s.enrollment_id === autoPick);
     if (hit) {
-      autoDone.current = true;
       onPick(hit);
+      onAutoPicked?.(autoPick);
     }
-  }, [items, autoPick, onPick]);
+  }, [items, autoPick, onPick, onAutoPicked]);
   const [now] = useState(() => new Date());
   return (
     <div className="flex min-h-0 flex-1 flex-col">

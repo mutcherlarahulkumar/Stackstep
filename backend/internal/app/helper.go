@@ -30,6 +30,7 @@ type Helper struct {
 
 	once   sync.Once
 	global *rate.Limiter
+	help   *rate.Limiter // the public help bot; kept apart so visitors can't use up students' AI
 	ws     *Workspace
 }
 
@@ -42,8 +43,16 @@ func (h *Helper) limiter() *rate.Limiter {
 	h.once.Do(func() {
 		per := max(1, h.Limits.GlobalPerMinute)
 		h.global = rate.NewLimiter(rate.Every(time.Minute/time.Duration(per)), per)
+		// Visitors get their own, smaller allowance (a third of the students'), so they never use up the helper.
+		hp := max(1, per/3)
+		h.help = rate.NewLimiter(rate.Every(time.Minute/time.Duration(hp)), hp)
 	})
 	return h.global
+}
+
+func (h *Helper) helpLimiter() *rate.Limiter {
+	h.limiter()
+	return h.help
 }
 
 // AIStatus tells the client what the student can do right now.

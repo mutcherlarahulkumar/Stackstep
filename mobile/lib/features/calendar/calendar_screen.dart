@@ -125,7 +125,7 @@ class _DayTimelineState extends ConsumerState<_DayTimeline> {
     final now = ref.watch(clockProvider)();
     final today = DateTime(now.year, now.month, now.day);
     final day = _picked ?? today;
-    final monday = day.subtract(Duration(days: day.weekday - 1));
+    final monday = DateTime(day.year, day.month, day.day - (day.weekday - 1));
     final week = [for (var i = 0; i < 7; i++) DateTime(monday.year, monday.month, monday.day + i)];
     final byDate = widget.calendar.byDate;
     final entries = byDate[day] ?? const <CalendarEntry>[];
@@ -202,7 +202,7 @@ class _DayTimelineState extends ConsumerState<_DayTimeline> {
                 IconButton(
                   tooltip: 'Previous week',
                   icon: const Icon(LucideIcons.chevronLeft, size: 18),
-                  onPressed: () => setState(() => _picked = day.subtract(const Duration(days: 7))),
+                  onPressed: () => setState(() => _picked = DateTime(day.year, day.month, day.day - 7)),
                 ),
                 Expanded(
                   child: Row(
@@ -224,7 +224,7 @@ class _DayTimelineState extends ConsumerState<_DayTimeline> {
                 IconButton(
                   tooltip: 'Next week',
                   icon: const Icon(LucideIcons.chevronRight, size: 18),
-                  onPressed: () => setState(() => _picked = day.add(const Duration(days: 7))),
+                  onPressed: () => setState(() => _picked = DateTime(day.year, day.month, day.day + 7)),
                 ),
               ],
             ),
@@ -565,7 +565,7 @@ class _DayBlock extends StatelessWidget {
     final day = entries.first.day;
     final label = isToday
         ? 'Today'
-        : date == today.add(const Duration(days: 1))
+        : date == DateTime(today.year, today.month, today.day + 1)
         ? 'Tomorrow'
         : DateFormat('EEEE').format(date);
     return Padding(

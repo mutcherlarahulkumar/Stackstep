@@ -141,3 +141,28 @@ export function startsCaption(start: string, now = new Date()): string {
   if (day.getTime() === tomorrow.getTime()) return "Starts tomorrow";
   return `Starts ${day.toLocaleDateString("en-GB", { weekday: "short", day: "numeric", month: "short" })}`;
 }
+
+/** The instant it is `hour`:00 on a calendar date (YYYY-MM-DD) in a time zone. */
+export function zoneTime(ymd: string, hour: number, timeZone: string): Date {
+  const [y, m, d] = ymd.split("-").map(Number);
+  const guess = Date.UTC(y ?? 1970, (m ?? 1) - 1, d ?? 1, hour);
+  const parts = new Intl.DateTimeFormat("en-US", {
+    timeZone,
+    hourCycle: "h23",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+  }).formatToParts(new Date(guess));
+  const get = (t: string) => Number(parts.find((p) => p.type === t)?.value ?? 0);
+  const shown = Date.UTC(get("year"), get("month") - 1, get("day"), get("hour"), get("minute"));
+  return new Date(guess - (shown - guess));
+}
+
+/** "Day 4 of 30", or "Starts tomorrow" before Day 1 (short form: "Day 4/30"). */
+export function internshipDay(e: { day_number: number; start_date: string; program: { days: number } }, short = false, now = new Date()): string {
+  if (e.day_number === 0) return startsCaption(e.start_date, now);
+  return short ? `Day ${e.day_number}/${e.program.days}` : `Day ${e.day_number} of ${e.program.days}`;
+}
+

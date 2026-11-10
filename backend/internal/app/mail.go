@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"strconv"
 	"strings"
 	"time"
 
@@ -24,6 +25,12 @@ type MailPage struct {
 // MyMail lists the signed-in user's mail, newest first.
 func (w *Workspace) MyMail(ctx context.Context, u domain.User, before *store.Cursor, limit int) (MailPage, error) {
 	q := w.Store.Pool
+	// A cursor from another list (a timestamp key, say) is the client's mistake, not ours.
+	if before != nil {
+		if _, err := strconv.ParseInt(before.Key, 10, 64); err != nil {
+			return MailPage{}, apperr.Validation(map[string]string{"cursor": "That page link is no longer valid."})
+		}
+	}
 	items, err := store.ListMail(ctx, q, u.ID, before, limit+1)
 	if err != nil {
 		return MailPage{}, err

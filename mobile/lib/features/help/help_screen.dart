@@ -14,7 +14,7 @@ const _suggestions = [
   'How is attendance marked?',
 ];
 
-typedef _Turn = ({String role, String content, List<String> topics, bool guide});
+typedef _Turn = ({String role, String content, List<String> topics, bool guide, bool failed});
 
 /// The help assistant: answers questions about using Stackstep from our student guide.
 class HelpScreen extends ConsumerStatefulWidget {
@@ -40,9 +40,13 @@ class _HelpScreenState extends ConsumerState<HelpScreen> {
   Future<void> _ask(String raw) async {
     final q = raw.trim();
     if (q.isEmpty || _busy) return;
-    final history = [for (final t in _turns.reversed.take(6).toList().reversed) (role: t.role, content: t.content)];
+    // Only real questions and answers go back, each within the server's 1500-character limit.
+    final history = [
+      for (final t in _turns.where((t) => !t.failed).toList().reversed.take(6).toList().reversed)
+        (role: t.role, content: t.content.length > 1500 ? t.content.substring(0, 1500) : t.content),
+    ];
     setState(() {
-      _turns.add((role: 'user', content: q.length > 500 ? q.substring(0, 500) : q, topics: const [], guide: false));
+      _turns.add((role: 'user', content: q.length > 500 ? q.substring(0, 500) : q, topics: const [], guide: false, failed: false));
       _busy = true;
       _input.clear();
     });
@@ -50,10 +54,16 @@ class _HelpScreenState extends ConsumerState<HelpScreen> {
     try {
       final a = await ref.read(apiClientProvider).askHelp(q, history);
       if (!mounted) return;
-      setState(() => _turns.add((role: 'assistant', content: a.answer, topics: a.topics, guide: !a.ai)));
+      setState(() => _turns.add((role: 'assistant', content: a.answer, topics: a.topics, guide: !a.ai, failed: false)));
     } on Object catch (e) {
       if (!mounted) return;
-      setState(() => _turns.add((role: 'assistant', content: messageFor(e), topics: const [], guide: false)));
+      setState(() {
+        // The question that failed and the error don't go back to the server as history.
+        final last = _turns.removeLast();
+        _turns
+          ..add((role: last.role, content: last.content, topics: last.topics, guide: last.guide, failed: true))
+          ..add((role: 'assistant', content: messageFor(e), topics: const [], guide: false, failed: true));
+      });
     } finally {
       if (mounted) setState(() => _busy = false);
       _toEnd();

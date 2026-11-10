@@ -233,8 +233,18 @@ func (w *Workspace) enrollTx(ctx context.Context, q store.Q, u domain.User, in E
 			start = domain.FirstWorkingDay(now, loc)
 		}
 		flowID := in.FlowID
-		if flowID == nil && cohort != nil {
-			flowID = cohort.Cohort.FlowID
+		if flowID == nil && cohort != nil && cohort.Cohort.FlowID != nil {
+			// The cohort's flow is only a default: if it was archived or unpublished since,
+			// enroll without one rather than refuse the student. Staff assign a flow later.
+			problem, err := cohortFlowProblem(ctx, q, *cohort.Cohort.FlowID, cohort.Cohort.Program)
+			if err != nil {
+				return err
+			}
+			if problem == "" {
+				flowID = cohort.Cohort.FlowID
+			} else {
+				w.Log.Warn("cohort flow skipped on enroll", "cohort", cohort.Cohort.ID, "problem", problem)
+			}
 		}
 		if len(errs) > 0 {
 			return apperr.Validation(errs)

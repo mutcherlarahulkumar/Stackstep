@@ -132,7 +132,7 @@ export function roomReducer(
     case "promoted":
       return { ...s, promoted: f.code, lastError: null };
     case "error":
-      return { ...s, lastError: f.error };
+      return { ...s, lastError: f.code };
     case "ended":
       return { ...s, ended: true };
     case "signal":

@@ -205,3 +205,61 @@ func TestCapacityAndEnd(t *testing.T) {
 		t.Fatal("found missing text")
 	}
 }
+
+// LC9: a viewer dropped for falling behind may reconnect; one closed by the end may not.
+func TestDropIsRetryableEndIsNot(t *testing.T) {
+	h, id := room(t, 10)
+	host := NewPeer(uuid.New(), "Priya", "priya", nil, RoleHost)
+	slow := NewPeer(uuid.New(), "Asha", "asha", nil, RoleStudent)
+	r, _ := h.Join(id, host)
+	_, _ = h.Join(id, slow)
+	host.talk = rate.NewLimiter(rate.Inf, 0)
+	for i := 0; i < 400; i++ { // never drained, so its outbox fills
+		r.Handle(host, In{Type: "chat", Body: "hi"}, t0)
+	}
+	select {
+	case <-slow.Closed():
+	default:
+		t.Fatal("slow viewer kept")
+	}
+	if slow.Ended() {
+		t.Fatal("a dropped viewer must be told to reconnect, not that the class ended")
+	}
+	a := NewPeer(uuid.New(), "Ravi", "ravi", nil, RoleStudent)
+	_, _ = h.Join(id, a)
+	h.End(id)
+	if !a.Ended() {
+		t.Fatal("class end not marked")
+	}
+}
+
+// LC10: stopping the share clears the drawing for people who join later, as it does on screen.
+func TestStopPresentingClearsStrokes(t *testing.T) {
+	h, id := room(t, 10)
+	host := NewPeer(uuid.New(), "Priya", "priya", nil, RoleHost)
+	r, _ := h.Join(id, host)
+	r.Handle(host, In{Type: "present", On: true}, t0)
+	r.Handle(host, In{Type: "draw", Stroke: &Stroke{ID: "s1", Tool: "pen", Points: [][2]float64{{0.1, 0.1}}}}, t0)
+	r.Handle(host, In{Type: "present", On: false}, t0)
+	late := NewPeer(uuid.New(), "Meera", "meera", nil, RoleStudent)
+	_, _ = h.Join(id, late)
+	if w := last(late, "welcome"); len(w.Strokes) != 0 {
+		t.Fatalf("old strokes replayed: %+v", w.Strokes)
+	}
+}
+
+// LC11: a room forgotten by its grace timer is never joined; the next joiner gets a fresh one.
+func TestForgottenRoomIsNotReused(t *testing.T) {
+	h, id := room(t, 10)
+	a := NewPeer(uuid.New(), "A", "a", nil, RoleHost)
+	r, _ := h.Join(id, a)
+	r.mu.Lock()
+	delete(r.peers, a.ID) // empty, as after the last leave
+	r.mu.Unlock()
+	h.forget(r)
+	b := NewPeer(uuid.New(), "B", "b", nil, RoleStudent)
+	r2, err := h.Join(id, b)
+	if err != nil || r2 == r || h.Live(id) != 1 {
+		t.Fatalf("joined the forgotten room: same=%v err=%v live=%d", r2 == r, err, h.Live(id))
+	}
+}

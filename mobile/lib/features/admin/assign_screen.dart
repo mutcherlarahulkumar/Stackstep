@@ -106,7 +106,7 @@ class StudentPickerScreen extends ConsumerWidget {
                 leading: ShadAvatar(s.user.avatarUrl ?? '', placeholder: Text(s.user.initials), size: const Size.square(40)),
                 title: Text(s.user.name, style: t.textTheme.large.copyWith(fontSize: 16)),
                 subtitle: Text(
-                  '@${s.user.githubLogin} · Day ${s.enrollment.dayNumber}/${s.enrollment.program.days} · ${s.openTasks} open',
+                  '@${s.user.githubLogin} · ${s.enrollment.dayNumber == 0 ? startsCaption(s.enrollment.startDate, DateTime.now()) : 'Day ${s.enrollment.dayNumber}/${s.enrollment.program.days}'} · ${s.openTasks} open',
                   style: t.textTheme.muted,
                 ),
                 trailing: paused
@@ -162,8 +162,18 @@ class _AssignTaskScreenState extends ConsumerState<AssignTaskScreen> {
   String? _formError;
   bool _submitting = false;
 
+  /// Before Day 1 the student sees new tasks from the start of that day, so due times are
+  /// offered on their Day 1 and Day 2 instead of today.
+  bool get _notStarted => widget.student.enrollment.status == EnrollmentStatus.active && widget.student.enrollment.dayNumber == 0;
+
+  DateTime get _dayOne {
+    final d = DateTime.parse(widget.student.enrollment.startDate);
+    return DateTime(d.year, d.month, d.day);
+  }
+
   /// "Today 6 PM" is offered only while it is still at least 15 minutes away.
   bool get _todayEveningOpen {
+    if (_notStarted) return true;
     final n = _now.toLocal();
     return DateTime(n.year, n.month, n.day, 18).difference(n) >= Bounds.minTaskDuration;
   }
@@ -192,12 +202,13 @@ class _AssignTaskScreenState extends ConsumerState<AssignTaskScreen> {
   DateTime get _now => ref.read(clockProvider)();
 
   DateTime? _dueFor(DateTime start) {
-    final local = start.toLocal();
+    // Not started and no start time picked: the task waits for Day 1, so count from there.
+    final local = _notStarted && !_startLater ? _dayOne : start.toLocal();
     DateTime at(DateTime d, int hour) => DateTime(d.year, d.month, d.day, hour);
     return switch (_preset) {
       _DuePreset.twoHours => start.add(const Duration(hours: 2)),
       _DuePreset.todayEvening => at(local, 18),
-      _DuePreset.tomorrowEvening => at(local.add(const Duration(days: 1)), 18),
+      _DuePreset.tomorrowEvening => at(DateTime(local.year, local.month, local.day + 1), 18),
       _DuePreset.custom => _customDue,
     };
   }
@@ -343,7 +354,7 @@ class _AssignTaskScreenState extends ConsumerState<AssignTaskScreen> {
                       children: [
                         Text(s.user.name, style: t.textTheme.large.copyWith(fontSize: 16)),
                         Text(
-                          'Day ${s.enrollment.dayNumber} of ${s.enrollment.program.days} · ${s.openTasks} open · ${s.inReview} in review',
+                          '${s.enrollment.dayNumber == 0 ? startsCaption(s.enrollment.startDate, DateTime.now()) : 'Day ${s.enrollment.dayNumber} of ${s.enrollment.program.days}'} · ${s.openTasks} open · ${s.inReview} in review',
                           style: t.textTheme.muted,
                         ),
                       ],
@@ -353,6 +364,19 @@ class _AssignTaskScreenState extends ConsumerState<AssignTaskScreen> {
               ),
             ),
             const SizedBox(height: Space.xl),
+            if (_notStarted) ...[
+              ShadAlert(
+                key: const Key('assign-not-started'),
+                icon: const Icon(LucideIcons.calendarClock),
+                title: Text(
+                  '${widget.student.user.name.split(' ').first} ${startsCaption(widget.student.enrollment.startDate, _now).toLowerCase()}',
+                ),
+                description: const Text(
+                  'Tasks you assign now appear on their board when Day 1 begins. Pick a due time on or after that day.',
+                ),
+              ),
+              const SizedBox(height: Space.md),
+            ],
             if (_formError != null) ...[
               ErrorAlert(title: "Couldn't assign this task", message: _formError!),
               const SizedBox(height: Space.lg),
@@ -455,9 +479,9 @@ class _AssignTaskScreenState extends ConsumerState<AssignTaskScreen> {
                 runSpacing: Space.sm,
                 children: [
                   for (final (p, label) in [
-                    (_DuePreset.twoHours, 'In 2 hours'),
-                    if (_todayEveningOpen) (_DuePreset.todayEvening, 'Today 6 PM'),
-                    (_DuePreset.tomorrowEvening, 'Tomorrow 6 PM'),
+                    if (!_notStarted) (_DuePreset.twoHours, 'In 2 hours'),
+                    if (_todayEveningOpen) (_DuePreset.todayEvening, _notStarted ? 'Day 1, 6 PM' : 'Today 6 PM'),
+                    (_DuePreset.tomorrowEvening, _notStarted ? 'Day 2, 6 PM' : 'Tomorrow 6 PM'),
                   ])
                     (_preset == p ? ShadButton.new : ShadButton.outline)(
                       size: ShadButtonSize.sm,

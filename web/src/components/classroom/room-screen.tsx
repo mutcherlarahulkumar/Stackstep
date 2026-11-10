@@ -291,7 +291,17 @@ function LiveRoom({
       switch (f.type) {
         case "welcome":
           me_.current = f.you.id;
-          if (!presenter.current) {
+          if (presenter.current) {
+            // We reconnected while presenting: the room forgot us as presenter and every
+            // peer id changed. Take the stage back and reconnect to everyone.
+            const p = presenter.current;
+            p.resetViewers();
+            socket.current?.send({ type: "present", on: true });
+            for (const peer of f.peers) if (peer.id !== f.you.id) void p.addViewer(peer.id);
+          } else {
+            // A fresh session on the room's side: drop any old media link so the presenter's
+            // next offer starts a new one.
+            viewer.current?.presenterGone();
             viewer.current ??= new ViewerMedia(ice, signal);
             viewer.current.onStream = setRemote;
           }
@@ -331,7 +341,7 @@ function LiveRoom({
           toast.success("Sent to every invitee's mail as an announcement");
           break;
         case "error":
-          toast.error(f.error);
+          toast.error(roomErrorCopy(f.code));
           break;
         case "ended":
           toast("The host ended the class");
@@ -1120,3 +1130,18 @@ function PeoplePane({ s, host, send }: PaneProps) {
     </ul>
   );
 }
+
+/** Room errors in our words; the server's own text is never shown. */
+function roomErrorCopy(code: string): string {
+  switch (code) {
+    case "forbidden":
+      return "Only a host can do that.";
+    case "rate_limited":
+      return "Slow down a little and try again.";
+    case "validation_failed":
+      return "That couldn't be sent. Check it and try again.";
+    default:
+      return "Something went wrong in the room. Try again.";
+  }
+}
+
