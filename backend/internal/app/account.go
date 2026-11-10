@@ -32,8 +32,3 @@ func (w *Workspace) Onboarded(ctx context.Context, u domain.User) (domain.Accoun
 	}
 	return w.Account(ctx, u)
 }
-
-// Export returns the user's data as JSON.
-func (w *Workspace) Export(ctx context.Context, u domain.User) ([]byte, error) {
-	return store.ExportUser(ctx, w.Store.Pool, u.ID, w.Clock.Now())
-}

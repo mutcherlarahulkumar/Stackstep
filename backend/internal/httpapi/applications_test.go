@@ -247,24 +247,6 @@ func TestApplicationIssues(t *testing.T) {
 	if last := v.Messages[len(v.Messages)-1].Body; v.Application.Status != "rejected" || !strings.Contains(last, "non-refundable") {
 		t.Fatalf("rejected = %s / %q", v.Application.Status, last)
 	}
-	// The student's data export includes the application, its payments and the chat.
-	var ex struct {
-		Applications []struct {
-			Phone    string `json:"phone"`
-			Status   string `json:"status"`
-			Payments []struct {
-				UTR string `json:"utr"`
-			} `json:"payments"`
-			Messages []struct {
-				Body string `json:"body"`
-			} `json:"messages"`
-		} `json:"applications"`
-	}
-	e.expect(e.do("GET", "/v1/me/export", nora, nil), 200).json(t, &ex)
-	if len(ex.Applications) != 1 || ex.Applications[0].Status != "rejected" || ex.Applications[0].Phone != "+919876543210" ||
-		len(ex.Applications[0].Payments) != 1 || len(ex.Applications[0].Messages) < 3 {
-		t.Fatalf("export = %+v", ex)
-	}
 	e.expect(e.do("PUT", "/v1/me/application", nora, details(cheap.ID, nil)), 200).json(t, &v)
 	if v.Application.Status != "draft" || v.Application.ID == id {
 		t.Fatalf("new application = %+v", v.Application)

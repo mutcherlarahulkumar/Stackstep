@@ -181,12 +181,6 @@ export class ApiClient {
   }
 
   /** Everything we hold about the caller, as a JSON file. */
-  async exportMyData(): Promise<{ blob: Blob; filename: string }> {
-    const res = await this.raw("GET", "/v1/me/export", {});
-    const name = /filename="([^"]+)"/.exec(res.headers.get("Content-Disposition") ?? "")?.[1] ?? "stackstep-my-data.json";
-    return { blob: await res.blob(), filename: name };
-  }
-
   async myTasks() {
     return (await this.send("GET", "/v1/me/tasks", S.TaskList)).items;
   }

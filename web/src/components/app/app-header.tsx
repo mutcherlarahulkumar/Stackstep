@@ -1,6 +1,6 @@
 "use client";
 
-import { Bell, BellOff, Download, FileText, LogOut, ShieldCheck } from "lucide-react";
+import { Bell, BellOff, FileText, LogOut, ShieldCheck } from "lucide-react";
 import Link from "next/link";
 import { type ReactNode } from "react";
 import { toast } from "sonner";
@@ -15,9 +15,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { messageFor } from "@/lib/api/errors";
 import { type User } from "@/lib/api/schemas";
-import { saveBlob } from "@/lib/download";
 import { useNotificationToggle } from "@/lib/use-notifications";
 import { initials } from "@/lib/format";
 import { useSession } from "@/lib/session";
@@ -28,23 +26,13 @@ import { ThemeToggle } from "./theme-toggle";
 const ROLE_LABEL: Record<User["role"], string> = { student: "Intern", college_admin: "College admin", admin: "Admin" };
 
 export function AppHeader({ user, children }: { user: User; children?: ReactNode }) {
-  const { api, signOut } = useSession();
+  const { signOut } = useSession();
   const notifications = useNotificationToggle();
   const toggleNotifications = async () => {
     const next = await notifications.toggle();
     if (next === "on") toast.success("Notifications on. You'll hear about messages and reviews while Stackstep is in the background.");
     else if (next === "blocked") toast.error("Your browser blocks notifications for Stackstep. Allow them in the site settings, then try again.");
     else toast("Notifications off.");
-  };
-  const exportData = async () => {
-    const id = toast.loading("Preparing your data…");
-    try {
-      const { blob, filename } = await api.exportMyData();
-      saveBlob(blob, filename);
-      toast.success(`Downloaded ${filename}`, { id });
-    } catch (e) {
-      toast.error(messageFor(e), { id });
-    }
   };
   return (
     <header className="bg-background/85 sticky top-0 z-40 print:hidden flex h-14 items-center gap-3 border-b px-4 backdrop-blur supports-backdrop-filter:bg-background/70 sm:px-6">
@@ -79,9 +67,6 @@ export function AppHeader({ user, children }: { user: User; children?: ReactNode
               </span>
             </DropdownMenuItem>
           )}
-          <DropdownMenuItem onSelect={() => void exportData()} data-testid="export-my-data">
-            <Download aria-hidden /> Download my data
-          </DropdownMenuItem>
           <DropdownMenuItem asChild>
             <Link href="/privacy" target="_blank">
               <ShieldCheck aria-hidden /> Privacy

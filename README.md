@@ -33,7 +33,7 @@ Each has a spec with every edge case and the test that covers it, in [`docs/feat
 7. **People** — enroll by GitHub login, roster CSV import, colleges, cohorts, internship status
    and staff roles.
 8. **Account** — consent at first sign-in, privacy and terms pages, a first-run guide,
-   honest persona tags and "Download my data".
+   and honest persona tags.
 9. **Task notes** — private Markdown notes per task, optionally shared with the reviewer.
 10. **DSA practice pad** — run a JavaScript solution against example tests in your own browser.
 11. **Review rubrics** — what the reviewer checks, up front, and which criteria were met.

@@ -2,7 +2,6 @@ package httpapi
 
 import (
 	"net/http"
-	"time"
 
 	"github.com/gin-gonic/gin"
 
@@ -52,18 +51,6 @@ func (s *Server) onboarded(c *gin.Context) {
 		return
 	}
 	c.JSON(http.StatusOK, toAccount(a))
-}
-
-// exportMe sends the caller's data as a JSON download.
-func (s *Server) exportMe(c *gin.Context) {
-	b, err := s.workspace.Export(c.Request.Context(), currentUser(c))
-	if err != nil {
-		s.fail(c, err)
-		return
-	}
-	c.Header("Content-Disposition", `attachment; filename="stackstep-my-data-`+s.clock.Now().UTC().Format(time.DateOnly)+`.json"`)
-	c.Header("Cache-Control", "no-store")
-	c.Data(http.StatusOK, "application/json; charset=utf-8", b)
 }
 
 func (s *Server) myTasks(c *gin.Context) {

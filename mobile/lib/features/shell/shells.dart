@@ -34,8 +34,6 @@ class _AccountMenu extends ConsumerWidget {
             return await openLink(context, AppConfig.webUrl('/privacy'));
           case 'terms':
             return await openLink(context, AppConfig.webUrl('/terms'));
-          case 'data':
-            return await openLink(context, AppConfig.webUrl('/workspace'));
           case 'out':
             break;
           default:
@@ -57,7 +55,6 @@ class _AccountMenu extends ConsumerWidget {
       itemBuilder: (_) => [
         PopupMenuItem(enabled: false, child: Text('${user.name}\n@${user.githubLogin}')),
         const PopupMenuDivider(),
-        const PopupMenuItem(value: 'data', child: Text('Download my data (on the web)')),
         const PopupMenuItem(value: 'privacy', child: Text('Privacy')),
         const PopupMenuItem(value: 'terms', child: Text('Terms')),
         const PopupMenuDivider(),

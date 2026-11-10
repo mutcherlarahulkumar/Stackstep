@@ -207,16 +207,6 @@ paths:
             application/json:
               schema: { $ref: "#/components/schemas/Account" }
         "401": { $ref: "#/components/responses/Error" }
-  /v1/me/export:
-    get:
-      tags: [student]
-      operationId: exportMyData
-      summary: Everything Stackstep holds about the caller, as a JSON download
-      responses:
-        "200":
-          description: "Sections: exported_at, profile, internships (tasks with hand-ins and quiz attempts, delivered chat, AI helper conversations, credits, points, certificates)"
-          content: { application/json: { schema: { type: object } } }
-        "401": { $ref: "#/components/responses/Error" }
   /v1/me/calendar:
     get:
       tags: [student]

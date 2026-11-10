@@ -35,9 +35,6 @@ The engineering specs, with every edge case and its test, are in [`features/`](f
   messages with AI: short, encouraging, a next step or a question back, never solutions or
   promises about grades. Anything personal or sensitive is left for a mentor. If AI is off or
   busy, the old scripted replies answer instead.
-- **Download my data.** Account menu → a JSON file of everything Stackstep holds about the
-  person: profile, tasks, hand-ins, chat, AI conversations, points, credits, certificates,
-  notes and applications with their payments. In the app, this opens the web app.
 - **Apply and pay (students without an internship).** Instead of an empty screen, a student
   who isn't enrolled sees a three-step application: their details and a cohort, then the UPI QR
   and fee with a screenshot upload, then "Payment received — awaiting confirmation". Admins
@@ -186,7 +183,6 @@ colleges and cohorts, and grant staff access.
 | Quiz answer key with "Your answer" | ✓ | ✓ |
 | Progress, certificate, "This week" | ✓ | ✓ |
 | DSA practice pad | runs code | shows examples, links to web |
-| Download my data | ✓ | opens web |
 | Background notifications | browser, while a tab is open | in-app unread badges |
 | Admin: assign task, inbox | ✓ | ✓ |
 | Admin: everything else | desktop web | links to web |
