@@ -150,6 +150,8 @@ bytes", "GITHUB_CLIENT_ID and GITHUB_CLIENT_SECRET are required in production").
 |---|---|---|---|
 | `API_INTERNAL_URL` | `<API_URL>` | Secret | Where the web app's proxy sends `/api/v1/...` |
 | `PUBLIC_WS_URL` | `wss://<api-host>/v1/ws` | **Config / Plain** (not secret) | e.g. `wss://stackstep-api.onrender.com/v1/ws`. Note `wss://` and `/v1/ws` |
+| `APP_ANDROID_URL` | optional | **Config / Plain** | The Android download on `/download`. Defaults to `stackstep.apk` on the `latest-main` release |
+| `APP_IOS_URL` | optional | **Config / Plain** | App Store or public TestFlight link. Unset, iPhones get the Add to Home Screen steps |
 | `PROXY_SHARED_SECRET` | from step 0 | Secret | Same value as on Render |
 
    `PUBLIC_WS_URL` can't be marked "secret" in Vercel: names starting with `PUBLIC_` must be

@@ -45,6 +45,16 @@ Each has a spec with every edge case and the test that covers it, in [`docs/feat
     and 174 tasks, loaded by the "Database · seed curriculum" workflow.
 15. **Task documents** — write or import Markdown lessons and read them inside the web or
     mobile app, alongside the assignment and its review criteria.
+16. **Rolling start** — students start on Day 1 the day after they join; cohorts follow a flow.
+17. **Calendar** — a Google Calendar style day, week, month and agenda view of every task and
+    live class, with surprise tasks shown only by their day.
+18. **Mail** — an in-house mailbox for welcome letters, review results, certificates, class
+    invites and announcements from staff.
+19. **Chat reactions and a student-first inbox** — react to messages; staff pick a student by
+    flow or cohort, then the persona, then the chat.
+20. **Live classes** — screen sharing, drawing on the screen, voice, chat, Q&A and raised
+    hands in the browser; nothing but the schedule is stored.
+21. **Get the app** — a download page that detects the phone, with install steps and fixes.
 
 An additional guided 30-day React edition includes self-contained lessons, deliberate practice
 and recovery days. See [`docs/CURRICULUM.md`](docs/CURRICULUM.md) for its learning path

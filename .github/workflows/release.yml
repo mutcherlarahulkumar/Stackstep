@@ -241,6 +241,8 @@ jobs:
           flutter build appbundle --release --build-name "$VERSION" --build-number "${{ github.run_number }}" $defines
           mkdir -p dist
           cp build/app/outputs/flutter-apk/app-release.apk "dist/stackstep_${NAME}.apk"
+          # A fixed name too, so the web's Get the app page can always link to the newest build.
+          cp build/app/outputs/flutter-apk/app-release.apk dist/stackstep.apk
           cp build/app/outputs/bundle/release/app-release.aab "dist/stackstep_${NAME}.aab"
           (cd dist && sha256sum * > SHA256SUMS-android.txt)
       - name: Upload to release

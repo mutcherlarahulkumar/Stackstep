@@ -170,6 +170,8 @@ Template: [`web/.env.example`](../web/.env.example) → copy to `web/.env.local`
 |---|---|---|
 | `API_INTERNAL_URL` | `http://localhost:8080` (Docker: `http://api:8080`) | Where the web server proxies `/api/*`. The browser never calls the API directly, so the refresh token stays an HttpOnly same-site cookie. |
 | `PUBLIC_WS_URL` | `ws://localhost:8080/v1/ws` (prod: `wss://api.example.com/v1/ws`) | WebSocket the browser opens for live chat and boards. Its origin must be in the API's `ALLOWED_ORIGINS`. |
+| `APP_ANDROID_URL` | the `stackstep.apk` on the `latest-main` GitHub release | Where **Get the app** (`/download`) sends Android phones. Point it at a versioned release or the Play Store once published. |
+| `APP_IOS_URL` | unset | App Store or public TestFlight link for iPhones. Unset, `/download` shows iPhone users how to add the web app to their home screen. |
 
 Public pages (`/verify`, `/verify/{code}`, `/certificate/{code}`) need no extra settings.
 

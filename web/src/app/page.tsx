@@ -35,7 +35,7 @@ const STEPS: { icon: LucideIcon; title: string; body: string }[] = [
   { icon: BadgeCheck, title: "Earn a verifiable certificate", body: "Finish the work and get a certificate with a public link recruiters can check." },
 ];
 
-const FEATURES: { icon: LucideIcon; title: string; body: string; wide?: boolean }[] = [
+const FEATURES: { icon: LucideIcon; title: string; body: string; wide?: boolean; href?: string }[] = [
   {
     icon: MessagesSquare,
     title: "A team in your chats",
@@ -49,7 +49,7 @@ const FEATURES: { icon: LucideIcon; title: string; body: string; wide?: boolean 
   { icon: ListChecks, title: "A board that keeps you moving", body: "To do, waiting for review, done. Quizzes, resources and deadlines in one place." },
   { icon: NotebookPen, title: "Notes you can share", body: "Keep notes per task and share them with your reviewer when you hand in." },
   { icon: Trophy, title: "Points and progress", body: "On-time work earns points. A weekly recap shows what you shipped." },
-  { icon: Smartphone, title: "Web and phone", body: "Chat and tasks in the Android and iOS app, with notifications when your lead replies.", wide: true },
+  { icon: Smartphone, title: "Web and phone", body: "Chat, tasks, mail and your calendar in the Android and iPhone app, synced with the web.", wide: true, href: "/download" },
   { icon: BadgeCheck, title: "A certificate that checks out", body: "Each one has a code and a public page, so a recruiter can confirm it in seconds." },
 ];
 
@@ -169,6 +169,11 @@ export default function Home() {
                   </span>
                   <h3 className="mt-4 font-semibold">{f.title}</h3>
                   <p className="text-muted-foreground mt-1.5 text-sm leading-relaxed">{f.body}</p>
+                  {f.href ? (
+                    <Link href={f.href} className="text-primary mt-3 inline-flex text-sm font-medium underline-offset-4 hover:underline" data-testid="home-get-app">
+                      Get the app
+                    </Link>
+                  ) : null}
                 </Reveal>
               ))}
             </ul>
@@ -246,6 +251,9 @@ export default function Home() {
           <nav aria-label="Footer" className="flex flex-wrap justify-center gap-x-5 gap-y-2">
             <Link href="/verify" className="hover:text-foreground">
               Verify a certificate
+            </Link>
+            <Link href="/download" className="hover:text-foreground">
+              Get the app
             </Link>
             <Link href="/privacy" className="hover:text-foreground">
               Privacy
