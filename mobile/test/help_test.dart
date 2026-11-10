@@ -68,4 +68,39 @@ void main() {
     expect(history.length, 2);
     expect((history.first! as Json)['role'], 'user');
   });
+
+  testWidgets('HB9 long answers are trimmed and failed turns stay out of the history', (tester) async {
+    final sent = <Json>[];
+    var calls = 0;
+    final api = ApiClient(
+      baseUrl: Uri.parse('http://api.test'),
+      tokenStore: MemoryTokenStore(),
+      httpClient: MockClient((r) async {
+        sent.add(jsonDecode(r.body) as Json);
+        calls++;
+        if (calls == 2) {
+          return http.Response('{"error":{"code":"internal","message":"x"}}', 500, headers: {'content-type': 'application/json'});
+        }
+        return http.Response(
+          jsonEncode({'answer': 'a' * 2000, 'ai': true, 'topics': <Object?>[]}),
+          200,
+          headers: {'content-type': 'application/json'},
+        );
+      }),
+    );
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [apiClientProvider.overrideWithValue(api)],
+        child: const ShadApp(home: HelpScreen()),
+      ),
+    );
+    for (final q in ['first', 'second', 'third']) {
+      await tester.enterText(find.byKey(const Key('help-input')), q);
+      await tester.tap(find.byKey(const Key('help-send')));
+      await tester.pumpAndSettle();
+    }
+    final history = (sent.last['history']! as List<Object?>).cast<Json>();
+    expect(history.map((h) => h['content']), isNot(contains('second')));
+    expect(history.every((h) => (h['content']! as String).length <= 1500), isTrue);
+  });
 }

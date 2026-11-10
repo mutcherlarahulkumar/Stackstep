@@ -261,7 +261,8 @@ function Section({ icon: Icon, title, children, action }: { icon: typeof Users; 
 function ProfileBody({ p, me, onClose }: { p: Profile; me: Me; onClose: () => void }) {
   const [now] = useState(() => Date.now());
   const [forest, setForest] = useState(false);
-  const current = p.enrollments.find((e) => e.enrollment.status === "active" || e.enrollment.status === "paused") ?? p.enrollments[0];
+  const open = p.enrollments.find((e) => e.enrollment.status === "active" || e.enrollment.status === "paused");
+  const current = open ?? p.enrollments[0];
   const app = p.applications[0];
   return (
     <>
@@ -282,7 +283,7 @@ function ProfileBody({ p, me, onClose }: { p: Profile; me: Me; onClose: () => vo
         </div>
         <div className="mt-5 grid grid-cols-3 gap-2">
           <QuickAction icon={GitHubIcon} label="GitHub" href={p.github_url} external testId="profile-github" />
-          {current ? <QuickAction icon={MessageCircle} label="Chats" href={`/admin/inbox?student=${encodeURIComponent(p.user.github_login)}&enrollment=${current.enrollment.id}`} testId="profile-chats" /> : <QuickAction icon={Inbox} label="Applications" href="/admin/applications" />}
+          {open ? <QuickAction icon={MessageCircle} label="Chats" href={`/admin/inbox?student=${encodeURIComponent(p.user.github_login)}&enrollment=${open.enrollment.id}`} testId="profile-chats" /> : <QuickAction icon={Inbox} label="Applications" href="/admin/applications" />}
           {p.user.email ? <QuickAction icon={Mail} label="Email" href={`mailto:${p.user.email}`} external /> : <QuickAction icon={CalendarClock} label="Joined" text={p.created_at.toLocaleDateString([], { day: "numeric", month: "short", year: "numeric" })} />}
         </div>
       </div>

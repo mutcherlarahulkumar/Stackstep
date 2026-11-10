@@ -68,14 +68,15 @@ export class PresenterMedia {
   }
 
   async setMic(on: boolean): Promise<void> {
-    await this.ctx.resume();
     if (!on) {
+      // Release the microphone straight away; nothing here may wait on a closing context.
       this.micSource?.disconnect();
       this.micSource = null;
       this.mic?.getTracks().forEach((t) => t.stop());
       this.mic = null;
       return;
     }
+    await this.ctx.resume();
     if (this.mic) return;
     this.mic = await navigator.mediaDevices.getUserMedia({
       audio: { echoCancellation: true, noiseSuppression: true },
@@ -133,6 +134,11 @@ export class PresenterMedia {
     await l.pc.setLocalDescription(o);
     if (l.pc.localDescription)
       this.send(id, { sdp: l.pc.localDescription.toJSON() });
+  }
+
+  /** Drops every viewer connection (after our own reconnect, their peer ids are all new). */
+  resetViewers() {
+    for (const id of [...this.links.keys()]) this.removeViewer(id);
   }
 
   removeViewer(id: string) {
@@ -239,9 +245,10 @@ export class ViewerMedia {
   /** Opens or closes the mic. Only call it once a host has let this student speak. */
   async setMic(on: boolean): Promise<void> {
     if (!on) {
-      await this.audioSender?.replaceTrack(null);
+      // Stop the tracks first: the connection may already be closing, and the mic must go off.
       this.mic?.getTracks().forEach((t) => t.stop());
       this.mic = null;
+      await this.audioSender?.replaceTrack(null).catch(() => undefined);
       return;
     }
     this.mic ??= await navigator.mediaDevices.getUserMedia({

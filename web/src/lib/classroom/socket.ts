@@ -31,7 +31,16 @@ export function connectRoom(opts: Options): RoomSocket {
   const open = async () => {
     if (stopped) return;
     opts.onStatus(attempt === 0 ? "connecting" : "reconnecting");
-    const token = await opts.token();
+    let token: string | null;
+    try {
+      token = await opts.token();
+    } catch {
+      // A network blip while refreshing the token: try again later, as for a dropped socket.
+      if (stopped) return;
+      opts.onStatus("reconnecting");
+      timer = setTimeout(() => void open(), Math.min(15, 2 ** attempt++) * 1000);
+      return;
+    }
     if (stopped) return;
     if (!token) return opts.onStatus("closed", "unauthenticated");
     const sock = new WebSocket(opts.url, ["stackstep.v1", `bearer.${token}`]);

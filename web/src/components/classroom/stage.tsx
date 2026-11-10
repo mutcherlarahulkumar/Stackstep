@@ -74,7 +74,8 @@ function paint(
   strokes.forEach(draw);
   if (live) draw(live);
   if (laser) {
-    const age = (performance.now() - laser.at) / 1200;
+    // laser.at comes from Date.now() in the room reducer, so compare against the same clock.
+    const age = (Date.now() - laser.at) / 1200;
     if (age < 1) {
       ctx.globalAlpha = 1 - age;
       ctx.fillStyle = "#ef4444";
@@ -172,7 +173,7 @@ export function Stage({
     let raf = 0;
     const tick = () => {
       redraw();
-      if (performance.now() - laser.at < 1200)
+      if (Date.now() - laser.at < 1200)
         raf = requestAnimationFrame(tick);
     };
     raf = requestAnimationFrame(tick);
