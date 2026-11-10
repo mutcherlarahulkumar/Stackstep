@@ -7,7 +7,7 @@ test("mail: announcements reach the right students, letters read as Markdown, re
   // An admin writes to everyone, previews the Markdown and sends it.
   const admin = await (await browser.newContext({ viewport: { width: 1440, height: 900 } })).newPage();
   await signIn(admin, "admin-demo");
-  await admin.getByRole("link", { name: "Announcements" }).click();
+  await admin.getByRole("link", { name: "Announce", exact: true }).click();
   await expect(admin.getByRole("heading", { name: "Announcements" })).toBeVisible();
   await admin.getByTestId("announce-send").click();
   await expect(admin.getByText("Write a subject of at least 3 characters.")).toBeVisible();
