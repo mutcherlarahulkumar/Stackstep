@@ -294,6 +294,50 @@ export class ApiClient {
     return this.send("POST", `/v1/tasks/${seg(taskId)}/quiz`, S.QuizAnswerResponse, { body: { expected_version: expectedVersion, answers } });
   }
 
+  // ---- Team room, badges, portfolio and review lab ----
+
+  myTeam() {
+    return this.send("GET", "/v1/me/team", S.Team);
+  }
+
+  myAchievements() {
+    return this.send("GET", "/v1/me/achievements", S.Achievements);
+  }
+
+  staffAchievements(enrollmentId: string) {
+    return this.send("GET", `/v1/admin/enrollments/${seg(enrollmentId)}/achievements`, S.Achievements);
+  }
+
+  myPortfolio() {
+    return this.send("GET", "/v1/me/portfolio", S.PortfolioSettings);
+  }
+
+  saveMyPortfolio(isPublic: boolean, headline: string) {
+    return this.send("PUT", "/v1/me/portfolio", S.PortfolioSettings, { body: { public: isPublic, headline } });
+  }
+
+  /** Public: works signed out. */
+  portfolio(login: string) {
+    return this.send("GET", `/v1/portfolios/${seg(login)}`, S.Portfolio, { auth: false });
+  }
+
+  reviewLab() {
+    return this.send("GET", "/v1/review-lab", S.LabLibrary);
+  }
+
+  reviewLabExercise(key: string) {
+    return this.send("GET", `/v1/review-lab/${seg(key)}`, S.LabExercise);
+  }
+
+  submitLabReview(
+    key: string,
+    review: { verdict: S.LabVerdict; summary: string; comments: S.LabComment[] },
+    task: { id: string; expectedVersion: number } | null = null,
+  ) {
+    const body = task ? { ...review, task_id: task.id, expected_version: task.expectedVersion } : review;
+    return this.send("POST", `/v1/review-lab/${seg(key)}/reviews`, S.LabOutcome, { body });
+  }
+
   // ---- Points, credits and the AI helper ----
 
   wallet() {
@@ -566,8 +610,11 @@ export class ApiClient {
     });
   }
 
-  staffSend(enrollmentId: string, personaId: string, clientId: string, body: string) {
-    return this.send("POST", `/v1/admin/threads/${seg(enrollmentId)}/${seg(personaId)}/messages`, S.Message, { body: { client_id: clientId, body } });
+  /** In the team room, speakerId is the persona talking (required there). */
+  staffSend(enrollmentId: string, personaId: string, clientId: string, body: string, speakerId: string | null = null) {
+    return this.send("POST", `/v1/admin/threads/${seg(enrollmentId)}/${seg(personaId)}/messages`, S.Message, {
+      body: speakerId ? { client_id: clientId, body, speaker_id: speakerId } : { client_id: clientId, body },
+    });
   }
 
   async staffMarkRead(enrollmentId: string, personaId: string): Promise<void> {
