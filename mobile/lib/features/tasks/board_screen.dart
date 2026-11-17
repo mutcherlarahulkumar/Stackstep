@@ -11,6 +11,8 @@ import 'package:stackstep/core/providers.dart';
 import 'package:stackstep/core/theme.dart';
 import 'package:stackstep/features/ai/markdown_view.dart';
 import 'package:stackstep/features/chat/inbox_controller.dart';
+import 'package:stackstep/features/growth/achievements.dart';
+import 'package:stackstep/features/growth/review_lab_screen.dart';
 import 'package:stackstep/features/tasks/board_controller.dart';
 import 'package:stackstep/features/tasks/task_documents.dart';
 import 'package:stackstep/features/tasks/task_notes.dart';
@@ -115,6 +117,7 @@ class _Board extends ConsumerWidget {
       child: ListView(
         padding: const EdgeInsets.all(Space.lg),
         children: [
+          const AchievementsStrip(),
           title('To do', todo.length),
           if (todo.isEmpty)
             const SizedBox(
@@ -298,7 +301,8 @@ class _TaskSheetState extends ConsumerState<TaskSheet> {
     }
     final now = ref.watch(clockProvider)();
     // Quizzes finish only through grading.
-    final moves = task.isQuiz ? const <TaskStatus>[] : studentMoves(task.status, task.reviewMode);
+    // Quizzes and practice reviews move only through grading.
+    final moves = task.isQuiz || task.isReviewLab ? const <TaskStatus>[] : studentMoves(task.status, task.reviewMode);
     final persona = taskPersona(ref, task);
     return DraggableScrollableSheet(
       expand: false,
@@ -383,6 +387,7 @@ class _TaskSheetState extends ConsumerState<TaskSheet> {
             const SizedBox(height: Space.sm),
           ],
           if (task.content.practice case final p? when task.type == TaskType.dsa) PracticeCard(practice: p),
+          if (task.isReviewLab) ReviewLabTaskCard(task: task),
           TaskNotesSection(taskId: task.id),
           const SizedBox(height: Space.xl),
         ],

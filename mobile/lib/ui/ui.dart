@@ -129,18 +129,56 @@ class PersonaAvatar extends StatelessWidget {
   final double size;
 
   @override
-  Widget build(BuildContext context) => Semantics(
-    label: '${persona.name}, ${persona.title}',
-    child: Container(
-      width: size,
-      height: size,
-      alignment: Alignment.center,
-      decoration: BoxDecoration(color: personaColor(persona.color), shape: BoxShape.circle),
-      child: Text(
-        persona.initials,
-        style: TextStyle(color: Colors.white, fontWeight: FontWeight.w600, fontSize: size * 0.38),
-      ),
+  Widget build(BuildContext context) => persona.team
+      ? Semantics(
+          label: 'Team room',
+          child: IconAvatar(icon: LucideIcons.usersRound, colors: const [Color(0xFF0284C7), Color(0xFF4F46E5)], size: size),
+        )
+      : Semantics(
+          label: '${persona.name}, ${persona.title}',
+          child: Container(
+            width: size,
+            height: size,
+            alignment: Alignment.center,
+            decoration: BoxDecoration(color: personaColor(persona.color), shape: BoxShape.circle),
+            child: Text(
+              persona.initials,
+              style: TextStyle(color: Colors.white, fontWeight: FontWeight.w600, fontSize: size * 0.38),
+            ),
+          ),
+        );
+}
+
+/// A round gradient avatar with an icon (the team room, Stackbot).
+class IconAvatar extends StatelessWidget {
+  const IconAvatar({required this.icon, required this.colors, super.key, this.size = 40});
+
+  final IconData icon;
+  final List<Color> colors;
+  final double size;
+
+  @override
+  Widget build(BuildContext context) => Container(
+    width: size,
+    height: size,
+    alignment: Alignment.center,
+    decoration: BoxDecoration(
+      shape: BoxShape.circle,
+      gradient: LinearGradient(colors: colors, begin: Alignment.topLeft, end: Alignment.bottomRight),
     ),
+    child: Icon(icon, color: Colors.white, size: size * 0.5),
+  );
+}
+
+/// Stackbot, the team room's AI teammate.
+class BotAvatar extends StatelessWidget {
+  const BotAvatar({super.key, this.size = 40});
+  final double size;
+
+  @override
+  Widget build(BuildContext context) => Semantics(
+    label: 'Stackbot, AI teammate',
+    child: IconAvatar(icon: LucideIcons.bot, colors: const [Color(0xFF0891B2), Color(0xFF0D9488)], size: size),
   );
 }
 

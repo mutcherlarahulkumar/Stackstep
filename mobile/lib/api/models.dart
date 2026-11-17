@@ -1611,7 +1611,10 @@ class Achievements {
   final Streak streak;
   final List<AchievementBadge> badges;
 
-  List<AchievementBadge> get earned => [for (final b in badges) if (b.earned) b];
+  List<AchievementBadge> get earned => [
+    for (final b in badges)
+      if (b.earned) b,
+  ];
 }
 
 class PortfolioSettings {

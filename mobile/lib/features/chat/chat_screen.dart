@@ -9,17 +9,22 @@ import 'package:stackstep/api/validation.dart';
 import 'package:stackstep/core/providers.dart';
 import 'package:stackstep/core/theme.dart';
 import 'package:stackstep/features/chat/chat_controller.dart';
+import 'package:stackstep/features/chat/inbox_controller.dart' show personasProvider, teamProvider;
 import 'package:stackstep/shared/errors.dart';
 import 'package:stackstep/shared/format.dart';
 import 'package:stackstep/shared/motion.dart';
 import 'package:stackstep/shared/state_views.dart';
+import 'package:stackstep/shared/team.dart';
 import 'package:stackstep/ui/ui.dart';
 
 /// One conversation. Students see a persona; admins (target.isStaff) see a student and write as the persona.
 class ChatScreen extends ConsumerWidget {
-  const ChatScreen({required this.target, required this.other, required this.otherName, this.onOpenTask, super.key});
+  const ChatScreen({required this.target, required this.other, required this.otherName, this.onOpenTask, this.teamRoom = false, super.key});
 
   final ChatTarget target;
+
+  /// The team room: every persona and Stackbot speak here, so each message names its speaker.
+  final bool teamRoom;
 
   /// Avatar of the other side of the conversation.
   final Widget other;
@@ -32,27 +37,53 @@ class ChatScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final chat = ref.watch(chatProvider(target));
     final rt = ref.watch(realtimeProvider);
+    final team = !teamRoom
+        ? null
+        : target.isStaff
+        ? switch (ref.watch(personasProvider).value) {
+            final ps? => Team(members: ps, botName: 'Stackbot', botTitle: 'AI teammate'),
+            null => null,
+          }
+        : ref.watch(teamProvider).value;
     return Column(
       children: [
         ConnectionBanner(status: rt.status),
         Expanded(
           child: FadeSwitch(
             child: switch (chat) {
-              AsyncData(:final value) => _Thread(state: value, target: target, other: other, otherName: otherName, onOpenTask: onOpenTask),
+              AsyncData(:final value) => _Thread(
+                state: value,
+                target: target,
+                other: other,
+                otherName: otherName,
+                onOpenTask: onOpenTask,
+                teamRoom: teamRoom,
+                team: team,
+              ),
               AsyncError(:final error) => ErrorState(message: messageFor(error), onRetry: () => ref.invalidate(chatProvider(target))),
               _ => const SkeletonList(rows: 6, height: 56),
             },
           ),
         ),
-        if (chat.hasValue) _Composer(target: target, otherName: otherName),
+        if (chat.hasValue) _Composer(target: target, otherName: otherName, teamRoom: teamRoom, team: team),
       ],
     );
   }
 }
 
 class _Thread extends ConsumerWidget {
-  const _Thread({required this.state, required this.target, required this.other, required this.otherName, required this.onOpenTask});
+  const _Thread({
+    required this.state,
+    required this.target,
+    required this.other,
+    required this.otherName,
+    required this.onOpenTask,
+    required this.teamRoom,
+    required this.team,
+  });
 
+  final bool teamRoom;
+  final Team? team;
   final ChatState state;
   final ChatTarget target;
   final Widget other;
@@ -109,6 +140,8 @@ class _Thread extends ConsumerWidget {
                 showTime: !groupedWithNewer,
                 showAvatar: !groupedWithOlder,
                 onOpenTask: onOpenTask,
+                teamRoom: teamRoom,
+                team: team,
               ),
               SizedBox(height: groupedWithNewer ? 3 : Space.md),
             ],
@@ -118,9 +151,11 @@ class _Thread extends ConsumerWidget {
     );
   }
 
-  bool _authorOf(ChatItem i) => switch (i) {
-    Delivered(:final message) => target.isMine(message),
-    Outgoing() => true,
+  /// Groups consecutive bubbles by side, and in the team room by speaker too.
+  String _authorOf(ChatItem i) => switch (i) {
+    Delivered(:final message) when teamRoom && message.author == Author.persona => 'p:${message.speakerId ?? 'bot'}',
+    Delivered(:final message) => target.isMine(message) ? 'mine' : 'other',
+    Outgoing() => 'mine',
   };
 }
 
@@ -154,8 +189,12 @@ class _Bubble extends ConsumerWidget {
     required this.showTime,
     required this.showAvatar,
     required this.onOpenTask,
+    required this.teamRoom,
+    required this.team,
   });
 
+  final bool teamRoom;
+  final Team? team;
   final ChatItem item;
   final ChatTarget target;
   final Widget other;
@@ -174,6 +213,11 @@ class _Bubble extends ConsumerWidget {
     };
     final failed = outgoing?.error != null;
     final sending = outgoing != null && !failed;
+    // In the team room, persona messages name their speaker.
+    final speaker = switch (item) {
+      Delivered(:final message) when teamRoom && message.author == Author.persona => speakerOf(message, team),
+      _ => null,
+    };
 
     final bubble = Container(
       constraints: BoxConstraints(maxWidth: MediaQuery.sizeOf(context).width * 0.76),
@@ -192,7 +236,10 @@ class _Bubble extends ConsumerWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         mainAxisSize: MainAxisSize.min,
         children: [
-          Text(body, style: t.textTheme.p.copyWith(color: mine ? c.primaryForeground : c.foreground, height: 1.45)),
+          Text.rich(
+            _withMentions(body, highlight: teamRoom),
+            style: t.textTheme.p.copyWith(color: mine ? c.primaryForeground : c.foreground, height: 1.45),
+          ),
           if (taskId != null && onOpenTask != null) ...[
             const SizedBox(height: Space.sm),
             ShadButton.outline(
@@ -218,8 +265,25 @@ class _Bubble extends ConsumerWidget {
     final content = Column(
       crossAxisAlignment: mine ? CrossAxisAlignment.end : CrossAxisAlignment.start,
       children: [
+        if (speaker != null && showAvatar)
+          Padding(
+            padding: const EdgeInsets.only(bottom: 4, left: 4, right: 4),
+            child: Text.rich(
+              key: const Key('team-speaker-name'),
+              TextSpan(
+                children: [
+                  TextSpan(
+                    text: speaker.name,
+                    style: TextStyle(fontWeight: FontWeight.w600, color: c.foreground),
+                  ),
+                  if (speaker.title.isNotEmpty) TextSpan(text: ' · ${speaker.title}'),
+                ],
+              ),
+              style: t.textTheme.muted.copyWith(fontSize: 12),
+            ),
+          ),
         Semantics(
-          label: '${mine ? 'You' : otherName}${automated ? ' (automatic reply)' : ''}: $body',
+          label: '${mine ? 'You' : speaker?.name ?? otherName}${automated ? ' (automatic reply)' : ''}: $body',
           button: failed,
           child: GestureDetector(
             onTap: failed ? () => ref.read(chatProvider(target).notifier).retry(outgoing!) : null,
@@ -245,10 +309,15 @@ class _Bubble extends ConsumerWidget {
     );
 
     if (mine) return Align(alignment: Alignment.centerRight, child: content);
+    final avatar = switch (speaker) {
+      null => other,
+      (persona: final p?, name: _, title: _) => PersonaAvatar(p),
+      _ => const BotAvatar(),
+    };
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        if (showAvatar) SizedBox.square(dimension: 28, child: FittedBox(child: other)) else const SizedBox(width: 28),
+        if (showAvatar) SizedBox.square(dimension: 28, child: FittedBox(child: avatar)) else const SizedBox(width: 28),
         const SizedBox(width: Space.sm),
         Flexible(child: content),
       ],
@@ -337,10 +406,12 @@ class _Bubble extends ConsumerWidget {
 }
 
 class _Composer extends ConsumerStatefulWidget {
-  const _Composer({required this.target, required this.otherName});
+  const _Composer({required this.target, required this.otherName, required this.teamRoom, required this.team});
 
   final ChatTarget target;
   final String otherName;
+  final bool teamRoom;
+  final Team? team;
 
   @override
   ConsumerState<_Composer> createState() => _ComposerState();
@@ -350,9 +421,16 @@ class _ComposerState extends ConsumerState<_Composer> {
   final _text = TextEditingController();
   String? _error;
 
+  /// Who staff speak as in the team room (the first persona until they pick).
+  String? _speaker;
+
   List<String> get _quick => widget.target.isStaff
       ? const ['Looks good, thanks!', 'Can you share the PR link?', "Let's sync tomorrow"]
+      : widget.teamRoom
+      ? const ['Good morning, team', "I'm stuck on this", 'PR ready for review']
       : const ['PR ready for review', "I'm stuck on this", 'Good morning'];
+
+  String? get _speakerId => _speaker ?? widget.team?.members.firstOrNull?.id;
 
   @override
   void initState() {
@@ -367,7 +445,12 @@ class _ComposerState extends ConsumerState<_Composer> {
   }
 
   void _send([String? preset]) {
-    final err = ref.read(chatProvider(widget.target).notifier).send(preset ?? _text.text);
+    final staffTeam = widget.teamRoom && widget.target.isStaff;
+    if (staffTeam && _speakerId == null) {
+      setState(() => _error = 'Pick who you speak as.');
+      return;
+    }
+    final err = ref.read(chatProvider(widget.target).notifier).send(preset ?? _text.text, speakerId: staffTeam ? _speakerId : null);
     if (err != null) {
       setState(() => _error = err);
       return;
@@ -381,6 +464,9 @@ class _ComposerState extends ConsumerState<_Composer> {
     final t = ShadTheme.of(context);
     final length = runeLength(_text.text.trim());
     final canSend = _text.text.trim().isNotEmpty && length <= Bounds.messageMax;
+    final members = widget.team?.members ?? const <Persona>[];
+    final query = widget.teamRoom && !widget.target.isStaff ? mentionQuery(_text.text) : null;
+    final suggestions = query == null ? const <Persona>[] : mentionMatches(query, members).take(6).toList();
     return DecoratedBox(
       decoration: BoxDecoration(
         color: t.colorScheme.background,
@@ -394,6 +480,54 @@ class _ComposerState extends ConsumerState<_Composer> {
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
+              if (widget.teamRoom && widget.target.isStaff && members.isNotEmpty) ...[
+                Row(
+                  children: [
+                    Text('Speak as', style: t.textTheme.muted.copyWith(fontSize: 12)),
+                    const SizedBox(width: Space.sm),
+                    Expanded(
+                      child: ShadSelect<String>(
+                        key: const Key('team-speaker'),
+                        initialValue: _speakerId,
+                        onChanged: (v) => setState(() => _speaker = v),
+                        options: [for (final p in members) ShadOption(value: p.id, child: Text('${p.name} · ${p.title}'))],
+                        selectedOptionBuilder: (_, v) {
+                          final p = members.where((m) => m.id == v).firstOrNull;
+                          return Text(p == null ? 'Pick a persona' : '${p.name} · ${p.title}', overflow: TextOverflow.ellipsis);
+                        },
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: Space.sm),
+              ],
+              if (suggestions.isNotEmpty) ...[
+                SizedBox(
+                  height: 40,
+                  child: ListView.separated(
+                    key: const Key('mention-suggestions'),
+                    scrollDirection: Axis.horizontal,
+                    itemCount: suggestions.length,
+                    separatorBuilder: (_, _) => const SizedBox(width: Space.sm),
+                    itemBuilder: (_, i) {
+                      final p = suggestions[i];
+                      return ShadButton.secondary(
+                        size: ShadButtonSize.sm,
+                        leading: PersonaAvatar(p, size: 20),
+                        onPressed: () {
+                          final next = insertMention(_text.text, p);
+                          _text.value = TextEditingValue(
+                            text: next,
+                            selection: TextSelection.collapsed(offset: next.length),
+                          );
+                        },
+                        child: Text(p.name.split(' ').first),
+                      );
+                    },
+                  ),
+                ),
+                const SizedBox(height: Space.sm),
+              ],
               if (_text.text.isEmpty)
                 SizedBox(
                   height: 40,
@@ -417,7 +551,7 @@ class _ComposerState extends ConsumerState<_Composer> {
                       maxLines: 5,
                       keyboardType: TextInputType.multiline,
                       textCapitalization: TextCapitalization.sentences,
-                      placeholder: Text('Message ${widget.otherName}'),
+                      placeholder: Text(widget.teamRoom ? 'Message your team. Type @ to ask someone' : 'Message ${widget.otherName}'),
                     ),
                   ),
                   const SizedBox(width: Space.sm),
@@ -494,4 +628,24 @@ class _ReactionChips extends ConsumerWidget {
       ],
     );
   }
+}
+
+/// Bold @mentions in team room messages.
+TextSpan _withMentions(String body, {required bool highlight}) {
+  if (!highlight) return TextSpan(text: body);
+  final spans = <TextSpan>[];
+  var last = 0;
+  for (final m in RegExp(r'(^|[^\p{L}\p{N}@])(@[\p{L}\p{N}]+)', unicode: true).allMatches(body)) {
+    final start = m.start + (m.group(1)?.length ?? 0);
+    if (start > last) spans.add(TextSpan(text: body.substring(last, start)));
+    spans.add(
+      TextSpan(
+        text: m.group(2),
+        style: const TextStyle(fontWeight: FontWeight.w700),
+      ),
+    );
+    last = m.end;
+  }
+  if (last < body.length) spans.add(TextSpan(text: body.substring(last)));
+  return TextSpan(children: spans);
 }

@@ -209,9 +209,8 @@ final class ApiClient {
 
   Future<PortfolioSettings> portfolio() async => PortfolioSettings.fromJson(asObject(await _send('GET', '/v1/me/portfolio')));
 
-  Future<PortfolioSettings> savePortfolio({required bool public, required String headline}) async => PortfolioSettings.fromJson(
-    asObject(await _send('PUT', '/v1/me/portfolio', body: {'public': public, 'headline': headline})),
-  );
+  Future<PortfolioSettings> savePortfolio({required bool public, required String headline}) async =>
+      PortfolioSettings.fromJson(asObject(await _send('PUT', '/v1/me/portfolio', body: {'public': public, 'headline': headline})));
 
   Future<List<LabSummary>> reviewLab() async => asObject(await _send('GET', '/v1/review-lab')).list('items', LabSummary.fromJson);
 

@@ -17,9 +17,18 @@ import 'package:stackstep/ui/ui.dart';
 
 /// A full-screen conversation with a header naming the other side.
 class ChatPage extends StatelessWidget {
-  const ChatPage({required this.target, required this.avatar, required this.title, required this.subtitle, super.key, this.onOpenTask});
+  const ChatPage({
+    required this.target,
+    required this.avatar,
+    required this.title,
+    required this.subtitle,
+    super.key,
+    this.onOpenTask,
+    this.teamRoom = false,
+  });
 
   final ChatTarget target;
+  final bool teamRoom;
   final Widget avatar;
   final String title;
   final String subtitle;
@@ -47,7 +56,7 @@ class ChatPage extends StatelessWidget {
           ],
         ),
       ),
-      body: ChatScreen(target: target, other: avatar, otherName: title, onOpenTask: onOpenTask),
+      body: ChatScreen(target: target, other: avatar, otherName: title, onOpenTask: onOpenTask, teamRoom: teamRoom),
     );
   }
 }
@@ -59,7 +68,8 @@ Future<void> openStudentThread(BuildContext context, Persona p, {void Function(S
       target: (personaId: p.id, enrollmentId: null),
       avatar: PersonaAvatar(p),
       title: p.name,
-      subtitle: '${p.title} · ${personaTag(p)}',
+      subtitle: p.team ? 'Just you and your team · Stackbot replies automatically' : '${p.title} · ${personaTag(p)}',
+      teamRoom: p.team,
       onOpenTask: onOpenTask == null
           ? null
           : (id) {
@@ -77,7 +87,8 @@ Future<void> openStaffThread(BuildContext context, Thread th) => Navigator.of(co
       target: (personaId: th.persona.id, enrollmentId: th.enrollmentId),
       avatar: _StudentAvatar(name: th.studentName ?? 'Student'),
       title: th.studentName ?? 'Student',
-      subtitle: 'You reply as ${th.persona.name} · ${th.persona.title}',
+      subtitle: th.persona.team ? 'Team room · pick who you speak as' : 'You reply as ${th.persona.name} · ${th.persona.title}',
+      teamRoom: th.persona.team,
     ),
   ),
 );
@@ -292,12 +303,17 @@ class StudentInboxScreen extends ConsumerWidget {
                   separatorBuilder: (_, _) => const Divider(height: 1, indent: 76),
                   itemBuilder: (context, index) {
                     if (index == 0) return const _AIRow();
-                    final th = value[index - 1];
+                    // The team room stays on top; the rest keep their newest-first order.
+                    final pinned = [...value.where((t) => t.persona.team), ...value.where((t) => !t.persona.team)];
+                    final th = pinned[index - 1];
                     return _ThreadTile(
                       tileKey: Key('thread-${th.persona.id}'),
                       avatar: PersonaAvatar(th.persona),
                       title: th.persona.name,
-                      tag: Text(th.persona.title, style: ShadTheme.of(context).textTheme.muted.copyWith(fontSize: 12)),
+                      tag: Text(
+                        th.persona.team ? 'You, your whole team and Stackbot' : th.persona.title,
+                        style: ShadTheme.of(context).textTheme.muted.copyWith(fontSize: 12),
+                      ),
                       preview: _preview(th.lastMessage, staff: false),
                       at: th.lastMessage?.sentAt,
                       unread: th.unread,

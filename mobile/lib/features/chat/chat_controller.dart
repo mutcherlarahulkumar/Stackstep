@@ -31,10 +31,13 @@ final class Delivered extends ChatItem {
 }
 
 final class Outgoing extends ChatItem {
-  const Outgoing({required this.clientId, required this.body, required this.at, this.error});
+  const Outgoing({required this.clientId, required this.body, required this.at, this.error, this.speakerId});
 
   final String clientId;
   final String body;
+
+  /// Who staff speak as in a team room.
+  final String? speakerId;
   @override
   final DateTime at;
 
@@ -44,8 +47,8 @@ final class Outgoing extends ChatItem {
   @override
   String get key => 'out-$clientId';
 
-  Outgoing failed(String reason) => Outgoing(clientId: clientId, body: body, at: at, error: reason);
-  Outgoing sending() => Outgoing(clientId: clientId, body: body, at: at);
+  Outgoing failed(String reason) => Outgoing(clientId: clientId, body: body, at: at, error: reason, speakerId: speakerId);
+  Outgoing sending() => Outgoing(clientId: clientId, body: body, at: at, speakerId: speakerId);
 }
 
 final class ChatState {
@@ -94,8 +97,8 @@ final class ChatController extends AsyncNotifier<ChatState> {
     null => _api.messages(target.personaId, cursor: cursor),
   };
 
-  Future<Message> _post(String clientId, String body) => switch (target.enrollmentId) {
-    final enrollment? => _api.staffSend(enrollment, target.personaId, clientId: clientId, body: body),
+  Future<Message> _post(String clientId, String body, String? speakerId) => switch (target.enrollmentId) {
+    final enrollment? => _api.staffSend(enrollment, target.personaId, clientId: clientId, body: body, speakerId: speakerId),
     null => _api.sendMessage(target.personaId, clientId: clientId, body: body),
   };
 
@@ -188,12 +191,12 @@ final class ChatController extends AsyncNotifier<ChatState> {
   }
 
   /// Validates and sends. Returns a validation message, or null when queued.
-  String? send(String raw) {
+  String? send(String raw, {String? speakerId}) {
     final problem = validateMessage(raw);
     if (problem != null) return problem;
     final s = state.value;
     if (s == null) return null;
-    final out = Outgoing(clientId: _uuid.v4(), body: raw.trim(), at: ref.read(clockProvider)().toUtc());
+    final out = Outgoing(clientId: _uuid.v4(), body: raw.trim(), at: ref.read(clockProvider)().toUtc(), speakerId: speakerId);
     state = AsyncData(s.copyWith(outgoing: [...s.outgoing, out]));
     unawaited(_deliver(out));
     return null;
@@ -213,7 +216,7 @@ final class ChatController extends AsyncNotifier<ChatState> {
 
   Future<void> _deliver(Outgoing o) async {
     try {
-      final msg = await _post(o.clientId, o.body);
+      final msg = await _post(o.clientId, o.body, o.speakerId);
       if (ref.mounted) _receive([msg]);
     } on Exception catch (e) {
       if (ref.mounted) _replaceOutgoing(o.clientId, o.failed(messageFor(e)));
