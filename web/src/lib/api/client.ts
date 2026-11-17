@@ -29,6 +29,8 @@ export type ContentInput = {
   quiz: { questions: { prompt: string; options: string[]; answer: number }[]; pass_percent: number } | null;
   practice: PracticeDraft | null;
   rubric: string[];
+  /** Code review tasks only: a graded review lab pull request. */
+  review_lab?: { exercise: string; pass_percent: number } | null;
 };
 
 /** Parses practice test text into JSON for the API. Validation (validateContent) runs first. */

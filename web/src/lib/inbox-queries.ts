@@ -95,3 +95,9 @@ export function usePersonas() {
   const { api } = useSession();
   return useQuery({ queryKey: personasKey, queryFn: () => api.personas(false), staleTime: 60_000 });
 }
+
+/** Everyone in the student's team room. */
+export function useTeam(enabled = true) {
+  const { api } = useSession();
+  return useQuery({ queryKey: ["team"], queryFn: () => api.myTeam(), staleTime: 5 * 60_000, enabled });
+}

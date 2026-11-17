@@ -65,6 +65,7 @@ export function contentForEdit(c: TaskContent): ContentInput {
           tests: c.practice.tests.map((t) => ({ args: JSON.stringify(t.args), expected: JSON.stringify(t.expected) })),
         }
       : null,
+    review_lab: c.review_lab ? { ...c.review_lab } : null,
   };
 }
 
@@ -140,6 +141,14 @@ export function validateContent(c: ContentInput, type: TaskType, review: ReviewM
       else if (seen.has(s.toLowerCase())) e[`rubric[${i}]`] = "Each criterion must be different.";
       seen.add(s.toLowerCase());
     });
+  }
+  const lab = c.review_lab ?? null;
+  if (lab && type !== "code_review") e.review_lab = "Only code review tasks have a practice pull request.";
+  if (lab && type === "code_review") {
+    if (!lab.exercise) e["review_lab.exercise"] = "Pick a practice pull request from the review lab.";
+    if (!Number.isInteger(lab.pass_percent) || lab.pass_percent < 1 || lab.pass_percent > 100) e["review_lab.pass_percent"] = "Pass mark must be between 1% and 100%.";
+    if (review !== "self") e.review_mode = "Practice reviews are graded automatically, so the student finishes them.";
+    if (c.rubric.length > 0) e.rubric = "Practice reviews grade themselves, so they don't have a rubric.";
   }
   const p = c.practice;
   if (p && type !== "dsa") e.practice = "Only DSA tasks have a practice pad.";

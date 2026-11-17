@@ -28,7 +28,7 @@ import { Bounds, normalizeLine, runeLength, validateBrief, validateSchedule, val
 import { choiceItem } from "../app/choice";
 import { DateTimePicker } from "../app/date-picker";
 import { PersonaAvatar } from "../app/persona-avatar";
-import { PracticeEditor, QuizEditor, ResourcesEditor, RubricEditor } from "./content-editors";
+import { PracticeEditor, QuizEditor, ResourcesEditor, ReviewLabEditor, RubricEditor } from "./content-editors";
 import { DocumentsEditor } from "./documents-editor";
 import { TYPE_ICON } from "../app/task-badges";
 
@@ -72,6 +72,7 @@ export function AssignTaskForm({ student, onAssigned }: { student: Student; onAs
     } else setContent((c) => ({ ...c, quiz: null }));
     if (t !== "dsa") setContent((c) => ({ ...c, practice: null }));
     if (t === "quiz") setContent((c) => ({ ...c, rubric: [] }));
+    if (t !== "code_review") setContent((c) => ({ ...c, review_lab: null }));
   };
   const personaList = personas.data ?? [];
   // The admin's pick, else the default team lead, else the first persona; null lets the server decide.
@@ -280,6 +281,17 @@ export function AssignTaskForm({ student, onAssigned }: { student: Student; onAs
         {content.quiz ? (
           <QuizEditor value={content.quiz} onChange={(quiz) => setContent((c) => ({ ...c, quiz }))} errors={errors} idPrefix="assign-quiz" />
         ) : null}
+        {type === "code_review" ? (
+          <ReviewLabEditor
+            value={content.review_lab ?? null}
+            onChange={(review_lab) => {
+              setContent((c) => ({ ...c, review_lab, rubric: review_lab ? [] : c.rubric }));
+              if (review_lab) setReviewMode("self");
+            }}
+            errors={errors}
+            idPrefix="assign-lab"
+          />
+        ) : null}
         {moreOpen ? (
           <>
             <Field data-invalid={!!errors.persona_id}>
@@ -320,7 +332,7 @@ export function AssignTaskForm({ student, onAssigned }: { student: Student; onAs
                   if (v === "self") setContent((c) => ({ ...c, rubric: [] }));
                 }}
                 className="justify-start"
-                disabled={type === "quiz"}
+                disabled={type === "quiz" || !!content.review_lab}
               >
                 <ToggleGroupItem value="manual" className={choiceItem}>
                   {REVIEW_LABEL.manual}
@@ -332,10 +344,12 @@ export function AssignTaskForm({ student, onAssigned }: { student: Student; onAs
               {errors.review_mode ? (
                 <FieldError>{errors.review_mode}</FieldError>
               ) : (
-                <FieldDescription>{type === "quiz" ? "Quizzes grade themselves against your answer key." : REVIEW_HINT[reviewMode]}</FieldDescription>
+                <FieldDescription>
+                  {type === "quiz" ? "Quizzes grade themselves against your answer key." : content.review_lab ? "Practice reviews grade themselves." : REVIEW_HINT[reviewMode]}
+                </FieldDescription>
               )}
             </Field>
-            {reviewMode === "manual" && type !== "quiz" ? (
+            {reviewMode === "manual" && type !== "quiz" && !content.review_lab ? (
               <RubricEditor value={content.rubric} onChange={(rubric) => setContent((c) => ({ ...c, rubric }))} errors={errors} idPrefix="assign-rubric" />
             ) : null}
             {type === "dsa" ? (

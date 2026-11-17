@@ -113,7 +113,12 @@ function AIRow({ selected, onSelect }: { selected: boolean; onSelect: () => void
   );
 }
 
-/** The student's chats: the AI helper, then one per persona. */
+/** The team room stays at the top, under the AI helper; the rest keep their newest-first order. */
+function pinTeam(threads: Thread[]): Thread[] {
+  return [...threads.filter((t) => t.persona.team), ...threads.filter((t) => !t.persona.team)];
+}
+
+/** The student's chats: the AI helper, the team room, then one per persona. */
 export function StudentThreadList({ selected, onSelect, onAI }: { selected: string | null; onSelect: (t: Thread) => void; onAI: () => void }) {
   const q = useStudentThreads();
   const ai = (
@@ -137,17 +142,18 @@ export function StudentThreadList({ selected, onSelect, onAI }: { selected: stri
     <ul className="flex flex-col gap-0.5" aria-label="Chats">
       <li className="px-1 pb-2">
         <InfoNote id="student-chats" title="Your team">
-          Each person here is part of your project team and posts your tasks. Message them like at work. The AI helper gives hints when
-          you&apos;re stuck and uses credits you earn by finishing tasks.
+          Each person here is part of your project team and posts your tasks. Message them like at work. The team room has everyone
+          together, plus Stackbot, an AI teammate. The AI helper gives hints when you&apos;re stuck and uses credits you earn by
+          finishing tasks.
         </InfoNote>
       </li>
       {ai}
-      {q.data.map((t, i) => (
+      {pinTeam(q.data).map((t, i) => (
         <li key={t.persona.id} className="animate-enter-stagger" style={stagger(i + 1)}>
           <Row
             avatar={<PersonaAvatar persona={t.persona} size="lg" />}
             title={t.persona.name}
-            tag={t.persona.title}
+            tag={t.persona.team ? "You, your whole team and Stackbot" : t.persona.title}
             last={t.last_message}
             unread={t.unread}
             staff={false}

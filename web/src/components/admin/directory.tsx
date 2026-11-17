@@ -2,6 +2,7 @@
 
 import { useInfiniteQuery, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
+  Medal,
   CalendarClock,
   Check,
   ExternalLink,
@@ -40,6 +41,7 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } f
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "@/components/ui/sheet";
+import { Skeleton } from "@/components/ui/skeleton";
 import { Spinner } from "@/components/ui/spinner";
 import { Textarea } from "@/components/ui/textarea";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
@@ -50,6 +52,7 @@ import { useSession } from "@/lib/session";
 import { cn } from "@/lib/utils";
 
 import { AttendanceSeats, AttendanceStats, Forest } from "../attendance/attendance";
+import { EarnedBadges, StreakChip } from "../achievements/badges";
 import { EmptyState, ErrorState, ListSkeleton } from "../app/state";
 import { useFlows } from "./catalog-queries";
 import { useCohorts } from "./people-enroll";
@@ -317,6 +320,8 @@ function ProfileBody({ p, me, onClose }: { p: Profile; me: Me; onClose: () => vo
         </Section>
       ) : null}
 
+      {current ? <ProfileBadges enrollmentId={current.enrollment.id} /> : null}
+
       <Section icon={GraduationCap} title="Internships">
         {p.enrollments.length === 0 ? (
           <p className="text-muted-foreground text-sm">No internship yet.</p>
@@ -529,5 +534,28 @@ function SignOutSection({ p, onDone }: { p: Profile; onDone: () => void }) {
       </AlertDialog>
       <p className="text-muted-foreground mt-2 text-xs">Use it when a device is lost, an account is shared, or someone left.</p>
     </section>
+  );
+}
+
+/** The student's streak and badges in their current or latest internship. */
+function ProfileBadges({ enrollmentId }: { enrollmentId: string }) {
+  const { api } = useSession();
+  const q = useQuery({ queryKey: ["staff-achievements", enrollmentId], queryFn: () => api.staffAchievements(enrollmentId), staleTime: 60_000 });
+  return (
+    <Section icon={Medal} title="Streak and badges">
+      {q.isPending ? (
+        <Skeleton className="h-10 w-full" />
+      ) : q.isError ? (
+        <p className="text-muted-foreground text-sm">{messageFor(q.error)}</p>
+      ) : (
+        <div className="flex flex-col gap-3" data-testid="profile-badges">
+          <p className="flex items-center gap-2 text-sm">
+            <StreakChip streak={q.data.streak} />
+            <span className="text-muted-foreground">Longest {q.data.streak.longest} {q.data.streak.longest === 1 ? "day" : "days"}</span>
+          </p>
+          <EarnedBadges badges={q.data.badges} empty="No badges yet." />
+        </div>
+      )}
+    </Section>
   );
 }

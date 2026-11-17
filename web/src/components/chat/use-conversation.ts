@@ -13,7 +13,8 @@ import { useFrames } from "@/lib/realtime-context";
 import { useSession } from "@/lib/session";
 import { validateMessage } from "@/lib/validation";
 
-export type Outgoing = { clientId: string; body: string; at: Date; error: string | null };
+/** speakerId is who staff speak as in a team room. */
+export type Outgoing = { clientId: string; body: string; at: Date; error: string | null; speakerId?: string | null };
 
 /** The message with one side's emoji added or removed. */
 export function withReaction(m: Message, emoji: ReactionEmoji, by: Author, on: boolean): Message {
@@ -160,7 +161,9 @@ export function useConversation(target: ChatTarget) {
   const deliver = useCallback(
     async (o: Outgoing) => {
       try {
-        const m = enrollmentId ? await api.staffSend(enrollmentId, personaId, o.clientId, o.body) : await api.sendMessage(personaId, o.clientId, o.body);
+        const m = enrollmentId
+          ? await api.staffSend(enrollmentId, personaId, o.clientId, o.body, o.speakerId ?? null)
+          : await api.sendMessage(personaId, o.clientId, o.body);
         dispatch({ type: "received", items: [m] });
       } catch (e) {
         dispatch({ type: "send_failed", clientId: o.clientId, error: messageFor(e) });
@@ -171,10 +174,10 @@ export function useConversation(target: ChatTarget) {
 
   /** Returns a validation message, or null once the message is queued. */
   const send = useCallback(
-    (raw: string): string | null => {
+    (raw: string, speakerId: string | null = null): string | null => {
       const problem = validateMessage(raw);
       if (problem) return problem;
-      const out: Outgoing = { clientId: newId(), body: raw.trim(), at: new Date(), error: null };
+      const out: Outgoing = { clientId: newId(), body: raw.trim(), at: new Date(), error: null, speakerId };
       dispatch({ type: "queued", out });
       void deliver(out);
       return null;

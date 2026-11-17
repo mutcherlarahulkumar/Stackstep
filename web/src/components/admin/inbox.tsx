@@ -13,6 +13,7 @@ import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { messageFor } from "@/lib/api/errors";
 import { type Frame, type InboxStudent, type Persona, type StaffThread } from "@/lib/api/schemas";
 import { inboxTimeLabel, previewLine, threadKey } from "@/lib/inbox";
+import { usePersonas } from "@/lib/inbox-queries";
 import { useFrames } from "@/lib/realtime-context";
 import { useSession } from "@/lib/session";
 import { cn } from "@/lib/utils";
@@ -37,6 +38,7 @@ type Open = { student: InboxStudent["student"]; enrollmentId: string; persona: P
  * they talk to, then the conversation. "Latest" keeps the old most-recent-chats view.
  */
 export function InboxScreen() {
+  const teamMembers = usePersonas().data ?? [];
   const [mode, setMode] = useState<"students" | "latest">("students");
   const [student, setStudent] = useState<InboxStudent | null>(null);
   const [open, setOpen] = useState<Open | null>(null);
@@ -116,14 +118,26 @@ export function InboxScreen() {
               <div className="min-w-0 flex-1">
                 <h2 className="truncate text-sm font-semibold">{open.student.name}</h2>
                 <p className="text-muted-foreground flex items-center gap-1.5 truncate text-xs">
-                  You reply as <PersonaAvatar persona={open.persona} size="sm" className="size-4" /> {open.persona.name} · {open.persona.title}
+                  {open.persona.team ? (
+                    <>
+                      <PersonaAvatar persona={open.persona} size="sm" className="size-4" /> Team room · pick who you speak as below
+                    </>
+                  ) : (
+                    <>
+                      You reply as <PersonaAvatar persona={open.persona} size="sm" className="size-4" /> {open.persona.name} · {open.persona.title}
+                    </>
+                  )}
                 </p>
               </div>
             </div>
             <ConversationView
               key={`${open.enrollmentId}:${open.persona.id}`}
               target={{ personaId: open.persona.id, enrollmentId: open.enrollmentId }}
-              other={{ name: open.student.name, avatar: <PersonAvatar name={open.student.name} login={open.student.github_login} url={open.student.avatar_url} size="sm" /> }}
+              other={{
+                name: open.student.name,
+                avatar: <PersonAvatar name={open.student.name} login={open.student.github_login} url={open.student.avatar_url} size="sm" />,
+                team: open.persona.team ? { members: teamMembers } : undefined,
+              }}
             />
           </div>
         ) : (

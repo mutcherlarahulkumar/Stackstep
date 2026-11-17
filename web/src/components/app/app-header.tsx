@@ -1,6 +1,6 @@
 "use client";
 
-import { Bell, BellOff, FileText, LogOut, ShieldCheck, Compass, Moon, Sun } from "lucide-react";
+import { Bell, BellOff, FileText, Globe, LogOut, SearchCheck, ShieldCheck, Compass, Moon, Sun } from "lucide-react";
 import Link from "next/link";
 import { useTheme } from "next-themes";
 import { type ReactNode } from "react";
@@ -77,6 +77,20 @@ export function AppHeader({ user, children }: { user: User; children?: ReactNode
             <Sun className="dark:hidden" aria-hidden />
             <Moon className="hidden dark:block" aria-hidden /> {resolvedTheme === "dark" ? "Light mode" : "Dark mode"}
           </DropdownMenuItem>
+          {user.role === "student" ? (
+            <>
+              <DropdownMenuItem asChild>
+                <Link href="/portfolio" data-testid="menu-portfolio">
+                  <Globe aria-hidden /> Your portfolio
+                </Link>
+              </DropdownMenuItem>
+              <DropdownMenuItem asChild>
+                <Link href="/review-lab" data-testid="menu-review-lab">
+                  <SearchCheck aria-hidden /> Review lab
+                </Link>
+              </DropdownMenuItem>
+            </>
+          ) : null}
           {tour ? (
             <DropdownMenuItem onSelect={() => startTour()} data-testid="menu-tour">
               <Compass aria-hidden /> Take the tour

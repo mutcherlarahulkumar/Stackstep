@@ -20,6 +20,7 @@ import { certificatePath, dateOnlyLabel, formatCode, isCode, normalizeCode, prog
 import { dateTimeLabel } from "@/lib/format";
 import { useSession } from "@/lib/session";
 
+import { EarnedBadges } from "../achievements/badges";
 import { Wordmark } from "../app/brand";
 import { EmptyState, ErrorState } from "../app/state";
 import { ART_HEIGHT, ART_WIDTH, CertificateArt } from "./certificate-art";
@@ -208,6 +209,14 @@ function VerifiedCard({ cert }: { cert: Certificate }) {
               <span className="font-mono">{formatCode(cert.code)}</span>
             </Fact>
           </dl>
+          {cert.badges && cert.badges.length > 0 ? (
+            <section aria-labelledby="cert-badges" className="mt-5 border-t pt-4">
+              <h2 id="cert-badges" className="text-muted-foreground mb-2 text-xs font-medium">
+                Badges earned during the internship
+              </h2>
+              <EarnedBadges badges={cert.badges} />
+            </section>
+          ) : null}
         </CardContent>
         <CardFooter className="flex flex-wrap gap-2">
           {revoked ? null : (
@@ -332,6 +341,14 @@ function CertificateDocument({ cert }: { cert: Certificate }) {
       >
         <CertificateArt ref={art} cert={cert} origin={origin} />
       </article>
+      {cert.badges && cert.badges.length > 0 && !revoked ? (
+        <section aria-labelledby="art-badges" className="bg-card rounded-xl border p-4 print:hidden">
+          <h2 id="art-badges" className="mb-2 text-sm font-medium">
+            Badges earned during the internship
+          </h2>
+          <EarnedBadges badges={cert.badges} />
+        </section>
+      ) : null}
       {/* Landscape, no margins: the artwork is drawn to A4. */}
       <style>{"@media print { @page { size: A4 landscape; margin: 0; } }"}</style>
     </div>

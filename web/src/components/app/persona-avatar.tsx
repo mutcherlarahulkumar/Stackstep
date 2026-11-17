@@ -1,3 +1,5 @@
+import { Bot, UsersRound } from "lucide-react";
+
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { type PersonaColor } from "@/lib/api/schemas";
 import { initials } from "@/lib/format";
@@ -18,7 +20,16 @@ export const PERSONA_DOT: Record<PersonaColor, string> = PERSONA_BG;
 
 type Size = "sm" | "default" | "lg";
 
-export function PersonaAvatar({ persona, size = "default", className }: { persona: { name: string; color: PersonaColor }; size?: Size; className?: string }) {
+export function PersonaAvatar({
+  persona,
+  size = "default",
+  className,
+}: {
+  persona: { name: string; color: PersonaColor; team?: boolean };
+  size?: Size;
+  className?: string;
+}) {
+  if (persona.team) return <TeamAvatar size={size} className={className} />;
   return (
     // Decorative: the persona's name is always shown next to it, so initials would only repeat it.
     <Avatar size={size} className={className} aria-hidden>
@@ -32,6 +43,28 @@ export function PersonAvatar({ name, login, url, size = "default" }: { name: str
     <Avatar size={size}>
       {url ? <AvatarImage src={url} alt="" /> : null}
       <AvatarFallback>{initials(name, login)}</AvatarFallback>
+    </Avatar>
+  );
+}
+
+/** The team room: everyone at once. */
+export function TeamAvatar({ size = "default", className }: { size?: Size; className?: string }) {
+  return (
+    <Avatar size={size} className={className} aria-hidden>
+      <AvatarFallback className="bg-gradient-to-br from-sky-600 to-indigo-600 text-white">
+        <UsersRound className="size-[55%]" aria-hidden />
+      </AvatarFallback>
+    </Avatar>
+  );
+}
+
+/** Stackbot, the team room's AI teammate. */
+export function BotAvatar({ size = "default", className }: { size?: Size; className?: string }) {
+  return (
+    <Avatar size={size} className={className} aria-hidden>
+      <AvatarFallback className="bg-gradient-to-br from-cyan-600 to-teal-600 text-white">
+        <Bot className="size-[55%]" aria-hidden />
+      </AvatarFallback>
     </Avatar>
   );
 }
