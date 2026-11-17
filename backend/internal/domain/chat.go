@@ -54,6 +54,8 @@ type Message struct {
 	TaskID       *uuid.UUID
 	ClientID     *uuid.UUID
 	SentAt       time.Time
+	// SpeakerID is who spoke in the team room (nil there means Stackbot). Always nil elsewhere.
+	SpeakerID *uuid.UUID
 	// Automated is a persona message no admin wrote (scripted or AI reply, acknowledgement,
 	// announcement).
 	Automated bool

@@ -8,6 +8,8 @@ import (
 	"unicode/utf8"
 
 	"github.com/google/uuid"
+
+	"github.com/mutcherlarahulkumar/stackstep/backend/internal/reviewlab"
 )
 
 // Resource is a link a task points the student to (docs, an article, a starter repo).
@@ -44,6 +46,14 @@ type TaskContent struct {
 	Practice  *Practice      `json:"practice,omitempty"`
 	// Rubric is the reviewer's checklist (admin-reviewed tasks only).
 	Rubric []string `json:"rubric,omitempty"`
+	// ReviewLab makes a code review task a graded practice pull request (feature 27).
+	ReviewLab *ReviewLabRef `json:"review_lab,omitempty"`
+}
+
+// ReviewLabRef points a code review task at a review lab exercise.
+type ReviewLabRef struct {
+	Exercise    string `json:"exercise"`
+	PassPercent int    `json:"pass_percent"`
 }
 
 // Bounds for task content (mirrored in clients).
@@ -154,6 +164,25 @@ func ValidateContent(c TaskContent, typ TaskType, review ReviewMode, prefix stri
 			errs[k] = v
 		}
 		out.Practice = &p
+	}
+	switch {
+	case typ != TaskCodeReview && c.ReviewLab != nil:
+		errs[prefix+"review_lab"] = "Only code review tasks have a practice pull request."
+	case c.ReviewLab != nil:
+		lab := ReviewLabRef{Exercise: strings.TrimSpace(c.ReviewLab.Exercise), PassPercent: c.ReviewLab.PassPercent}
+		if lab.PassPercent == 0 {
+			lab.PassPercent = reviewlab.DefaultPass
+		}
+		if !reviewlab.Exists(lab.Exercise) {
+			errs[prefix+"review_lab.exercise"] = "Pick a practice pull request from the review lab."
+		}
+		if lab.PassPercent < 1 || lab.PassPercent > 100 {
+			errs[prefix+"review_lab.pass_percent"] = "Pass mark must be between 1% and 100%."
+		}
+		if review != ReviewSelf {
+			errs[prefix+"review_mode"] = "Practice reviews are graded automatically, so the student finishes them."
+		}
+		out.ReviewLab = &lab
 	}
 	rubric, rErrs := validateRubric(c.Rubric, typ, review, prefix+"rubric")
 	for k, v := range rErrs {

@@ -6,6 +6,7 @@ import {
   CalendarDays,
   Mail,
   MessageCircle,
+  SearchCheck,
   SquareKanban,
   UserRound,
 } from "lucide-react";
@@ -18,7 +19,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { startsCaption } from "@/lib/people";
 import { type Enrollment, type Me, type Persona } from "@/lib/api/schemas";
 import { personaTag, totalUnread } from "@/lib/inbox";
-import { useStudentThreads } from "@/lib/inbox-queries";
+import { useStudentThreads, useTeam } from "@/lib/inbox-queries";
 import { useMailFrames, useUnreadMail } from "@/lib/mail-queries";
 import { RealtimeProvider, useSocketStatus } from "@/lib/realtime-context";
 import { useIsDesktop } from "@/lib/use-desktop";
@@ -31,11 +32,12 @@ import { AppHeader } from "../app/app-header";
 import { ConnectionBanner } from "../app/connection-banner";
 import { RequireSession } from "../app/guard";
 import { SectionBoundary } from "../app/section-boundary";
-import { PersonaAvatar } from "../app/persona-avatar";
+import { BotAvatar, PersonaAvatar } from "../app/persona-avatar";
 import { EmptyState } from "../app/state";
 import { ConversationView } from "../chat/conversation";
 import { AI_THREAD, StudentThreadList } from "../chat/thread-list";
 import { AIHelper } from "../ai/ai-helper";
+import { AchievementsStrip } from "../achievements/badges";
 import { ApplyScreen } from "../apply/apply-screen";
 import { BoardPanel } from "./board-panel";
 import { OnboardingDialog } from "./onboarding-dialog";
@@ -77,6 +79,8 @@ function shortDayCaption(e: Enrollment): string {
 function Workspace({ me, enrollment }: { me: Me; enrollment: Enrollment }) {
   const ws = useWorkspace();
   const threads = useStudentThreads();
+  const team = useTeam();
+  const members = team.data?.members ?? [];
   const socket = useSocketStatus();
   // One layout at a time, so each conversation is mounted (and marked read) once.
   const desktop = useIsDesktop();
@@ -97,7 +101,7 @@ function Workspace({ me, enrollment }: { me: Me; enrollment: Enrollment }) {
   useEffect(() => {
     if (linked) router.replace("/workspace", { scroll: false });
   }, [linked, router]);
-  // Desktop always shows a conversation (the newest by default); phones start on the list.
+  // Desktop always shows a conversation (the newest one-to-one chat by default); phones start on the list.
   const [picked, setPicked] = useState<string | null>(null);
   const [phoneThread, setPhoneThread] = useState<string | null>(null);
   const personas = (threads.data ?? []).map((t) => t.persona);
@@ -105,7 +109,7 @@ function Workspace({ me, enrollment }: { me: Me; enrollment: Enrollment }) {
   const aiOpen = picked === AI_THREAD;
   const desktopPersona = aiOpen
     ? null
-    : ((picked ? byId.get(picked) : undefined) ?? personas[0] ?? null);
+    : ((picked ? byId.get(picked) : undefined) ?? personas.find((p) => !p.team) ?? personas[0] ?? null);
   const tasks = ws.state.tasks.status === "ready" ? ws.state.tasks.data : [];
   const phonePersona = phoneThread ? (byId.get(phoneThread) ?? null) : null;
   const unread = totalUnread(threads.data ?? []);
@@ -147,6 +151,12 @@ function Workspace({ me, enrollment }: { me: Me; enrollment: Enrollment }) {
                   {mailUnread > 99 ? "99+" : mailUnread}
                 </span>
               ) : null}
+            </Link>
+          </Button>
+          <Button asChild variant="ghost" size="sm" className="gap-2 rounded-full max-sm:hidden" data-testid="open-review-lab-nav" data-tour="review-lab">
+            <Link href="/review-lab" aria-label="Review lab">
+              <SearchCheck aria-hidden />
+              <span className="hidden lg:inline">Review lab</span>
             </Link>
           </Button>
           <Button asChild variant="ghost" size="sm" className="gap-2 rounded-full" data-testid="open-calendar" data-tour="calendar">
@@ -192,7 +202,7 @@ function Workspace({ me, enrollment }: { me: Me; enrollment: Enrollment }) {
                   <AIHelper tasks={tasks} />
                 ) : desktopPersona ? (
                   <>
-                    <ConversationHeader persona={desktopPersona} />
+                    <ConversationHeader persona={desktopPersona} members={members} />
                     <ConversationView
                       key={desktopPersona.id}
                       target={{
@@ -204,6 +214,7 @@ function Workspace({ me, enrollment }: { me: Me; enrollment: Enrollment }) {
                         avatar: (
                           <PersonaAvatar persona={desktopPersona} size="sm" />
                         ),
+                        team: desktopPersona.team ? { members } : undefined,
                       }}
                       onOpenTask={setOpenTask}
                     />
@@ -225,6 +236,7 @@ function Workspace({ me, enrollment }: { me: Me; enrollment: Enrollment }) {
             </section>
             <section aria-label="Task board" className="flex min-h-0 flex-col" data-tour="board">
               <PanelTitle icon={SquareKanban} title="Your board" />
+              <AchievementsStrip />
               <SectionBoundary label="Your board">
                 <BoardPanel
                   ws={ws}
@@ -271,6 +283,7 @@ function Workspace({ me, enrollment }: { me: Me; enrollment: Enrollment }) {
                   <>
                     <ConversationHeader
                       persona={phonePersona}
+                      members={members}
                       onBack={() => setPhoneThread(null)}
                     />
                     <ConversationView
@@ -284,6 +297,7 @@ function Workspace({ me, enrollment }: { me: Me; enrollment: Enrollment }) {
                         avatar: (
                           <PersonaAvatar persona={phonePersona} size="sm" />
                         ),
+                        team: phonePersona.team ? { members } : undefined,
                       }}
                       onOpenTask={openFromChat}
                     />
@@ -302,6 +316,7 @@ function Workspace({ me, enrollment }: { me: Me; enrollment: Enrollment }) {
               </SectionBoundary>
             </TabsContent>
             <TabsContent value="tasks" className="flex min-h-0 flex-1 flex-col">
+              <AchievementsStrip />
               <SectionBoundary label="Your board">
                 <BoardPanel
                   ws={ws}
@@ -327,7 +342,7 @@ const WORKSPACE_TOUR: TourStep[] = [
   {
     target: "chats",
     title: "Your team's chats",
-    body: "Your team lead, PM and teammates message you here with standups, tickets and nudges. Automatic replies are labelled. The AI helper lives here too.",
+    body: "Your team lead, PM and teammates message you here with standups, tickets and nudges. The team room has everyone together, with Stackbot, an AI teammate. Automatic replies are labelled.",
   },
   {
     target: "conversation",
@@ -337,7 +352,7 @@ const WORKSPACE_TOUR: TourStep[] = [
   {
     target: "board",
     title: "Your board",
-    body: "Tasks move from To do to Waiting for review to Done. Open one for the brief, review criteria, lessons, notes and the hand-in box.",
+    body: "Tasks move from To do to Waiting for review to Done. Open one for the brief, review criteria, lessons, notes and the hand-in box. Your streak and badges sit on top.",
   },
   {
     target: "tabs",
@@ -348,6 +363,11 @@ const WORKSPACE_TOUR: TourStep[] = [
     target: "mail",
     title: "Mail",
     body: "Your welcome letter, review results, class invites, certificates and announcements land here.",
+  },
+  {
+    target: "review-lab",
+    title: "Review lab",
+    body: "Practice code review on pull requests with planted problems. Comment on the lines that are wrong and see what you found and what you missed.",
   },
   {
     target: "calendar",
@@ -368,11 +388,37 @@ const WORKSPACE_TOUR: TourStep[] = [
 
 function ConversationHeader({
   persona,
+  members,
   onBack,
 }: {
   persona: Persona;
+  members: Persona[];
   onBack?: () => void;
 }) {
+  if (persona.team) {
+    return (
+      <div className="flex h-14 shrink-0 items-center gap-3 border-b px-3 sm:px-4" data-testid="team-header">
+        {onBack ? (
+          <Button variant="ghost" size="icon" onClick={onBack} aria-label="All chats">
+            <ArrowLeft aria-hidden />
+          </Button>
+        ) : null}
+        <PersonaAvatar persona={persona} />
+        <div className="min-w-0 flex-1">
+          <h2 className="truncate text-sm font-semibold">{persona.name}</h2>
+          <p className="text-muted-foreground truncate text-xs">
+            {members.length + 2} members · just you and your team · Stackbot replies automatically
+          </p>
+        </div>
+        <div className="hidden -space-x-2 sm:flex" aria-hidden>
+          {members.slice(0, 4).map((m) => (
+            <PersonaAvatar key={m.id} persona={m} size="sm" className="ring-background ring-2" />
+          ))}
+          <BotAvatar size="sm" className="ring-background ring-2" />
+        </div>
+      </div>
+    );
+  }
   return (
     <div className="flex h-14 shrink-0 items-center gap-3 border-b px-3 sm:px-4">
       {onBack ? (

@@ -273,6 +273,7 @@ final class Task {
     required this.content,
     required this.submission,
     required this.quizResult,
+    this.labResult,
   });
 
   factory Task.fromJson(JsonReader j) => Task(
@@ -299,6 +300,7 @@ final class Task {
       final q? => QuizStats.fromJson(q),
       null => null,
     },
+    labResult: j.raw['lab_result'] == null ? null : LabStats.fromJson(j.object('lab_result')),
   );
 
   Task withStatus(TaskStatus s) => Task(
@@ -319,6 +321,7 @@ final class Task {
     content: content,
     submission: submission,
     quizResult: quizResult,
+    labResult: labResult,
   );
 
   final String id;
@@ -338,6 +341,12 @@ final class Task {
   final TaskContent content;
   final Submission? submission;
   final QuizStats? quizResult;
+
+  /// Graded reviews of the task's review lab pull request (feature 27).
+  final LabStats? labResult;
+
+  /// A code review task that is a practice pull request, graded in the web app's review lab.
+  bool get isReviewLab => content.reviewLab != null;
 
   bool get isQuiz => type == TaskType.quiz && content.quiz != null;
 
@@ -381,7 +390,14 @@ final class Quiz {
 }
 
 final class TaskContent {
-  const TaskContent({required this.resources, required this.quiz, this.practice, this.rubric = const [], this.documents = const []});
+  const TaskContent({
+    required this.resources,
+    required this.quiz,
+    this.practice,
+    this.rubric = const [],
+    this.documents = const [],
+    this.reviewLab,
+  });
   factory TaskContent.fromJson(JsonReader j) => TaskContent(
     resources: j.list('resources', Resource.fromJson),
     documents: j.raw['documents'] == null ? const [] : j.list('documents', TaskDocument.fromJson),
@@ -394,6 +410,7 @@ final class TaskContent {
       null => null,
     },
     rubric: j.valuesOrNull<String>('rubric') ?? const [],
+    reviewLab: j.raw['review_lab'] == null ? null : ReviewLabRef.fromJson(j.object('review_lab')),
   );
   final List<Resource> resources;
   final List<TaskDocument> documents;
@@ -404,6 +421,31 @@ final class TaskContent {
 
   /// What the reviewer checks.
   final List<String> rubric;
+
+  /// The review lab pull request a code review task points at.
+  final ReviewLabRef? reviewLab;
+}
+
+/// A code review task that is a graded review lab pull request.
+final class ReviewLabRef {
+  const ReviewLabRef({required this.exercise, required this.passPercent});
+  factory ReviewLabRef.fromJson(JsonReader j) => ReviewLabRef(exercise: j.string('exercise'), passPercent: j.integer('pass_percent'));
+  final String exercise;
+  final int passPercent;
+}
+
+final class LabStats {
+  const LabStats({required this.attempts, required this.attemptsLeft, required this.bestScore, required this.passed});
+  factory LabStats.fromJson(JsonReader j) => LabStats(
+    attempts: j.integer('attempts'),
+    attemptsLeft: j.integer('attempts_left'),
+    bestScore: j.integer('best_score'),
+    passed: j.boolean('passed'),
+  );
+  final int attempts;
+  final int attemptsLeft;
+  final int bestScore;
+  final bool passed;
 }
 
 final class Practice {
@@ -503,6 +545,7 @@ final class Message {
     required this.sentAt,
     required this.automated,
     this.reactions = const [],
+    this.speakerId,
   });
 
   factory Message.fromJson(JsonReader j) => Message(
@@ -516,6 +559,7 @@ final class Message {
     sentAt: j.dateTime('sent_at'),
     automated: j.boolean('automated'),
     reactions: j.list('reactions', Reaction.fromJson),
+    speakerId: j.stringOrNull('speaker_id'),
   );
 
   final String id;
@@ -533,6 +577,9 @@ final class Message {
   /// Oldest first; each side leaves each emoji at most once.
   final List<Reaction> reactions;
 
+  /// Team room only: the persona who spoke. Null there is Stackbot, the AI teammate.
+  final String? speakerId;
+
   /// This message with [by]'s [emoji] added or removed (for an instant, optimistic update).
   Message withReaction(ReactionEmoji emoji, Author by, {required bool on}) => Message(
     id: id,
@@ -548,6 +595,7 @@ final class Message {
       ...reactions.where((r) => !(r.emoji == emoji && r.by == by)),
       if (on) Reaction(emoji: emoji, by: by),
     ],
+    speakerId: speakerId,
   );
 }
 
@@ -663,6 +711,7 @@ final class Persona {
     required this.color,
     required this.autoReply,
     required this.archived,
+    this.team = false,
   });
 
   factory Persona.fromJson(JsonReader j) => Persona(
@@ -672,6 +721,7 @@ final class Persona {
     color: j.enumValue('color', PersonaColor.values, (c) => c.wire),
     autoReply: j.boolean('auto_reply'),
     archived: j.boolean('archived'),
+    team: j.raw['team'] == true,
   );
 
   final String id;
@@ -680,6 +730,9 @@ final class Persona {
   final PersonaColor color;
   final bool autoReply;
   final bool archived;
+
+  /// The team room: the student, every persona and Stackbot in one conversation.
+  final bool team;
 
   String get initials {
     final parts = name.trim().split(RegExp(r'\s+')).where((p) => p.isNotEmpty).toList();
@@ -1472,4 +1525,178 @@ class HelpAnswer {
   /// False when the guide's own words came back (no AI, or it was busy).
   final bool ai;
   final List<String> topics;
+}
+
+// ---- Team room, badges, portfolio and review lab (features 27 to 30) ----
+
+/// Everyone in the student's team room.
+class Team {
+  const Team({required this.members, required this.botName, required this.botTitle});
+
+  factory Team.fromJson(JsonReader j) {
+    final bot = j.object('bot');
+    return Team(members: j.list('members', Persona.fromJson), botName: bot.string('name'), botTitle: bot.string('title'));
+  }
+
+  final List<Persona> members;
+  final String botName;
+  final String botTitle;
+
+  Persona? byId(String? id) {
+    if (id == null) return null;
+    for (final p in members) {
+      if (p.id == id) return p;
+    }
+    return null;
+  }
+}
+
+enum BadgeKey {
+  firstPr('first_pr'),
+  reviews5('reviews_5'),
+  onTimeWeek('on_time_week'),
+  streak7('streak_7'),
+  streak30('streak_30'),
+  bugHunter('bug_hunter'),
+  quizAce('quiz_ace'),
+  tasks10('tasks_10'),
+  tasks25('tasks_25');
+
+  BadgeKey(this.wire);
+  final String wire;
+}
+
+class AchievementBadge {
+  const AchievementBadge({
+    required this.key,
+    required this.title,
+    required this.description,
+    required this.target,
+    required this.progress,
+    required this.earnedAt,
+  });
+
+  factory AchievementBadge.fromJson(JsonReader j) => AchievementBadge(
+    key: j.enumValue('key', BadgeKey.values, (k) => k.wire),
+    title: j.string('title'),
+    description: j.string('description'),
+    target: j.integer('target'),
+    progress: j.integer('progress'),
+    earnedAt: j.dateTimeOrNull('earned_at'),
+  );
+
+  final BadgeKey key;
+  final String title;
+  final String description;
+  final int target;
+  final int progress;
+  final DateTime? earnedAt;
+
+  bool get earned => earnedAt != null;
+}
+
+class Streak {
+  const Streak({required this.current, required this.longest, required this.activeToday});
+  factory Streak.fromJson(JsonReader j) =>
+      Streak(current: j.integer('current'), longest: j.integer('longest'), activeToday: j.boolean('active_today'));
+  final int current;
+  final int longest;
+  final bool activeToday;
+}
+
+class Achievements {
+  const Achievements({required this.streak, required this.badges});
+  factory Achievements.fromJson(JsonReader j) =>
+      Achievements(streak: Streak.fromJson(j.object('streak')), badges: j.list('badges', AchievementBadge.fromJson));
+  final Streak streak;
+  final List<AchievementBadge> badges;
+
+  List<AchievementBadge> get earned => [
+    for (final b in badges)
+      if (b.earned) b,
+  ];
+}
+
+class PortfolioSettings {
+  const PortfolioSettings({required this.public, required this.headline, required this.login});
+  factory PortfolioSettings.fromJson(JsonReader j) =>
+      PortfolioSettings(public: j.boolean('public'), headline: j.string('headline'), login: j.string('login'));
+  final bool public;
+  final String headline;
+  final String login;
+}
+
+enum LabDifficulty {
+  easy('easy'),
+  medium('medium'),
+  hard('hard');
+
+  LabDifficulty(this.wire);
+  final String wire;
+}
+
+enum LabSeverity {
+  bug('bug'),
+  security('security'),
+  performance('performance'),
+  accessibility('accessibility');
+
+  LabSeverity(this.wire);
+  final String wire;
+}
+
+enum LabLineKind {
+  hunk('hunk'),
+  context('context'),
+  add('add'),
+  del('del');
+
+  LabLineKind(this.wire);
+  final String wire;
+}
+
+enum LabVerdict {
+  comment('comment'),
+  approve('approve'),
+  requestChanges('request_changes');
+
+  LabVerdict(this.wire);
+  final String wire;
+}
+
+/// One review lab pull request in the library. The app lists them; reviewing happens on the web.
+class LabSummary {
+  const LabSummary({
+    required this.key,
+    required this.title,
+    required this.summary,
+    required this.language,
+    required this.difficulty,
+    required this.issues,
+    required this.bestScore,
+    required this.passed,
+  });
+
+  factory LabSummary.fromJson(JsonReader j) {
+    final r = j.object('record');
+    return LabSummary(
+      key: j.string('key'),
+      title: j.string('title'),
+      summary: j.string('summary'),
+      language: j.string('language'),
+      difficulty: j.enumValue('difficulty', LabDifficulty.values, (d) => d.wire),
+      issues: j.integer('issues'),
+      bestScore: r.integerOrNull('best_score'),
+      passed: r.boolean('passed'),
+    );
+  }
+
+  final String key;
+  final String title;
+  final String summary;
+  final String language;
+  final LabDifficulty difficulty;
+  final int issues;
+  final int? bestScore;
+  final bool passed;
 }

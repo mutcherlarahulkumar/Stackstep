@@ -164,7 +164,7 @@ func TestImportFailureRollsBackAllEditionChanges(t *testing.T) {
 		t.Fatal("conflicting user flow name must not be overwritten")
 	}
 	var personas, templates, flows int
-	if err := pool.QueryRow(ctx, "SELECT count(*) FROM personas").Scan(&personas); err != nil {
+	if err := pool.QueryRow(ctx, "SELECT count(*) FROM personas WHERE id <> '00000000-0000-4000-8000-0000000000f0'").Scan(&personas); err != nil {
 		t.Fatal(err)
 	}
 	if err := pool.QueryRow(ctx, "SELECT count(*) FROM task_templates").Scan(&templates); err != nil {

@@ -1170,7 +1170,19 @@ paths:
       tags: [inbox]
       operationId: sendStaffMessage
       summary: Reply as the persona
-      requestBody: { $ref: "#/components/requestBodies/SendMessage" }
+      description: In the team room, speaker_id (an active persona) says who is talking; it is required there and refused elsewhere.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [client_id, body]
+              properties:
+                client_id: { type: string, format: uuid }
+                body: { type: string, minLength: 1, maxLength: 4000 }
+                speaker_id: { type: [string, "null"], format: uuid }
       responses:
         "200": { description: Retry of an existing message, content: { application/json: { schema: { $ref: "#/components/schemas/Message" } } } }
         "201": { description: Created, content: { application/json: { schema: { $ref: "#/components/schemas/Message" } } } }
@@ -1920,6 +1932,139 @@ paths:
         "403": { $ref: "#/components/responses/Error" }
         "404": { $ref: "#/components/responses/Error" }
         "422": { $ref: "#/components/responses/Error" }
+  /v1/me/team:
+    get:
+      tags: [student]
+      operationId: myTeam
+      summary: Everyone in the student's team room
+      description: The team room is one conversation (its persona has team true) with the student, every active persona and Stackbot, the AI teammate. Only this student is in it.
+      responses:
+        "200": { description: Team, content: { application/json: { schema: { $ref: "#/components/schemas/Team" } } } }
+        "409": { $ref: "#/components/responses/Error" }
+  /v1/me/achievements:
+    get:
+      tags: [student]
+      operationId: myAchievements
+      summary: The student's streak and badges
+      description: Worked out from what the student did. Newly earned badges are saved with their date and celebrated by Stackbot in the team room.
+      responses:
+        "200": { description: Achievements, content: { application/json: { schema: { $ref: "#/components/schemas/Achievements" } } } }
+        "409": { $ref: "#/components/responses/Error" }
+  /v1/admin/enrollments/{id}/achievements:
+    get:
+      tags: [admin]
+      operationId: staffAchievements
+      summary: A student's streak and badges
+      parameters: [{ $ref: "#/components/parameters/Id" }]
+      responses:
+        "200": { description: Achievements, content: { application/json: { schema: { $ref: "#/components/schemas/Achievements" } } } }
+        "404": { $ref: "#/components/responses/Error" }
+  /v1/me/portfolio:
+    get:
+      tags: [student]
+      operationId: myPortfolio
+      summary: The signed-in user's public portfolio settings
+      responses:
+        "200": { description: Settings, content: { application/json: { schema: { $ref: "#/components/schemas/PortfolioSettings" } } } }
+    put:
+      tags: [student]
+      operationId: saveMyPortfolio
+      summary: Turn the public portfolio on or off and set its headline (interns only)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [public, headline]
+              properties:
+                public: { type: boolean }
+                headline: { type: string, maxLength: 120, description: "One line; whitespace is normalized" }
+      responses:
+        "200": { description: Saved, content: { application/json: { schema: { $ref: "#/components/schemas/PortfolioSettings" } } } }
+        "403": { $ref: "#/components/responses/Error" }
+        "422": { $ref: "#/components/responses/Error" }
+  /v1/portfolios/{login}:
+    get:
+      tags: [public]
+      operationId: publicPortfolio
+      summary: A student's public portfolio (no sign-in)
+      description: Not found unless the student turned it on. Shows finished work, earned badges, certificates and passed review lab exercises; never chats, notes, reviews or scores.
+      security: []
+      parameters:
+        - { name: login, in: path, required: true, schema: { type: string, minLength: 1, maxLength: 39 } }
+      responses:
+        "200": { description: Found, content: { application/json: { schema: { $ref: "#/components/schemas/Portfolio" } } } }
+        "404": { $ref: "#/components/responses/Error" }
+        "429": { $ref: "#/components/responses/Error" }
+  /v1/review-lab:
+    get:
+      tags: [student]
+      operationId: listReviewLab
+      summary: The review lab's practice pull requests, with the user's record on each
+      responses:
+        "200":
+          description: Library
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [items]
+                properties:
+                  items: { type: array, items: { $ref: "#/components/schemas/LabSummary" } }
+  /v1/review-lab/{key}:
+    get:
+      tags: [student]
+      operationId: getReviewLabExercise
+      summary: One practice pull request with its diff
+      description: Planted issues are never included; they are revealed only in a graded review (last_review).
+      parameters:
+        - { name: key, in: path, required: true, schema: { type: string, maxLength: 80 } }
+      responses:
+        "200": { description: Exercise, content: { application/json: { schema: { $ref: "#/components/schemas/LabExercise" } } } }
+        "404": { $ref: "#/components/responses/Error" }
+  /v1/review-lab/{key}/reviews:
+    post:
+      tags: [student]
+      operationId: submitReviewLabReview
+      summary: Submit a review for grading
+      description: |
+        Graded by where the comments point (no AI). A comment counts for the planted issue it is
+        closest to, up to one line away. Each issue is worth an equal share; comments that point at
+        nothing cost 5 points each after two free ones, and approving costs 10. Practice is unlimited.
+        With task_id the review is that task's hand-in: three tries, passing or the third try finishes
+        the task, and the best score counts.
+      parameters:
+        - { name: key, in: path, required: true, schema: { type: string, maxLength: 80 } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [verdict, comments]
+              properties:
+                task_id: { type: [string, "null"], format: uuid }
+                expected_version: { type: integer, minimum: 1, description: Required with task_id }
+                verdict: { $ref: "#/components/schemas/LabVerdict" }
+                summary: { type: string, maxLength: 4000 }
+                comments: { type: array, minItems: 1, maxItems: 30, items: { $ref: "#/components/schemas/LabComment" } }
+      responses:
+        "201":
+          description: Graded
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [review, task]
+                properties:
+                  review: { $ref: "#/components/schemas/LabReview" }
+                  task: { oneOf: [{ $ref: "#/components/schemas/Task" }, { type: "null" }] }
+        "404": { $ref: "#/components/responses/Error" }
+        "409": { $ref: "#/components/responses/Error" }
+        "422": { $ref: "#/components/responses/Error" }
 components:
   securitySchemes:
     bearer: { type: http, scheme: bearer, bearerFormat: JWT }
@@ -2289,7 +2434,7 @@ components:
         onboarded: { type: boolean, description: True once the first-run guide was finished or skipped }
     Task:
       type: object
-      required: [id, enrollment_id, type, title, brief, status, scheduled_for, due_at, version, created_at, updated_at, review_mode, persona_id, from_flow, content, submission, quiz_result, shared_note]
+      required: [id, enrollment_id, type, title, brief, status, scheduled_for, due_at, version, created_at, updated_at, review_mode, persona_id, from_flow, content, submission, quiz_result, lab_result, shared_note]
       properties:
         id: { type: string, format: uuid }
         enrollment_id: { type: string, format: uuid }
@@ -2308,6 +2453,9 @@ components:
         content: { $ref: "#/components/schemas/TaskContent" }
         submission: { oneOf: [{ $ref: "#/components/schemas/Submission" }, { type: "null" }] }
         quiz_result: { oneOf: [{ $ref: "#/components/schemas/QuizStats" }, { type: "null" }] }
+        lab_result:
+          description: Graded reviews of the task's practice pull request; null unless content.review_lab is set and a review was handed in
+          oneOf: [{ $ref: "#/components/schemas/LabStats" }, { type: "null" }]
         shared_note:
           description: The student's note when they shared it. Staff views only; always null for students.
           oneOf: [{ $ref: "#/components/schemas/TaskNote" }, { type: "null" }]
@@ -2365,6 +2513,9 @@ components:
         practice:
           description: DSA tasks only. Example tests the student runs in their own browser; responses always include it (null when absent).
           oneOf: [{ $ref: "#/components/schemas/Practice" }, { type: "null" }]
+        review_lab:
+          description: Code review tasks only. The task is a graded review lab pull request, so review_mode must be self. Responses always include it (null when absent).
+          oneOf: [{ $ref: "#/components/schemas/ReviewLabRef" }, { type: "null" }]
     Practice:
       type: object
       required: [function_name, starter, tests]
@@ -2426,6 +2577,215 @@ components:
         passed: { type: boolean }
         correct: { type: array, items: { type: boolean } }
         attempts_left: { type: integer, minimum: 0, maximum: 2 }
+    Team:
+      type: object
+      required: [members, bot]
+      properties:
+        members: { type: array, items: { $ref: "#/components/schemas/Persona" } }
+        bot:
+          type: object
+          required: [name, title]
+          properties:
+            name: { type: string }
+            title: { type: string }
+    BadgeKey: { type: string, enum: [first_pr, reviews_5, on_time_week, streak_7, streak_30, bug_hunter, quiz_ace, tasks_10, tasks_25] }
+    Badge:
+      type: object
+      required: [key, title, description, target, progress, earned_at]
+      properties:
+        key: { $ref: "#/components/schemas/BadgeKey" }
+        title: { type: string }
+        description: { type: string }
+        target: { type: integer, minimum: 1 }
+        progress: { type: integer, minimum: 0, description: Equals target once earned }
+        earned_at: { type: [string, "null"], format: date-time }
+    Streak:
+      type: object
+      required: [current, longest, active_today]
+      properties:
+        current: { type: integer, minimum: 0, description: "Consecutive active days up to today (or yesterday, until today ends)" }
+        longest: { type: integer, minimum: 0 }
+        active_today: { type: boolean }
+    Achievements:
+      type: object
+      required: [streak, badges]
+      properties:
+        streak: { $ref: "#/components/schemas/Streak" }
+        badges: { type: array, description: "Every badge, earned or not, in display order", items: { $ref: "#/components/schemas/Badge" } }
+    PortfolioSettings:
+      type: object
+      required: [public, headline, login]
+      properties:
+        public: { type: boolean }
+        headline: { type: string }
+        login: { type: string }
+    Portfolio:
+      type: object
+      required: [login, name, avatar_url, headline, program_slug, program_days, flow_name, status, start_date, end_date, day_number, tasks_done, prs_merged, points, streak, badges, work, certificates, review_lab]
+      properties:
+        login: { type: string }
+        name: { type: string }
+        avatar_url: { type: [string, "null"] }
+        headline: { type: string }
+        program_slug: { type: string }
+        program_days: { type: integer }
+        flow_name: { type: [string, "null"] }
+        status: { $ref: "#/components/schemas/EnrollmentStatus" }
+        start_date: { type: string, format: date }
+        end_date: { type: string, format: date }
+        day_number: { type: integer, minimum: 0 }
+        tasks_done: { type: integer, minimum: 0 }
+        prs_merged: { type: integer, minimum: 0 }
+        points: { type: integer, minimum: 0 }
+        streak: { $ref: "#/components/schemas/Streak" }
+        badges: { type: array, description: Earned badges only, items: { $ref: "#/components/schemas/Badge" } }
+        work:
+          type: array
+          items:
+            type: object
+            required: [title, type, done_at, url]
+            properties:
+              title: { type: string }
+              type: { $ref: "#/components/schemas/TaskType" }
+              done_at: { type: string, format: date-time }
+              url: { type: [string, "null"], description: "The hand-in link (a pull request, a post)" }
+        certificates:
+          type: array
+          items:
+            type: object
+            required: [code, issued_at]
+            properties:
+              code: { type: string }
+              issued_at: { type: string, format: date-time }
+        review_lab:
+          type: array
+          items:
+            type: object
+            required: [key, title, language, best_score]
+            properties:
+              key: { type: string }
+              title: { type: string }
+              language: { type: string }
+              best_score: { type: integer, minimum: 0, maximum: 100 }
+    LabDifficulty: { type: string, enum: [easy, medium, hard] }
+    LabSeverity: { type: string, enum: [bug, security, performance, accessibility] }
+    LabLineKind: { type: string, enum: [hunk, context, add, del] }
+    LabVerdict: { type: string, enum: [comment, approve, request_changes] }
+    LabRecord:
+      type: object
+      required: [attempts, best_score, passed, last_at]
+      properties:
+        attempts: { type: integer, minimum: 0 }
+        best_score: { type: [integer, "null"], minimum: 0, maximum: 100 }
+        passed: { type: boolean }
+        last_at: { type: [string, "null"], format: date-time }
+    LabSummary:
+      type: object
+      required: [key, title, summary, language, difficulty, number, author, files, additions, deletions, issues, record]
+      properties:
+        key: { type: string }
+        title: { type: string, description: The pull request title }
+        summary: { type: string }
+        language: { type: string }
+        difficulty: { $ref: "#/components/schemas/LabDifficulty" }
+        number: { type: integer, minimum: 1 }
+        author: { type: string }
+        files: { type: integer, minimum: 1 }
+        additions: { type: integer, minimum: 0 }
+        deletions: { type: integer, minimum: 0 }
+        issues: { type: integer, minimum: 1, description: How many problems are planted }
+        record: { $ref: "#/components/schemas/LabRecord" }
+    LabLine:
+      type: object
+      required: [kind, old, new, text]
+      properties:
+        kind: { $ref: "#/components/schemas/LabLineKind" }
+        old: { type: [integer, "null"], minimum: 1 }
+        new: { type: [integer, "null"], minimum: 1 }
+        text: { type: string }
+    LabFile:
+      type: object
+      required: [path, language, status, additions, deletions, lines]
+      properties:
+        path: { type: string }
+        language: { type: string }
+        status: { type: string, enum: [added, modified] }
+        additions: { type: integer, minimum: 0 }
+        deletions: { type: integer, minimum: 0 }
+        lines: { type: array, items: { $ref: "#/components/schemas/LabLine" } }
+    LabComment:
+      type: object
+      additionalProperties: false
+      required: [path, line, side, body]
+      properties:
+        path: { type: string }
+        line: { type: integer, minimum: 1 }
+        side: { type: string, enum: [new, old] }
+        body: { type: string, minLength: 1, maxLength: 2000 }
+    LabIssue:
+      type: object
+      required: [id, path, from, to, severity, title, explanation, found, comment]
+      properties:
+        id: { type: string }
+        path: { type: string }
+        from: { type: integer, minimum: 1 }
+        to: { type: integer, minimum: 1 }
+        severity: { $ref: "#/components/schemas/LabSeverity" }
+        title: { type: string }
+        explanation: { type: string }
+        found: { type: boolean }
+        comment: { type: [integer, "null"], minimum: 0, description: Index of the first comment that found it }
+    LabReview:
+      type: object
+      required: [id, task_id, verdict, summary, comments, score, found, total, noise, noise_penalty, approve_penalty, passed, issues, created_at]
+      properties:
+        id: { type: string, format: uuid }
+        task_id: { type: [string, "null"], format: uuid }
+        verdict: { $ref: "#/components/schemas/LabVerdict" }
+        summary: { type: string }
+        comments: { type: array, items: { $ref: "#/components/schemas/LabComment" } }
+        score: { type: integer, minimum: 0, maximum: 100 }
+        found: { type: integer, minimum: 0 }
+        total: { type: integer, minimum: 1 }
+        noise: { type: integer, minimum: 0, description: Comments that pointed at no planted issue }
+        noise_penalty: { type: integer, minimum: 0 }
+        approve_penalty: { type: integer, minimum: 0 }
+        passed: { type: boolean }
+        issues: { type: array, description: "Every planted issue, revealed", items: { $ref: "#/components/schemas/LabIssue" } }
+        created_at: { type: string, format: date-time }
+    LabExercise:
+      allOf:
+        - $ref: "#/components/schemas/LabSummary"
+        - type: object
+          required: [branch, base, body, commits, file_diffs, last_review]
+          properties:
+            branch: { type: string }
+            base: { type: string }
+            body: { type: string, description: Markdown }
+            commits:
+              type: array
+              items:
+                type: object
+                required: [sha, message]
+                properties:
+                  sha: { type: string }
+                  message: { type: string }
+            file_diffs: { type: array, items: { $ref: "#/components/schemas/LabFile" } }
+            last_review: { oneOf: [{ $ref: "#/components/schemas/LabReview" }, { type: "null" }] }
+    LabStats:
+      type: object
+      required: [attempts, attempts_left, best_score, passed]
+      properties:
+        attempts: { type: integer, minimum: 0, maximum: 3 }
+        attempts_left: { type: integer, minimum: 0, maximum: 3 }
+        best_score: { type: integer, minimum: 0, maximum: 100 }
+        passed: { type: boolean }
+    ReviewLabRef:
+      type: object
+      required: [exercise, pass_percent]
+      properties:
+        exercise: { type: string, maxLength: 80, description: A review lab exercise key }
+        pass_percent: { type: integer, minimum: 0, maximum: 100, description: Defaults to 60 when sent as 0 }
     CertificateStatus: { type: string, enum: [valid, revoked] }
     Certificate:
       type: object
@@ -2446,6 +2806,9 @@ components:
         status: { $ref: "#/components/schemas/CertificateStatus" }
         revoked_at: { type: [string, "null"], format: date-time }
         revoke_reason: { type: [string, "null"] }
+        badges:
+          description: Badges earned in the internship. Only on the public verify response; null elsewhere.
+          oneOf: [{ type: array, items: { $ref: "#/components/schemas/Badge" } }, { type: "null" }]
     OverviewRow:
       type: object
       required: [student, released, done, in_review, overdue, completion_percent, points, credits, last_active_at, inactive, certificate]
@@ -2634,7 +2997,7 @@ components:
         wallet: { $ref: "#/components/schemas/Wallet" }
     Message:
       type: object
-      required: [id, enrollment_id, persona_id, author, body, task_id, client_id, sent_at, automated, reactions]
+      required: [id, enrollment_id, persona_id, author, body, task_id, client_id, sent_at, automated, reactions, speaker_id]
       properties:
         id: { type: string, format: uuid }
         enrollment_id: { type: string, format: uuid }
@@ -2647,6 +3010,10 @@ components:
         automated:
           type: boolean
           description: A persona message no admin wrote (AI or scripted reply, acknowledgement, announcement). Clients label it as automatic.
+        speaker_id:
+          type: [string, "null"]
+          format: uuid
+          description: In the team room, the persona who spoke (null is Stackbot, the AI teammate). Always null in other conversations.
         reactions:
           type: array
           description: Oldest first. Each side of the conversation (the student, or staff as the persona) leaves each emoji at most once.
@@ -2695,7 +3062,7 @@ components:
         mail: { $ref: "#/components/schemas/Mail", description: "A new letter (no body); refresh the mailbox" }
     Persona:
       type: object
-      required: [id, name, title, color, auto_reply, archived, version]
+      required: [id, name, title, color, auto_reply, archived, version, team]
       properties:
         id: { type: string, format: uuid }
         name: { type: string }
@@ -2704,6 +3071,7 @@ components:
         auto_reply: { type: boolean }
         archived: { type: boolean }
         version: { type: integer, minimum: 1 }
+        team: { type: boolean, description: The team room conversation (the student and every persona). Never in persona lists. }
     TaskSpec:
       type: object
       required: [type, title, brief, persona_id, review_mode, release_time, due_minutes]

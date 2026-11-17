@@ -14,12 +14,12 @@ import (
 
 // automated is true for persona messages no admin wrote: scripted and AI replies, acknowledgements
 // and announcements. Clients label them so students always know when a reply was automatic.
-const messageCols = "id, enrollment_id, persona_id, author, body, task_id, client_id, deliver_at, (author = 'persona' AND sent_by IS NULL)"
+const messageCols = "id, enrollment_id, persona_id, author, body, task_id, client_id, deliver_at, (author = 'persona' AND sent_by IS NULL), speaker_id"
 
 func scanMessage(row pgx.Row) (domain.Message, error) {
 	var m domain.Message
 	var author string
-	if err := row.Scan(&m.ID, &m.EnrollmentID, &m.PersonaID, &author, &m.Body, &m.TaskID, &m.ClientID, &m.SentAt, &m.Automated); err != nil {
+	if err := row.Scan(&m.ID, &m.EnrollmentID, &m.PersonaID, &author, &m.Body, &m.TaskID, &m.ClientID, &m.SentAt, &m.Automated, &m.SpeakerID); err != nil {
 		return domain.Message{}, notFound(err)
 	}
 	m.Author = domain.Author(author)
@@ -40,6 +40,8 @@ type NewMessage struct {
 	TaskID    *uuid.UUID
 	ClientID  *uuid.UUID
 	DeliverAt time.Time
+	// SpeakerID is the persona talking in the team room (nil there is Stackbot).
+	SpeakerID *uuid.UUID
 }
 
 // InsertMessage stores a message. Messages due now are marked delivered immediately.
@@ -54,11 +56,11 @@ func InsertMessage(ctx context.Context, q Q, m NewMessage, now time.Time) (domai
 		return domain.Message{}, false, fmt.Errorf("ensure thread: %w", err)
 	}
 	msg, err := scanMessage(q.QueryRow(ctx, `
-		INSERT INTO chat_messages (enrollment_id, persona_id, sent_by, author, body, task_id, client_id, created_at, deliver_at, delivered_at)
-		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+		INSERT INTO chat_messages (enrollment_id, persona_id, sent_by, author, body, task_id, client_id, created_at, deliver_at, delivered_at, speaker_id)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
 		ON CONFLICT ON CONSTRAINT chat_messages_client_id_key DO NOTHING
 		RETURNING `+messageCols,
-		m.EnrollmentID, m.PersonaID, m.SentBy, string(m.Author), m.Body, m.TaskID, m.ClientID, now, m.DeliverAt, delivered))
+		m.EnrollmentID, m.PersonaID, m.SentBy, string(m.Author), m.Body, m.TaskID, m.ClientID, now, m.DeliverAt, delivered, m.SpeakerID))
 	if errors.Is(err, ErrNotFound) && m.ClientID != nil {
 		existing, err := FindMessageByClientID(ctx, q, m.EnrollmentID, *m.ClientID)
 		return existing, false, err
@@ -191,7 +193,7 @@ const (
 const threadSelect = `
 	SELECT t.enrollment_id, ` + personaColsP + `,
 	       lm.id, lm.enrollment_id, lm.persona_id, lm.author, lm.body, lm.task_id, lm.client_id, lm.deliver_at,
-	       (lm.author = 'persona' AND lm.sent_by IS NULL),
+	       (lm.author = 'persona' AND lm.sent_by IS NULL), lm.speaker_id,
 	       ` + unreadStudentExpr + `, ` + unreadStaffExpr + `,
 	       u.name, u.github_login, u.avatar_url, ` + threadSortExpr + `
 	FROM chat_threads t
@@ -212,10 +214,11 @@ func scanThread(rows pgx.Rows) (Thread, error) {
 		task, client            *uuid.UUID
 		at                      *time.Time
 		automated               *bool
+		speaker                 *uuid.UUID
 	}
 	if err := rows.Scan(&t.EnrollmentID, &t.Persona.ID, &t.Persona.Name, &t.Persona.Title, &color, &t.Persona.AutoReply,
 		&t.Persona.Version, &t.Persona.ArchivedAt,
-		&lm.id, &lm.enrollment, &lm.persona, &lm.author, &lm.body, &lm.task, &lm.client, &lm.at, &lm.automated,
+		&lm.id, &lm.enrollment, &lm.persona, &lm.author, &lm.body, &lm.task, &lm.client, &lm.at, &lm.automated, &lm.speaker,
 		&t.UnreadStudent, &t.UnreadStaff, &t.StudentName, &t.StudentLogin, &t.StudentAvatar, &t.SortAt); err != nil {
 		return Thread{}, err
 	}
@@ -223,7 +226,7 @@ func scanThread(rows pgx.Rows) (Thread, error) {
 	if lm.id != nil && lm.author != nil && lm.body != nil && lm.at != nil && lm.enrollment != nil && lm.persona != nil {
 		t.LastMessage = &domain.Message{ID: *lm.id, EnrollmentID: *lm.enrollment, PersonaID: *lm.persona,
 			Author: domain.Author(*lm.author), Body: *lm.body, TaskID: lm.task, ClientID: lm.client, SentAt: *lm.at,
-			Automated: lm.automated != nil && *lm.automated}
+			Automated: lm.automated != nil && *lm.automated, SpeakerID: lm.speaker}
 	}
 	return t, nil
 }
@@ -385,4 +388,12 @@ func InboxStudents(ctx context.Context, q Q, now time.Time, f InboxStudentFilter
 		out = append(out, r)
 	}
 	return out, rows.Err()
+}
+
+// HasMessages reports whether a conversation has any message, delivered or scheduled.
+func HasMessages(ctx context.Context, q Q, enrollmentID, personaID uuid.UUID) (bool, error) {
+	var ok bool
+	err := q.QueryRow(ctx, `SELECT EXISTS (SELECT 1 FROM chat_messages WHERE enrollment_id = $1 AND persona_id = $2)`,
+		enrollmentID, personaID).Scan(&ok)
+	return ok, err
 }

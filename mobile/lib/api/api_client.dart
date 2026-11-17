@@ -201,6 +201,19 @@ final class ApiClient {
 
   Future<List<Thread>> threads() async => asObject(await _send('GET', '/v1/me/threads')).list('items', Thread.fromJson);
 
+  // ---- Team room, badges, portfolio and review lab (features 27 to 30) ----
+
+  Future<Team> team() async => Team.fromJson(asObject(await _send('GET', '/v1/me/team')));
+
+  Future<Achievements> achievements() async => Achievements.fromJson(asObject(await _send('GET', '/v1/me/achievements')));
+
+  Future<PortfolioSettings> portfolio() async => PortfolioSettings.fromJson(asObject(await _send('GET', '/v1/me/portfolio')));
+
+  Future<PortfolioSettings> savePortfolio({required bool public, required String headline}) async =>
+      PortfolioSettings.fromJson(asObject(await _send('PUT', '/v1/me/portfolio', body: {'public': public, 'headline': headline})));
+
+  Future<List<LabSummary>> reviewLab() async => asObject(await _send('GET', '/v1/review-lab')).list('items', LabSummary.fromJson);
+
   Future<Page<Message>> messages(String personaId, {String? cursor, int limit = 50}) async =>
       _messagePage(await _send('GET', '/v1/me/threads/$personaId/messages', query: {'limit': '$limit', 'cursor': ?cursor}));
 
@@ -352,10 +365,22 @@ final class ApiClient {
     await _send('GET', '/v1/admin/threads/$enrollmentId/$personaId/messages', query: {'limit': '$limit', 'cursor': ?cursor}),
   );
 
-  Future<Message> staffSend(String enrollmentId, String personaId, {required String clientId, required String body}) async =>
-      Message.fromJson(
-        asObject(await _send('POST', '/v1/admin/threads/$enrollmentId/$personaId/messages', body: {'client_id': clientId, 'body': body})),
-      );
+  /// In the team room, [speakerId] is the persona talking (required there).
+  Future<Message> staffSend(
+    String enrollmentId,
+    String personaId, {
+    required String clientId,
+    required String body,
+    String? speakerId,
+  }) async => Message.fromJson(
+    asObject(
+      await _send(
+        'POST',
+        '/v1/admin/threads/$enrollmentId/$personaId/messages',
+        body: {'client_id': clientId, 'body': body, 'speaker_id': ?speakerId},
+      ),
+    ),
+  );
 
   Future<void> staffMarkRead(String enrollmentId, String personaId) async {
     await _send('POST', '/v1/admin/threads/$enrollmentId/$personaId/read');

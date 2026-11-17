@@ -16,7 +16,7 @@ import { choiceItem } from "../app/choice";
 import { PersonaAvatar } from "../app/persona-avatar";
 import { TYPE_ICON } from "../app/task-badges";
 import { REVIEW_HINT, REVIEW_LABEL } from "./assign-task-form";
-import { PracticeEditor, QuizEditor, ResourcesEditor, RubricEditor } from "./content-editors";
+import { PracticeEditor, QuizEditor, ResourcesEditor, ReviewLabEditor, RubricEditor } from "./content-editors";
 import { DocumentsEditor } from "./documents-editor";
 
 /** A task spec as the admin edits it: quiz answers are always set. */
@@ -48,6 +48,7 @@ export function withType(s: SpecDraft, type: TaskType): SpecDraft {
   } else next.content = { ...s.content, quiz: null };
   if (type !== "dsa") next.content = { ...next.content, practice: null };
   if (type === "quiz") next.content = { ...next.content, rubric: [] };
+  if (type !== "code_review") next.content = { ...next.content, review_lab: null };
   return next;
 }
 
@@ -199,7 +200,7 @@ export function SpecFields({
             else if (v === "manual") set("review_mode", v);
           }}
           className="justify-start"
-          disabled={value.type === "quiz"}
+          disabled={value.type === "quiz" || !!value.content.review_lab}
         >
           <ToggleGroupItem value="manual" className={choiceItem}>
             {REVIEW_LABEL.manual}
@@ -218,7 +219,21 @@ export function SpecFields({
         <QuizEditor value={value.content.quiz} onChange={(quiz) => set("content", { ...value.content, quiz })} errors={errors} idPrefix={id("quiz")} />
       ) : null}
       {errors.quiz ? <FieldError>{errors.quiz}</FieldError> : null}
-      {value.review_mode === "manual" && value.type !== "quiz" ? (
+      {value.type === "code_review" ? (
+        <ReviewLabEditor
+          value={value.content.review_lab ?? null}
+          onChange={(review_lab) =>
+            onChange({
+              ...value,
+              review_mode: review_lab ? "self" : value.review_mode,
+              content: { ...value.content, review_lab, rubric: review_lab ? [] : value.content.rubric },
+            })
+          }
+          errors={errors}
+          idPrefix={id("lab")}
+        />
+      ) : null}
+      {value.review_mode === "manual" && value.type !== "quiz" && !value.content.review_lab ? (
         <RubricEditor value={value.content.rubric} onChange={(rubric) => set("content", { ...value.content, rubric })} errors={errors} idPrefix={id("rubric")} />
       ) : null}
       {value.type === "dsa" ? (

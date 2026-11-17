@@ -1,13 +1,17 @@
 "use client";
 
-import { Code2, Link2, ListChecks, Plus, Trash2 } from "lucide-react";
+import { useQuery } from "@tanstack/react-query";
+import { Code2, GitPullRequest, Link2, ListChecks, Plus, Trash2 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Field, FieldDescription, FieldError, FieldLabel } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { type ContentInput } from "@/lib/api/client";
+import { messageFor } from "@/lib/api/errors";
 import { blankPractice, blankQuestion, ContentBounds } from "@/lib/content";
+import { useSession } from "@/lib/session";
 import { cn } from "@/lib/utils";
 
 type Errors = Record<string, string | undefined>;
@@ -362,6 +366,82 @@ export function RubricEditor({ value, onChange, errors, idPrefix }: { value: str
           <ListChecks data-icon="inline-start" aria-hidden /> Add criterion
         </Button>
       ) : null}
+    </Field>
+  );
+}
+
+const NO_LAB = "none";
+
+/**
+ * Code review tasks can be a review lab pull request: graded automatically by where the
+ * student comments. Picking one makes the task self-finished (the grade finishes it).
+ */
+export function ReviewLabEditor({
+  value,
+  onChange,
+  errors,
+  idPrefix,
+}: {
+  value: ContentInput["review_lab"];
+  onChange: (next: ContentInput["review_lab"]) => void;
+  errors: Errors;
+  idPrefix: string;
+}) {
+  const { api } = useSession();
+  const q = useQuery({ queryKey: ["review-lab"], queryFn: () => api.reviewLab(), staleTime: 5 * 60_000 });
+  const items = q.data?.items ?? [];
+  const picked = items.find((i) => i.key === value?.exercise);
+  return (
+    <Field data-invalid={!!errors.review_lab || !!errors["review_lab.exercise"]}>
+      <FieldLabel htmlFor={`${idPrefix}-exercise`}>
+        <GitPullRequest className="size-4" aria-hidden /> Practice pull request
+      </FieldLabel>
+      <Select
+        value={value?.exercise ?? NO_LAB}
+        onValueChange={(v) => onChange(v === NO_LAB ? null : { exercise: v, pass_percent: value?.pass_percent ?? 60 })}
+        disabled={q.isPending}
+      >
+        <SelectTrigger id={`${idPrefix}-exercise`} className="w-full" data-testid={`${idPrefix}-exercise`}>
+          <SelectValue placeholder={q.isPending ? "Loading…" : "None"} />
+        </SelectTrigger>
+        <SelectContent>
+          <SelectItem value={NO_LAB}>None, the student hands in a link</SelectItem>
+          {items.map((ex) => (
+            <SelectItem key={ex.key} value={ex.key}>
+              #{ex.number} {ex.title} · {ex.language}, {ex.difficulty}
+            </SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
+      {q.isError ? <FieldError>{messageFor(q.error)}</FieldError> : null}
+      {errors["review_lab.exercise"] ?? errors.review_lab ? (
+        <FieldError>{errors["review_lab.exercise"] ?? errors.review_lab}</FieldError>
+      ) : (
+        <FieldDescription>
+          {picked
+            ? `${picked.summary} ${picked.issues} planted problems. Graded automatically; the student finishes it, with three tries.`
+            : "Optional. Pick one from the review lab and the student reviews it inside Stackstep, graded automatically."}
+        </FieldDescription>
+      )}
+      {value ? (
+        <div className="mt-2 flex items-center gap-2">
+          <label htmlFor={`${idPrefix}-pass`} className="text-muted-foreground text-sm">
+            Pass mark
+          </label>
+          <Input
+            id={`${idPrefix}-pass`}
+            type="number"
+            min={1}
+            max={100}
+            className="w-20"
+            value={value.pass_percent}
+            onChange={(e) => onChange({ ...value, pass_percent: Number(e.target.value) })}
+            aria-invalid={!!errors["review_lab.pass_percent"]}
+          />
+          <span className="text-muted-foreground text-sm">%</span>
+        </div>
+      ) : null}
+      {errors["review_lab.pass_percent"] ? <FieldError>{errors["review_lab.pass_percent"]}</FieldError> : null}
     </Field>
   );
 }

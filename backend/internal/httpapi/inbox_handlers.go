@@ -85,12 +85,12 @@ func (s *Server) staffSend(c *gin.Context) {
 		s.fail(c, err)
 		return
 	}
-	var req sendMessageReq
+	var req staffSendReq
 	if err := decode(c, &req); err != nil {
 		s.fail(c, err)
 		return
 	}
-	res, err := s.workspace.StaffSend(c.Request.Context(), currentUser(c), enrollment, persona, req.ClientID, req.Body)
+	res, err := s.workspace.StaffSend(c.Request.Context(), currentUser(c), enrollment, persona, req.ClientID, req.SpeakerID, req.Body)
 	if err != nil {
 		s.fail(c, err)
 		return

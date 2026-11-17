@@ -1,0 +1,9 @@
+@@ 0
++const request = require("supertest");
++const app = require("../src/app");
++
++test("lists the first page of users", async () => {
++  const res = await request(app).get("/users?page=1");
++  expect(res.status).toBe(200);
++  expect(Array.isArray(res.body.users)).toBe(true);
++});

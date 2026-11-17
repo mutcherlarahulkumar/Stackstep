@@ -1,6 +1,7 @@
 "use client";
 
-import { Check, Code2, ExternalLink, FileCheck2, ListChecks, Send, X } from "lucide-react";
+import { Check, Code2, ExternalLink, FileCheck2, GitPullRequest, ListChecks, Send, X } from "lucide-react";
+import Link from "next/link";
 import { useState } from "react";
 import { toast } from "sonner";
 
@@ -331,6 +332,35 @@ export function RubricView({ criteria, submission }: { criteria: string[]; submi
           );
         })}
       </ul>
+    </section>
+  );
+}
+
+/** A code review task that is a review lab pull request: a link to it and the score so far. */
+export function ReviewLabCard({ task }: { task: Task }) {
+  const lab = task.content.review_lab;
+  if (!lab) return null;
+  const r = task.lab_result;
+  const done = task.status === "done";
+  return (
+    <section aria-label="Practice pull request" className="bg-card mt-6 rounded-xl border p-4" data-testid="review-lab-card">
+      <h3 className="flex items-center gap-2 text-sm font-medium">
+        <GitPullRequest className="size-4 text-emerald-600" aria-hidden /> Practice pull request
+      </h3>
+      <p className="text-muted-foreground mt-1 text-sm">
+        Review it like a teammate&apos;s pull request. Pass mark {lab.pass_percent}%. You get three tries and the best one counts.
+      </p>
+      {r ? (
+        <p className="mt-2 text-sm" data-testid="review-lab-stats">
+          Best score <span className="font-semibold tabular-nums">{r.best_score}%</span> · {r.attempts} of 3 tries used
+          {r.passed ? " · passed" : ""}
+        </p>
+      ) : null}
+      <Button asChild className="mt-3 w-full" size="lg" variant={done ? "outline" : "default"}>
+        <Link href={`/review-lab/${encodeURIComponent(lab.exercise)}?task=${encodeURIComponent(task.id)}`} data-testid="open-review-lab">
+          {done ? "See the review" : r ? "Try again" : "Open the pull request"}
+        </Link>
+      </Button>
     </section>
   );
 }

@@ -273,6 +273,9 @@ func (w *Workspace) Transition(ctx context.Context, u domain.User, taskID uuid.U
 		if t.Type == domain.TaskQuiz && actor == domain.ActorStudent && in.To == domain.StatusDone {
 			return apperr.New(apperr.CodeInvalidTransition, "Quizzes are finished by submitting your answers.")
 		}
+		if t.Content.ReviewLab != nil && actor == domain.ActorStudent && in.To == domain.StatusDone {
+			return apperr.New(apperr.CodeInvalidTransition, "Practice reviews are finished by submitting your review.")
+		}
 		if actor == domain.ActorStaff {
 			if msg := domain.ValidateRubricResult(t.Content.Rubric, in.Rubric, in.To); msg != "" {
 				return apperr.Validation(map[string]string{"rubric": msg})
@@ -311,6 +314,11 @@ func (w *Workspace) Transition(ctx context.Context, u domain.User, taskID uuid.U
 			if _, err := store.InsertMail(ctx, q, reviewMail(t, in.To == domain.StatusDone, note, ticks, persona), []uuid.UUID{e.UserID}, now); err != nil {
 				return err
 			}
+			if in.To == domain.StatusDone {
+				if err := teamKudos(ctx, q, e, out, now); err != nil {
+					return fmt.Errorf("team kudos: %w", err)
+				}
+			}
 		}
 		if err := awardFinished(ctx, q, out, now); err != nil {
 			return err
@@ -338,6 +346,15 @@ func (w *Workspace) Transition(ctx context.Context, u domain.User, taskID uuid.U
 		}
 		return store.Notify(ctx, q, store.Event{Kind: store.EventTask, ID: out.ID, EnrollmentID: e.ID})
 	})
+	if err == nil {
+		enrollmentID := out.EnrollmentID
+		w.later(func() {
+			bg := context.WithoutCancel(ctx)
+			if e, err := store.GetEnrollment(bg, w.Store.Pool, enrollmentID); err == nil {
+				w.refreshBadgesOf(bg, e)
+			}
+		})
+	}
 	return out, err
 }
 
@@ -365,6 +382,9 @@ func (w *Workspace) Threads(ctx context.Context, u domain.User) ([]store.Thread,
 	e, err := w.requireEnrollment(ctx, u)
 	if err != nil {
 		return nil, err
+	}
+	if err := w.ensureTeamRoom(ctx, e, u.Name); err != nil {
+		return nil, fmt.Errorf("team room: %w", err)
 	}
 	return store.StudentThreads(ctx, w.Store.Pool, e.ID, w.Clock.Now())
 }
@@ -454,7 +474,7 @@ func (w *Workspace) SendMessage(ctx context.Context, u domain.User, personaID, c
 
 	now := w.Clock.Now()
 	var res SendResult
-	replyLater := false
+	replyLater, teamLater := false, false
 	err = w.Store.Tx(ctx, func(q store.Q) error {
 		if err := store.LockEnrollmentChat(ctx, q, e.ID); err != nil {
 			return err
@@ -494,6 +514,10 @@ func (w *Workspace) SendMessage(ctx context.Context, u domain.User, personaID, c
 		if !persona.AutoReply {
 			return nil
 		}
+		if persona.IsTeam() {
+			teamLater = true
+			return nil
+		}
 		if a, ok := w.Lead.(lead.Async); ok && a.Async() {
 			replyLater = true
 			return nil
@@ -519,6 +543,15 @@ func (w *Workspace) SendMessage(ctx context.Context, u domain.User, personaID, c
 		}, now)
 		return err
 	})
+	if err == nil && teamLater && res.Created {
+		msg, student := res.Message, u
+		if a, ok := w.Lead.(lead.Async); ok && a.Async() {
+			bg := context.WithoutCancel(ctx)
+			w.later(func() { w.teamReply(bg, e, student, msg) })
+		} else {
+			w.teamReply(ctx, e, student, msg)
+		}
+	}
 	if err == nil && replyLater && res.Created {
 		msg, student := res.Message, u
 		bg := context.WithoutCancel(ctx)
@@ -696,6 +729,10 @@ func (w *Workspace) SubmitQuiz(ctx context.Context, u domain.User, taskID uuid.U
 		out = QuizOutcome{Task: t, Result: res}
 		return store.Notify(ctx, q, store.Event{Kind: store.EventTask, ID: t.ID, EnrollmentID: e.ID})
 	})
+	if err == nil {
+		enr := e
+		w.later(func() { w.refreshBadgesOf(context.WithoutCancel(ctx), enr) })
+	}
 	return out, err
 }
 

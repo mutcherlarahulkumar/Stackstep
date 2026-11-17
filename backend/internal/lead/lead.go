@@ -22,6 +22,10 @@ type Input struct {
 	ProgramDays  int
 	OpenTasks    []domain.Task // visible, non-terminal tasks, earliest due first
 	History      []Turn        // earlier messages in this conversation, oldest first
+	// TeamRoom is set when replying in the student's team room (a group chat with the whole
+	// team); Teammates lists everyone in it as "Name (Title)".
+	TeamRoom  bool
+	Teammates []string
 }
 
 // Turn is one earlier message in the conversation.

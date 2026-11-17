@@ -33,7 +33,10 @@ const (
 func Reset(ctx context.Context, q store.Q) error {
 	_, err := q.Exec(ctx, `TRUNCATE task_events, chat_threads, chat_messages, tasks, enrollments, flow_items, flow_versions, flows,
 		task_templates, personas, cohorts, login_codes, refresh_tokens, users, colleges RESTART IDENTITY CASCADE`)
-	return err
+	if err != nil {
+		return err
+	}
+	return store.EnsureTeamPersona(ctx, q)
 }
 
 // Run inserts demo data. It is idempotent: existing rows are left as they are.

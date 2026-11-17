@@ -15,6 +15,11 @@ export const TASK_STATUSES = ["todo", "in_progress", "in_review", "changes_reque
 export const CALENDAR_KINDS = ["task", "surprise", "class"] as const;
 export const CLASS_STATUSES = ["scheduled", "live", "ended", "cancelled"] as const;
 export const ATTENDANCE_STATUSES = ["present", "missed", "pending"] as const;
+export const BADGE_KEYS = ["first_pr", "reviews_5", "on_time_week", "streak_7", "streak_30", "bug_hunter", "quiz_ace", "tasks_10", "tasks_25"] as const;
+export const LAB_DIFFICULTIES = ["easy", "medium", "hard"] as const;
+export const LAB_SEVERITIES = ["bug", "security", "performance", "accessibility"] as const;
+export const LAB_LINE_KINDS = ["hunk", "context", "add", "del"] as const;
+export const LAB_VERDICTS = ["comment", "approve", "request_changes"] as const;
 export const REACTION_EMOJIS = ["thumbs_up", "heart", "party", "laugh", "thinking", "eyes"] as const;
 export const MAIL_KINDS = ["announcement", "welcome", "review", "certificate", "class"] as const;
 export const AUDIENCES = ["all", "flow", "cohort", "class"] as const;
@@ -133,7 +138,11 @@ export const TaskDocument = z.object({
 });
 export type TaskDocument = z.output<typeof TaskDocument>;
 
-export const TaskContent = z.object({ documents: z.array(TaskDocument).max(5).nullish().transform((docs) => docs ?? []), resources: z.array(Resource).max(5), quiz: Quiz.nullable(), practice: Practice.nullable().default(null), rubric: z.array(z.string()).max(8).default([]) });
+/** A code review task that is a graded review lab pull request. */
+export const ReviewLabRef = z.object({ exercise: z.string().min(1).max(80), pass_percent: z.int().min(0).max(100) });
+export type ReviewLabRef = z.output<typeof ReviewLabRef>;
+
+export const TaskContent = z.object({ documents: z.array(TaskDocument).max(5).nullish().transform((docs) => docs ?? []), resources: z.array(Resource).max(5), quiz: Quiz.nullable(), practice: Practice.nullable().default(null), rubric: z.array(z.string()).max(8).default([]), review_lab: ReviewLabRef.nullable().default(null) });
 export type TaskContent = z.output<typeof TaskContent>;
 
 export const HAND_IN_CHECK_CODES = ["foreign_repo", "reused_link"] as const;
@@ -160,6 +169,14 @@ export const QuizStats = z.object({
   last_answers: z.array(z.int().min(0)),
 });
 export type QuizStats = z.output<typeof QuizStats>;
+
+export const LabStats = z.object({
+  attempts: z.int().min(0).max(3),
+  attempts_left: z.int().min(0).max(3),
+  best_score: z.int().min(0).max(100),
+  passed: z.boolean(),
+});
+export type LabStats = z.output<typeof LabStats>;
 
 export const QuizAttemptResult = z.object({
   attempt: z.int().min(1).max(3),
@@ -191,6 +208,8 @@ export const Task = z.object({
   content: TaskContent,
   submission: Submission.nullable(),
   quiz_result: QuizStats.nullable(),
+  /** Graded reviews of the task's practice pull request. */
+  lab_result: LabStats.nullable().default(null),
   shared_note: TaskNote.nullable(),
 });
 export type Task = z.output<typeof Task>;
@@ -213,6 +232,8 @@ export const Message = z.object({
   automated: z.boolean(),
   /** Oldest first; each side leaves each emoji at most once. */
   reactions: z.array(Reaction),
+  /** Team room only: the persona who spoke; null is Stackbot. */
+  speaker_id: z.uuid().nullable().default(null),
 });
 export type Message = z.output<typeof Message>;
 
@@ -232,6 +253,8 @@ export const Persona = z.object({
   auto_reply: z.boolean(),
   archived: z.boolean(),
   version: z.int().min(1),
+  /** The team room conversation (the student, every persona and Stackbot). */
+  team: z.boolean().default(false),
 });
 export type Persona = z.output<typeof Persona>;
 
@@ -425,6 +448,19 @@ export const AIConversationDetail = z.object({
 export type AIConversationDetail = z.output<typeof AIConversationDetail>;
 export const AIConversationList = z.object({ items: z.array(AIConversation) });
 
+/** A badge with the student's progress (feature 30). */
+export const BadgeKey = z.enum(BADGE_KEYS);
+export type BadgeKey = z.output<typeof BadgeKey>;
+export const Badge = z.object({
+  key: BadgeKey,
+  title: z.string(),
+  description: z.string(),
+  target: z.int().min(1),
+  progress: z.int().min(0),
+  earned_at: timestamp.nullable(),
+});
+export type Badge = z.output<typeof Badge>;
+
 export const Certificate = z.object({
   code: z.string().regex(/^[2-9A-HJKMNP-Z]{12}$/),
   student_name: z.string(),
@@ -441,6 +477,8 @@ export const Certificate = z.object({
   status: CertificateStatus,
   revoked_at: timestamp.nullable(),
   revoke_reason: z.string().nullable(),
+  /** Badges earned in the internship; only on the public verify response. */
+  badges: z.array(Badge).nullable().default(null),
 });
 export type Certificate = z.output<typeof Certificate>;
 export const CertificateList = z.object({ items: z.array(Certificate) });
@@ -860,3 +898,134 @@ export const HelpAnswer = z.object({
 export type HelpAnswer = z.output<typeof HelpAnswer>;
 export type HelpTurn = { role: "user" | "assistant"; content: string };
 
+
+// ---- Team room (feature 29) ----
+
+export const Team = z.object({
+  members: z.array(Persona),
+  bot: z.object({ name: z.string(), title: z.string() }),
+});
+export type Team = z.output<typeof Team>;
+
+// ---- Streaks and badges (feature 30) ----
+
+export const Streak = z.object({ current: z.int().min(0), longest: z.int().min(0), active_today: z.boolean() });
+export type Streak = z.output<typeof Streak>;
+export const Achievements = z.object({ streak: Streak, badges: z.array(Badge) });
+export type Achievements = z.output<typeof Achievements>;
+
+// ---- Portfolio (feature 28) ----
+
+export const PortfolioSettings = z.object({ public: z.boolean(), headline: z.string(), login: z.string() });
+export type PortfolioSettings = z.output<typeof PortfolioSettings>;
+export const Portfolio = z.object({
+  login: z.string(),
+  name: z.string(),
+  avatar_url: z.string().nullable(),
+  headline: z.string(),
+  program_slug: z.string(),
+  program_days: z.int(),
+  flow_name: z.string().nullable(),
+  status: EnrollmentStatus,
+  start_date: date,
+  end_date: date,
+  day_number: z.int().min(0),
+  tasks_done: z.int().min(0),
+  prs_merged: z.int().min(0),
+  points: z.int().min(0),
+  streak: Streak,
+  badges: z.array(Badge),
+  work: z.array(z.object({ title: z.string(), type: TaskType, done_at: timestamp, url: z.string().nullable() })),
+  certificates: z.array(z.object({ code: z.string(), issued_at: timestamp })),
+  review_lab: z.array(z.object({ key: z.string(), title: z.string(), language: z.string(), best_score: z.int().min(0).max(100) })),
+});
+export type Portfolio = z.output<typeof Portfolio>;
+
+// ---- Review lab (feature 27) ----
+
+export const LabDifficulty = z.enum(LAB_DIFFICULTIES);
+export type LabDifficulty = z.output<typeof LabDifficulty>;
+export const LabSeverity = z.enum(LAB_SEVERITIES);
+export type LabSeverity = z.output<typeof LabSeverity>;
+export const LabLineKind = z.enum(LAB_LINE_KINDS);
+export type LabLineKind = z.output<typeof LabLineKind>;
+export const LabVerdict = z.enum(LAB_VERDICTS);
+export type LabVerdict = z.output<typeof LabVerdict>;
+
+export const LabRecord = z.object({
+  attempts: z.int().min(0),
+  best_score: z.int().min(0).max(100).nullable(),
+  passed: z.boolean(),
+  last_at: timestamp.nullable(),
+});
+export type LabRecord = z.output<typeof LabRecord>;
+export const LabSummary = z.object({
+  key: z.string(),
+  title: z.string(),
+  summary: z.string(),
+  language: z.string(),
+  difficulty: LabDifficulty,
+  number: z.int().min(1),
+  author: z.string(),
+  files: z.int().min(1),
+  additions: z.int().min(0),
+  deletions: z.int().min(0),
+  issues: z.int().min(1),
+  record: LabRecord,
+});
+export type LabSummary = z.output<typeof LabSummary>;
+export const LabLibrary = z.object({ items: z.array(LabSummary) });
+
+export const LabLine = z.object({ kind: LabLineKind, old: z.int().min(1).nullable(), new: z.int().min(1).nullable(), text: z.string() });
+export type LabLine = z.output<typeof LabLine>;
+export const LabFile = z.object({
+  path: z.string(),
+  language: z.string(),
+  status: z.enum(["added", "modified"]),
+  additions: z.int().min(0),
+  deletions: z.int().min(0),
+  lines: z.array(LabLine),
+});
+export type LabFile = z.output<typeof LabFile>;
+export const LabComment = z.object({ path: z.string(), line: z.int().min(1), side: z.enum(["new", "old"]), body: z.string() });
+export type LabComment = z.output<typeof LabComment>;
+export const LabIssue = z.object({
+  id: z.string(),
+  path: z.string(),
+  from: z.int().min(1),
+  to: z.int().min(1),
+  severity: LabSeverity,
+  title: z.string(),
+  explanation: z.string(),
+  found: z.boolean(),
+  comment: z.int().min(0).nullable(),
+});
+export type LabIssue = z.output<typeof LabIssue>;
+export const LabReview = z.object({
+  id: z.uuid(),
+  task_id: z.uuid().nullable(),
+  verdict: LabVerdict,
+  summary: z.string(),
+  comments: z.array(LabComment),
+  score: z.int().min(0).max(100),
+  found: z.int().min(0),
+  total: z.int().min(1),
+  noise: z.int().min(0),
+  noise_penalty: z.int().min(0),
+  approve_penalty: z.int().min(0),
+  passed: z.boolean(),
+  issues: z.array(LabIssue),
+  created_at: timestamp,
+});
+export type LabReview = z.output<typeof LabReview>;
+export const LabExercise = LabSummary.extend({
+  branch: z.string(),
+  base: z.string(),
+  body: z.string(),
+  commits: z.array(z.object({ sha: z.string(), message: z.string() })),
+  file_diffs: z.array(LabFile),
+  last_review: LabReview.nullable(),
+});
+export type LabExercise = z.output<typeof LabExercise>;
+export const LabOutcome = z.object({ review: LabReview, task: Task.nullable() });
+export type LabOutcome = z.output<typeof LabOutcome>;

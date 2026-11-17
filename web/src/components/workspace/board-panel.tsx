@@ -24,7 +24,7 @@ import { EmptyState, ErrorState } from "../app/state";
 import { StatusBadge, TypeBadge } from "../app/task-badges";
 import { PracticePad } from "./practice-pad";
 import { TaskNotes } from "./task-notes";
-import { HandInDialog, QuizPlayer, ResourceList, RubricView, SubmissionCard } from "./task-work";
+import { HandInDialog, QuizPlayer, ResourceList, ReviewLabCard, RubricView, SubmissionCard } from "./task-work";
 import { type useWorkspace } from "./use-workspace";
 import { BoardSkeleton, stagger } from "../app/loading";
 
@@ -49,6 +49,11 @@ const ACTION_LABEL = (from: TaskStatus, to: TaskStatus): string => {
 };
 
 function nextStep(t: Task): string {
+  if (t.content.review_lab) {
+    return t.status === "done"
+      ? "Finished. Open the pull request to see every planted problem."
+      : "Open the pull request, comment on the lines that are wrong, then finish your review. The best of three tries counts.";
+  }
   if (t.type === "quiz") return t.status === "done" ? "Finished. The answer key is below." : "Answer every question, then check your answers. The best of three attempts counts.";
   if (t.review_mode === "self" && t.status === "todo") return "Start when you begin. You mark this one done yourself.";
   if (t.review_mode === "self" && t.status === "in_progress") return "No review needed. Mark it done once you've finished.";
@@ -224,8 +229,8 @@ function TaskSheet({
     setPending(null);
     return err;
   };
-  // Quizzes move only through grading.
-  const moves = task && task.type !== "quiz" ? studentMoves(task.status, task.review_mode) : [];
+  // Quizzes and practice reviews move only through grading.
+  const moves = task && task.type !== "quiz" && !task.content.review_lab ? studentMoves(task.status, task.review_mode) : [];
 
   return (
     <Sheet open={task !== null || missing} onOpenChange={(o) => !o && onClose()}>
@@ -265,6 +270,7 @@ function TaskSheet({
               <RubricView criteria={task.content.rubric} submission={task.submission} />
               {task.submission ? <SubmissionCard submission={task.submission} title="Your hand-in" /> : null}
               {task.type === "quiz" ? <QuizPlayer key={task.version} task={task} onGraded={onGraded} disabled={false} /> : null}
+              {task.content.review_lab ? <ReviewLabCard task={task} /> : null}
               {task.type === "dsa" && task.content.practice ? <PracticePad taskId={task.id} practice={task.content.practice} /> : null}
               <TaskNotes taskId={task.id} />
             </div>

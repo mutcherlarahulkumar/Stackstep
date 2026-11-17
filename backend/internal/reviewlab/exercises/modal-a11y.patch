@@ -1,0 +1,19 @@
+@@ 0
++import { useEffect } from "react";
++
++export function Modal({ title, open, onClose, children }) {
++  useEffect(() => { ⟪no-escape⟫
++    document.body.style.overflow = open ? "hidden" : "";
++  }, [open]); ⟪no-escape⟫
++
++  if (!open) return null;
++  return (
++    <div className="backdrop" onClick={onClose}> ⟪click-bubbles⟫
++      <div className="modal"> ⟪no-dialog-role⟫
++        <h2>{title}</h2>
++        {children}
++        <div className="close" onClick={onClose}>×</div> ⟪div-button⟫
++      </div>
++    </div>
++  );
++}

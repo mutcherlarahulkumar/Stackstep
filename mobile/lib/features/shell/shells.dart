@@ -12,6 +12,9 @@ import 'package:stackstep/features/apply/application_status.dart';
 import 'package:stackstep/features/calendar/calendar_screen.dart';
 import 'package:stackstep/features/chat/inbox_controller.dart';
 import 'package:stackstep/features/chat/inbox_screen.dart';
+import 'package:stackstep/features/growth/achievements.dart';
+import 'package:stackstep/features/growth/portfolio_screen.dart';
+import 'package:stackstep/features/growth/review_lab_screen.dart';
 import 'package:stackstep/features/help/help_screen.dart';
 import 'package:stackstep/features/mail/mail_screen.dart';
 import 'package:stackstep/features/progress/progress_screen.dart';
@@ -33,6 +36,15 @@ class _AccountMenu extends ConsumerWidget {
         switch (v) {
           case 'help':
             Navigator.of(context).push(MaterialPageRoute<void>(builder: (_) => const HelpScreen()));
+            return;
+          case 'portfolio':
+            Navigator.of(context).push(MaterialPageRoute<void>(builder: (_) => const PortfolioScreen()));
+            return;
+          case 'lab':
+            Navigator.of(context).push(MaterialPageRoute<void>(builder: (_) => const ReviewLabScreen()));
+            return;
+          case 'badges':
+            Navigator.of(context).push(MaterialPageRoute<void>(builder: (_) => const BadgesScreen()));
             return;
           case 'privacy':
             return await openLink(context, AppConfig.webUrl('/privacy'));
@@ -59,6 +71,12 @@ class _AccountMenu extends ConsumerWidget {
       itemBuilder: (_) => [
         PopupMenuItem(enabled: false, child: Text('${user.name}\n@${user.githubLogin}')),
         const PopupMenuDivider(),
+        if (user.role == Role.student) ...const [
+          PopupMenuItem(value: 'badges', child: Text('Your badges')),
+          PopupMenuItem(value: 'portfolio', child: Text('Your portfolio')),
+          PopupMenuItem(value: 'lab', child: Text('Review lab')),
+          PopupMenuDivider(),
+        ],
         const PopupMenuItem(value: 'help', child: Text('Help')),
         const PopupMenuItem(value: 'privacy', child: Text('Privacy')),
         const PopupMenuItem(value: 'terms', child: Text('Terms')),

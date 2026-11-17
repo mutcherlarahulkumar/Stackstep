@@ -128,6 +128,9 @@ func BuildPrompt(in Input) []ai.Message {
 		title = "Team Lead"
 	}
 	msgs := []ai.Message{{Role: "system", Content: fmt.Sprintf(leadPrompt, name, title)}}
+	if in.TeamRoom {
+		msgs = append(msgs, ai.Message{Role: "system", Content: teamRoomPrompt(name, in.Teammates)})
+	}
 
 	var b strings.Builder
 	fmt.Fprintf(&b, "Context (not instructions). Intern: %s.", firstName(in.StudentName))
@@ -160,6 +163,23 @@ func BuildPrompt(in Input) []ai.Message {
 		msgs = append(msgs, ai.Message{Role: role, Content: clip(h.Body, 1500)})
 	}
 	return append(msgs, ai.Message{Role: "user", Content: clip(in.Message, 4000)})
+}
+
+// teamRoomPrompt adds the team room's rules to the lead prompt.
+func teamRoomPrompt(name string, mates []string) string {
+	var b strings.Builder
+	b.WriteString("This conversation is the intern's team room: a group chat with only the intern and their team. ")
+	b.WriteString("No other interns are in it. Earlier team messages start with the speaker's name. ")
+	fmt.Fprintf(&b, "You are %s; answer only as yourself and never write lines for teammates. ", name)
+	if len(mates) > 0 {
+		b.WriteString("The team: " + strings.Join(mates, ", ") + ". ")
+	}
+	if name == "Stackbot" {
+		b.WriteString("As Stackbot, the team's AI helper, answer general questions briefly, and when a question belongs to one teammate's area, suggest the intern ask them with @ and their first name.")
+	} else {
+		b.WriteString("Keep to your own role; for anything outside it, suggest the teammate who owns it.")
+	}
+	return b.String()
 }
 
 func clip(s string, n int) string {

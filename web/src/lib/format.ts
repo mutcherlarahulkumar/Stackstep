@@ -8,6 +8,9 @@ const daysBetween = (a: Date, b: Date) => Math.round((startOfDay(b) - startOfDay
 
 export const timeLabel = (d: Date) => time.format(d);
 export const dateTimeLabel = (d: Date) => full.format(d);
+const dateOnly = new Intl.DateTimeFormat(undefined, { day: "numeric", month: "short", year: "numeric" });
+/** "12 Nov 2026". */
+export const dateLabel = (d: Date) => dateOnly.format(d);
 export const isOverdue = (due: Date, now: Date) => due.getTime() < now.getTime();
 
 /** "Due in 3h", "Due tomorrow, 6:00 PM", "Overdue by 2d". */

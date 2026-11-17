@@ -218,3 +218,6 @@ final FutureProvider<List<Persona>> personasProvider = FutureProvider.autoDispos
   final all = await ref.read(apiClientProvider).personas();
   return all.where((p) => !p.archived).toList();
 });
+
+/// Everyone in the student's team room (feature 29).
+final FutureProvider<Team> teamProvider = FutureProvider.autoDispose<Team>((ref) => ref.read(apiClientProvider).team());

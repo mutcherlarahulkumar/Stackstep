@@ -40,6 +40,9 @@ String dayLabel(DateTime at, DateTime now) {
 
 String timeLabel(DateTime at) => DateFormat.jm().format(at.toLocal());
 
+/// "12 Nov 2026".
+String dateLabel(DateTime at) => DateFormat('d MMM y').format(at.toLocal());
+
 String dateTimeLabel(DateTime at) => DateFormat('EEE d MMM, h:mm a').format(at.toLocal());
 
 /// Inbox row times: "4:05 PM" today, then "Yesterday", "Mon", "2 Nov".

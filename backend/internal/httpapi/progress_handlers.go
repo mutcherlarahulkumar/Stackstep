@@ -50,6 +50,8 @@ type certificateDTO struct {
 	Status       domain.CertificateStatus `json:"status"`
 	RevokedAt    *time.Time               `json:"revoked_at"`
 	RevokeReason *string                  `json:"revoke_reason"`
+	// Badges earned in the internship; only on the public verify page (null elsewhere).
+	Badges []badgeDTO `json:"badges"`
 }
 
 func toCertificate(c domain.Certificate) certificateDTO {
@@ -150,6 +152,13 @@ func (s *Server) verifyCertificate(c *gin.Context) {
 		s.fail(c, err)
 		return
 	}
+	badges, err := s.workspace.CertificateBadges(c.Request.Context(), cert)
+	if err != nil {
+		s.fail(c, err)
+		return
+	}
 	c.Header("Cache-Control", "no-store")
-	c.JSON(http.StatusOK, toCertificate(cert))
+	d := toCertificate(cert)
+	d.Badges = toBadges(badges)
+	c.JSON(http.StatusOK, d)
 }

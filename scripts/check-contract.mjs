@@ -33,6 +33,11 @@ const go = {
   ReactionEmoji: read("backend/internal/domain/chat.go"),
   ClassStatus: read("backend/internal/domain/class.go"),
   AttendanceStatus: read("backend/internal/domain/attendance.go"),
+  BadgeKey: read("backend/internal/domain/achievements.go"),
+  LabDifficulty: read("backend/internal/reviewlab/reviewlab.go"),
+  LabSeverity: read("backend/internal/reviewlab/reviewlab.go"),
+  LabLineKind: read("backend/internal/reviewlab/reviewlab.go"),
+  LabVerdict: read("backend/internal/reviewlab/reviewlab.go"),
 };
 const goType = {
   Role: "Role",
@@ -60,6 +65,11 @@ const goType = {
   ReactionEmoji: "ReactionEmoji",
   ClassStatus: "ClassStatus",
   AttendanceStatus: "AttendanceStatus",
+  BadgeKey: "BadgeKey",
+  LabDifficulty: "Difficulty",
+  LabSeverity: "Severity",
+  LabLineKind: "LineKind",
+  LabVerdict: "Verdict",
 };
 const ts = read("web/src/lib/api/schemas.ts");
 const tsConst = {
@@ -88,9 +98,21 @@ const tsConst = {
   ReactionEmoji: "REACTION_EMOJIS",
   ClassStatus: "CLASS_STATUSES",
   AttendanceStatus: "ATTENDANCE_STATUSES",
+  BadgeKey: "BADGE_KEYS",
+  LabDifficulty: "LAB_DIFFICULTIES",
+  LabSeverity: "LAB_SEVERITIES",
+  LabLineKind: "LAB_LINE_KINDS",
+  LabVerdict: "LAB_VERDICTS",
 };
 const dart = read("mobile/lib/api/models.dart");
-const dartEnum = { ...goType, ErrorCode: "ErrorCode" };
+const dartEnum = {
+  ...goType,
+  ErrorCode: "ErrorCode",
+  LabDifficulty: "LabDifficulty",
+  LabSeverity: "LabSeverity",
+  LabLineKind: "LabLineKind",
+  LabVerdict: "LabVerdict",
+};
 
 const sorted = (a) => [...a].sort().join(",");
 let failed = false;
@@ -104,15 +126,15 @@ const check = (label, expected, actual) => {
 for (const name of Object.keys(goType)) {
   const expected = enums(name);
   // Go declares values as typed constants, or as one `All… = []Type{...}` slice.
-  const consts = [...go[name].matchAll(new RegExp(`\\s\\w+\\s+${goType[name]} = "([a-z_]+)"`, "g"))].map((m) => m[1]);
+  const consts = [...go[name].matchAll(new RegExp(`\\s\\w+\\s+${goType[name]} = "([a-z0-9_]+)"`, "g"))].map((m) => m[1]);
   const slice = new RegExp(`= \\[\\]${goType[name]}\\{([^}]*)\\}`).exec(go[name])?.[1] ?? "";
-  const goVals = [...consts, ...[...slice.matchAll(/"([a-z_]+)"/g)].map((m) => m[1])];
+  const goVals = [...consts, ...[...slice.matchAll(/"([a-z0-9_]+)"/g)].map((m) => m[1])];
   check(`Go ${goType[name]}`, expected, goVals);
 
   const tsBlock = new RegExp(`export const ${tsConst[name]} = \\[([\\s\\S]*?)\\] as const`).exec(ts)?.[1] ?? "";
-  check(`TypeScript ${tsConst[name]}`, expected, [...tsBlock.matchAll(/"([a-z_]+)"/g)].map((m) => m[1]));
+  check(`TypeScript ${tsConst[name]}`, expected, [...tsBlock.matchAll(/"([a-z0-9_]+)"/g)].map((m) => m[1]));
 
   const dartBlock = new RegExp(`enum ${dartEnum[name]} \\{([\\s\\S]*?);`).exec(dart)?.[1] ?? "";
-  check(`Dart ${dartEnum[name]}`, expected, [...dartBlock.matchAll(/\w+\('([a-z_]+)'/g)].map((m) => m[1]));
+  check(`Dart ${dartEnum[name]}`, expected, [...dartBlock.matchAll(/\w+\('([a-z0-9_]+)'/g)].map((m) => m[1]));
 }
 process.exit(failed ? 1 : 0);

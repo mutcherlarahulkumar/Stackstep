@@ -55,6 +55,9 @@ func run(log *slog.Logger) error {
 	if err := db.Migrate(ctx, pool); err != nil {
 		return err
 	}
+	if err := store.EnsureTeamPersona(ctx, pool); err != nil {
+		return err
+	}
 
 	srv, hub, st, clk, ws, err := build(cfg, pool, log)
 	if err != nil {

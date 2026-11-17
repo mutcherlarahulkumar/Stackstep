@@ -9,6 +9,7 @@ import (
 	"github.com/mutcherlarahulkumar/stackstep/backend/internal/app"
 	"github.com/mutcherlarahulkumar/stackstep/backend/internal/apperr"
 	"github.com/mutcherlarahulkumar/stackstep/backend/internal/domain"
+	"github.com/mutcherlarahulkumar/stackstep/backend/internal/reviewlab"
 	"github.com/mutcherlarahulkumar/stackstep/backend/internal/store"
 )
 
@@ -90,6 +91,7 @@ type taskDTO struct {
 	Content      contentDTO        `json:"content"`
 	Submission   *submissionDTO    `json:"submission"`
 	QuizResult   *quizStatsDTO     `json:"quiz_result"`
+	LabResult    *labStatsDTO      `json:"lab_result"`
 	SharedNote   *noteDTO          `json:"shared_note"` // staff views only; students read their own via /note
 }
 
@@ -141,6 +143,12 @@ type contentDTO struct {
 	Quiz      *quizDTO      `json:"quiz"`
 	Practice  *practiceDTO  `json:"practice"`
 	Rubric    []string      `json:"rubric"`
+	ReviewLab *reviewLabRef `json:"review_lab"`
+}
+
+type reviewLabRef struct {
+	Exercise    string `json:"exercise"`
+	PassPercent int    `json:"pass_percent"`
 }
 
 type practiceDTO struct {
@@ -178,6 +186,9 @@ func (p *practiceDTO) input() *domain.Practice {
 
 func toContent(c domain.TaskContent, showAnswers bool) contentDTO {
 	out := contentDTO{Documents: make([]documentDTO, len(c.Documents)), Resources: make([]resourceDTO, len(c.Resources)), Practice: toPractice(c.Practice), Rubric: append([]string{}, c.Rubric...)}
+	if c.ReviewLab != nil {
+		out.ReviewLab = &reviewLabRef{Exercise: c.ReviewLab.Exercise, PassPercent: c.ReviewLab.PassPercent}
+	}
 	for i, r := range c.Resources {
 		out.Resources[i] = resourceDTO(r)
 	}
@@ -201,6 +212,9 @@ func toContent(c domain.TaskContent, showAnswers bool) contentDTO {
 // input converts a request body; a missing answer becomes -1 so validation flags it.
 func (c contentDTO) input() domain.TaskContent {
 	out := domain.TaskContent{Documents: make([]domain.TaskDocument, len(c.Documents)), Resources: make([]domain.Resource, len(c.Resources)), Practice: c.Practice.input(), Rubric: c.Rubric}
+	if c.ReviewLab != nil {
+		out.ReviewLab = &domain.ReviewLabRef{Exercise: c.ReviewLab.Exercise, PassPercent: c.ReviewLab.PassPercent}
+	}
 	for i, r := range c.Resources {
 		out.Resources[i] = domain.Resource(r)
 	}
@@ -278,7 +292,21 @@ func toTask(t domain.Task, staff bool) taskDTO {
 			dto.QuizResult.AttemptsLeft = 0
 		}
 	}
+	if l := t.Lab; l != nil && t.Content.ReviewLab != nil {
+		left := max(0, reviewlab.MaxTaskAttempts-l.Attempts)
+		if l.Passed || t.Status == domain.StatusDone {
+			left = 0
+		}
+		dto.LabResult = &labStatsDTO{Attempts: l.Attempts, AttemptsLeft: left, BestScore: l.BestScore, Passed: l.Passed}
+	}
 	return dto
+}
+
+type labStatsDTO struct {
+	Attempts     int  `json:"attempts"`
+	AttemptsLeft int  `json:"attempts_left"`
+	BestScore    int  `json:"best_score"`
+	Passed       bool `json:"passed"`
 }
 
 func toTasks(ts []domain.Task, staff bool) []taskDTO {
@@ -300,6 +328,8 @@ type messageDTO struct {
 	SentAt       time.Time     `json:"sent_at"`
 	Automated    bool          `json:"automated"`
 	Reactions    []reactionDTO `json:"reactions"`
+	// SpeakerID is who spoke in a team room message (null there is Stackbot).
+	SpeakerID *uuid.UUID `json:"speaker_id"`
 }
 
 type reactionDTO struct {
@@ -313,7 +343,7 @@ func toMessage(m domain.Message) messageDTO {
 		r[i] = reactionDTO(x)
 	}
 	return messageDTO{ID: m.ID, EnrollmentID: m.EnrollmentID, PersonaID: m.PersonaID, Author: m.Author, Body: m.Body, TaskID: m.TaskID, ClientID: m.ClientID,
-		SentAt: m.SentAt.UTC(), Automated: m.Automated, Reactions: r}
+		SentAt: m.SentAt.UTC(), Automated: m.Automated, Reactions: r, SpeakerID: m.SpeakerID}
 }
 
 type meDTO struct {
@@ -423,6 +453,13 @@ type sendMessageReq struct {
 	Body     string    `json:"body"`
 }
 
+// staffSendReq is a message staff send; speaker_id picks who talks in a team room.
+type staffSendReq struct {
+	ClientID  uuid.UUID  `json:"client_id"`
+	Body      string     `json:"body"`
+	SpeakerID *uuid.UUID `json:"speaker_id"`
+}
+
 // Realtime frames.
 
 type frameType string
@@ -453,10 +490,13 @@ type personaDTO struct {
 	AutoReply bool                `json:"auto_reply"`
 	Archived  bool                `json:"archived"`
 	Version   int                 `json:"version"`
+	// Team marks the team room conversation (the student and every persona).
+	Team bool `json:"team"`
 }
 
 func toPersona(p domain.Persona) personaDTO {
-	return personaDTO{ID: p.ID, Name: p.Name, Title: p.Title, Color: p.Color, AutoReply: p.AutoReply, Archived: p.ArchivedAt != nil, Version: p.Version}
+	return personaDTO{ID: p.ID, Name: p.Name, Title: p.Title, Color: p.Color, AutoReply: p.AutoReply, Archived: p.ArchivedAt != nil, Version: p.Version,
+		Team: p.IsTeam()}
 }
 
 type personaReq struct {
