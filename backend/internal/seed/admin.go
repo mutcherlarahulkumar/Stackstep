@@ -123,7 +123,10 @@ func flushDemo(ctx context.Context, q store.Q) error {
 func ensureDefaultPersona(ctx context.Context, q store.Q) error {
 	_, err := q.Exec(ctx, `INSERT INTO personas (id, name, title, color, auto_reply) VALUES ($1, 'Sam Rivera', 'Team Lead', 'violet', true)
 		ON CONFLICT (id) DO NOTHING`, domain.DefaultPersonaID)
-	return err
+	if err != nil {
+		return err
+	}
+	return store.EnsureTeamPersona(ctx, q)
 }
 
 // AdminResult says what happened to one login.

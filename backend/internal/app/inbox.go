@@ -77,20 +77,34 @@ func (w *Workspace) StaffMarkRead(ctx context.Context, u domain.User, enrollment
 }
 
 // StaffSend posts a message as a persona to one student.
-func (w *Workspace) StaffSend(ctx context.Context, u domain.User, enrollmentID, personaID, clientID uuid.UUID, body string) (SendResult, error) {
+// In the team room, speaker is the persona talking.
+func (w *Workspace) StaffSend(ctx context.Context, u domain.User, enrollmentID, personaID, clientID uuid.UUID, speaker *uuid.UUID, body string) (SendResult, error) {
 	e, err := w.staffEnrollment(ctx, u, enrollmentID)
 	if err != nil {
 		return SendResult{}, err
 	}
-	clean, err := w.validateStaffMessage(ctx, personaID, clientID, body)
+	fields, err := validTeamSpeaker(ctx, w.Store.Pool, personaID, speaker)
 	if err != nil {
 		return SendResult{}, err
 	}
-	return w.staffSendOne(ctx, u, e, personaID, clientID, clean)
+	check := &personaID
+	if personaID == domain.TeamPersonaID {
+		check = nil // the room itself; its speaker was checked above
+	}
+	clean, err := w.validateStaffMessage(ctx, check, clientID, body, fields)
+	if err != nil {
+		return SendResult{}, err
+	}
+	return w.staffSendOne(ctx, u, e, personaID, clientID, speaker, clean)
 }
 
-func (w *Workspace) validateStaffMessage(ctx context.Context, personaID, clientID uuid.UUID, body string) (string, error) {
+// validateStaffMessage checks a message staff send. personaID nil skips the persona check;
+// extra holds field errors found by the caller.
+func (w *Workspace) validateStaffMessage(ctx context.Context, personaID *uuid.UUID, clientID uuid.UUID, body string, extra map[string]string) (string, error) {
 	fields := map[string]string{}
+	for k, v := range extra {
+		fields[k] = v
+	}
 	if clientID == uuid.Nil {
 		fields["client_id"] = "Must be a UUID."
 	}
@@ -98,12 +112,14 @@ func (w *Workspace) validateStaffMessage(ctx context.Context, personaID, clientI
 	if msgErr != "" {
 		fields["body"] = msgErr
 	}
-	active, err := store.ActivePersonaIDs(ctx, w.Store.Pool, []uuid.UUID{personaID})
-	if err != nil {
-		return "", err
-	}
-	if !active[personaID] {
-		fields["persona_id"] = "Choose an active persona."
+	if personaID != nil {
+		active, err := store.ActivePersonaIDs(ctx, w.Store.Pool, []uuid.UUID{*personaID})
+		if err != nil {
+			return "", err
+		}
+		if !active[*personaID] {
+			fields["persona_id"] = "Choose an active persona."
+		}
 	}
 	if len(fields) > 0 {
 		return "", apperr.Validation(fields)
@@ -111,7 +127,7 @@ func (w *Workspace) validateStaffMessage(ctx context.Context, personaID, clientI
 	return clean, nil
 }
 
-func (w *Workspace) staffSendOne(ctx context.Context, u domain.User, e domain.Enrollment, personaID, clientID uuid.UUID, body string) (SendResult, error) {
+func (w *Workspace) staffSendOne(ctx context.Context, u domain.User, e domain.Enrollment, personaID, clientID uuid.UUID, speaker *uuid.UUID, body string) (SendResult, error) {
 	now := w.Clock.Now()
 	var res SendResult
 	err := w.Store.Tx(ctx, func(q store.Q) error {
@@ -119,6 +135,7 @@ func (w *Workspace) staffSendOne(ctx context.Context, u domain.User, e domain.En
 		cid := clientID
 		msg, created, err := store.InsertMessage(ctx, q, store.NewMessage{
 			EnrollmentID: e.ID, PersonaID: personaID, SentBy: &by, Author: domain.AuthorPersona, Body: body, ClientID: &cid, DeliverAt: now,
+			SpeakerID: speaker,
 		}, now)
 		if err != nil {
 			return fmt.Errorf("insert staff message: %w", err)
@@ -147,7 +164,7 @@ func (w *Workspace) Broadcast(ctx context.Context, u domain.User, personaID, cli
 	if err := validateIDList(enrollmentIDs, domain.MaxBroadcastUsers, "enrollment_ids", "students"); err != nil {
 		return nil, err
 	}
-	clean, err := w.validateStaffMessage(ctx, personaID, clientID, body)
+	clean, err := w.validateStaffMessage(ctx, &personaID, clientID, body, nil)
 	if err != nil {
 		return nil, err
 	}
@@ -160,7 +177,7 @@ func (w *Workspace) Broadcast(ctx context.Context, u domain.User, personaID, cli
 		}
 		if err == nil {
 			perRecipient := uuid.NewSHA1(broadcastNamespace, append(clientID[:], id[:]...))
-			_, err = w.staffSendOne(ctx, u, e, personaID, perRecipient, clean)
+			_, err = w.staffSendOne(ctx, u, e, personaID, perRecipient, nil, clean)
 		}
 		if err != nil {
 			if ae, ok := apperr.As(err); ok {

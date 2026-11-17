@@ -1,0 +1,33 @@
+@@ 0
++package pricing
++
++import (
++	"context"
++	"time"
++)
++
++// Cache keeps product prices for a minute so the pricing service isn't hit on every request.
++type Cache struct {
++	ttl     time.Duration
++	entries map[string]entry ⟪data-race⟫
++	fetch   func(ctx context.Context, sku string) (int64, error)
++}
++
++type entry struct {
++	cents   int64
++	expires time.Time
++}
++
++func NewCache(fetch func(context.Context, string) (int64, error)) *Cache {
++	return &Cache{ttl: time.Minute, entries: map[string]entry{}, fetch: fetch}
++}
++
++// Price returns the cached price, fetching it when missing or stale.
++func (c *Cache) Price(ctx context.Context, sku string) int64 {
++	if e, ok := c.entries[sku]; ok && e.expires.Before(time.Now()) { ⟪inverted-expiry⟫
++		return e.cents
++	}
++	cents, _ := c.fetch(ctx, sku) ⟪ignored-error⟫
++	c.entries[sku] = entry{cents: cents, expires: time.Now().Add(c.ttl)} ⟪data-race⟫
++	return cents
++}

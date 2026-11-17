@@ -186,6 +186,11 @@ func awardFinished(ctx context.Context, q store.Q, t domain.Task, now time.Time)
 			return err
 		}
 	}
+	if t.Content.ReviewLab != nil {
+		if best, err = store.BestTaskLabScore(ctx, q, t.ID); err != nil {
+			return err
+		}
+	}
 	onTime := domain.OnTime(t, first, now)
 	if _, err := store.InsertPoints(ctx, q, t, domain.TaskPoints(t, best, onTime), onTime, now); err != nil {
 		return fmt.Errorf("award points: %w", err)

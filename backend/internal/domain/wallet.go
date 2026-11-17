@@ -27,10 +27,10 @@ func (t TaskType) BasePoints() int {
 // OnTimeBonusPercent is added when the work was handed in (or finished) by the due time.
 const OnTimeBonusPercent = 25
 
-// TaskPoints is the award for a finished task. Quizzes scale with the best score.
+// TaskPoints is the award for a finished task. Quizzes and practice reviews scale with the best score.
 func TaskPoints(t Task, quizBest int, onTime bool) int {
 	p := t.Type.BasePoints()
-	if t.Type == TaskQuiz {
+	if t.Type == TaskQuiz || t.Content.ReviewLab != nil {
 		p = p * max(0, min(100, quizBest)) / 100
 	}
 	if onTime {

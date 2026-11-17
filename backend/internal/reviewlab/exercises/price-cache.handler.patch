@@ -1,0 +1,16 @@
+@@ 0
++package pricing
++
++import (
++	"encoding/json"
++	"net/http"
++)
++
++// Handler serves GET /prices?sku=ABC-123 with the price in cents.
++func Handler(c *Cache) http.HandlerFunc {
++	return func(w http.ResponseWriter, r *http.Request) {
++		sku := r.URL.Query().Get("sku")
++		w.Header().Set("Content-Type", "application/json")
++		_ = json.NewEncoder(w).Encode(map[string]int64{"cents": c.Price(r.Context(), sku)})
++	}
++}

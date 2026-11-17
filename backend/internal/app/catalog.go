@@ -81,6 +81,9 @@ func (w *Workspace) UpdatePersona(ctx context.Context, u domain.User, id uuid.UU
 	if len(fields) > 0 {
 		return domain.Persona{}, apperr.Validation(fields)
 	}
+	if id == domain.TeamPersonaID {
+		return domain.Persona{}, errNotFound
+	}
 	p, err := store.UpdatePersona(ctx, w.Store.Pool, id, v, archived, expectedVersion, w.Clock.Now())
 	switch {
 	case errors.Is(err, store.ErrDuplicate):

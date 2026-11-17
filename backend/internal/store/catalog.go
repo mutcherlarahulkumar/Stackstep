@@ -34,7 +34,7 @@ func scanPersona(row pgx.Row) (domain.Persona, error) {
 
 // ListPersonas returns personas by name; archived ones only when asked.
 func ListPersonas(ctx context.Context, q Q, includeArchived bool) ([]domain.Persona, error) {
-	rows, err := q.Query(ctx, "SELECT "+personaColsP+" FROM personas p WHERE $1 OR p.archived_at IS NULL ORDER BY lower(p.name) LIMIT 200", includeArchived)
+	rows, err := q.Query(ctx, "SELECT "+personaColsP+" FROM personas p WHERE ($1 OR p.archived_at IS NULL) AND p.id <> $2 ORDER BY lower(p.name) LIMIT 200", includeArchived, domain.TeamPersonaID)
 	if err != nil {
 		return nil, err
 	}
@@ -57,7 +57,7 @@ func GetPersona(ctx context.Context, q Q, id uuid.UUID) (domain.Persona, error) 
 
 // ActivePersonaIDs returns the ids of non-archived personas among ids.
 func ActivePersonaIDs(ctx context.Context, q Q, ids []uuid.UUID) (map[uuid.UUID]bool, error) {
-	rows, err := q.Query(ctx, "SELECT id FROM personas WHERE id = ANY($1) AND archived_at IS NULL", ids)
+	rows, err := q.Query(ctx, "SELECT id FROM personas WHERE id = ANY($1) AND archived_at IS NULL AND id <> $2", ids, domain.TeamPersonaID)
 	if err != nil {
 		return nil, err
 	}
@@ -87,7 +87,7 @@ func InsertPersona(ctx context.Context, q Q, in domain.PersonaInput, now time.Ti
 func UpdatePersona(ctx context.Context, q Q, id uuid.UUID, in domain.PersonaInput, archived bool, expectedVersion int, now time.Time) (domain.Persona, error) {
 	p, err := scanPersona(q.QueryRow(ctx, `UPDATE personas AS p SET name = $2, title = $3, color = $4, auto_reply = $5,
 		archived_at = CASE WHEN $6 THEN COALESCE(p.archived_at, $8) ELSE NULL END, version = p.version + 1, updated_at = $8
-		WHERE p.id = $1 AND p.version = $7 RETURNING `+personaColsP,
+		WHERE p.id = $1 AND p.version = $7 AND p.id <> '00000000-0000-4000-8000-0000000000f0' RETURNING `+personaColsP,
 		id, in.Name, in.Title, string(in.Color), in.AutoReply, archived, expectedVersion, now))
 	if isUnique(err) {
 		return domain.Persona{}, ErrDuplicate
@@ -435,4 +435,12 @@ func InsertFlowWithID(ctx context.Context, q Q, id uuid.UUID, in domain.FlowInpu
 		return domain.Flow{}, ErrDuplicate
 	}
 	return f, err
+}
+
+// EnsureTeamPersona re-creates the reserved team room persona (migration 0017) if it is missing,
+// for example after a reset truncated personas.
+func EnsureTeamPersona(ctx context.Context, q Q) error {
+	_, err := q.Exec(ctx, `INSERT INTO personas (id, name, title, color, auto_reply)
+		VALUES ($1, 'Team room', 'Your whole team', 'slate', true) ON CONFLICT DO NOTHING`, domain.TeamPersonaID)
+	return err
 }

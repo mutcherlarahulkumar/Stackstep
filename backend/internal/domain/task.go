@@ -126,6 +126,7 @@ type Task struct {
 	// Loaded separately (store.EnrichTasks); nil when there is none.
 	Submission *SubmissionRecord
 	Quiz       *QuizStats
+	Lab        *LabStats
 	// SharedNote is the student's note when they shared it; staff views only.
 	SharedNote *TaskNote
 }
@@ -140,6 +141,13 @@ type SubmissionRecord struct {
 	Checks           []HandInCheck // reviewer warnings; filled for staff views only
 	Rubric           []bool        // the reviewer's ticks for this hand-in, nil until reviewed with a rubric
 	ReviewedAt       *time.Time
+}
+
+// LabStats is the student's graded reviews of a task's practice pull request.
+type LabStats struct {
+	Attempts  int
+	BestScore int
+	Passed    bool
 }
 
 // QuizStats summarizes a student's attempts at a quiz task.

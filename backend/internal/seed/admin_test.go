@@ -95,8 +95,8 @@ func TestFlushAndAdmins(t *testing.T) {
 	if count(t, s, `SELECT count(*) FROM users WHERE github_login = 'real-admin' AND role = 'admin'`) != 1 {
 		t.Fatal("real admin removed")
 	}
-	if count(t, s, `SELECT count(*) FROM personas WHERE id = $1`, domain.DefaultPersonaID) != 1 || count(t, s, `SELECT count(*) FROM personas`) != 1 {
-		t.Fatal("personas: want only the default team lead")
+	if count(t, s, `SELECT count(*) FROM personas WHERE id = $1`, domain.DefaultPersonaID) != 1 || count(t, s, `SELECT count(*) FROM personas WHERE id <> $1`, domain.TeamPersonaID) != 1 {
+		t.Fatal("personas: want only the default team lead (and the team room)")
 	}
 	if count(t, s, `SELECT count(*) FROM programs`) == 0 {
 		t.Fatal("programs removed")
@@ -144,7 +144,7 @@ func TestFlushAndAdmins(t *testing.T) {
 	if err := tx(func(q store.Q) error { return Flush(ctx, q, FlushAll) }); err != nil {
 		t.Fatal(err)
 	}
-	if count(t, s, `SELECT count(*) FROM users`) != 0 || count(t, s, `SELECT count(*) FROM personas`) != 1 || count(t, s, `SELECT count(*) FROM programs`) == 0 {
+	if count(t, s, `SELECT count(*) FROM users`) != 0 || count(t, s, `SELECT count(*) FROM personas WHERE id <> $1`, domain.TeamPersonaID) != 1 || count(t, s, `SELECT count(*) FROM programs`) == 0 {
 		t.Fatal("flush all")
 	}
 	if err := tx(func(q store.Q) error { return Flush(ctx, q, "nope") }); err == nil {

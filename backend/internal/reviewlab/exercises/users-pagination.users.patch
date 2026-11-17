@@ -1,0 +1,25 @@
+@@ 1
+ const express = require("express");
+ const db = require("../db");
+ 
+ const router = express.Router();
+ 
+-router.get("/", async (req, res) => {
+-  const users = await db.query("SELECT id, name, email FROM users ORDER BY id");
+-  res.json(users.rows);
+-});
++const PAGE_SIZE = 20;
++
++router.get("/", async (req, res) => {
++  const page = Number(req.query.page) || 1;
++  const limit = Number(req.query.limit) || PAGE_SIZE; ⟪no-cap⟫
++  const offset = page * limit; ⟪off-by-one⟫
++  const search = req.query.q || "";
++  const users = await db.query(
++    `SELECT id, name, email FROM users WHERE name ILIKE '%${search}%' ORDER BY id LIMIT ${limit} OFFSET ${offset}` ⟪sql-injection⟫
++  );
++  const total = db.query("SELECT count(*) FROM users"); ⟪missing-await⟫
++  res.json({ users: users.rows, page, total: total.rows[0].count }); ⟪missing-await⟫
++});
+ 
+ module.exports = router;

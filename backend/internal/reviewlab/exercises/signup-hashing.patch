@@ -1,0 +1,25 @@
+@@ 1
+ import hashlib
+ import logging
+ 
+ from flask import Blueprint, request, jsonify
+ 
+ from .db import get_db
+ 
+ bp = Blueprint("auth", __name__)
+ log = logging.getLogger(__name__)
++
++
++@bp.post("/signup")
++def signup():
++    data = request.get_json()
++    email = data["email"].strip().lower()
++    password = data["password"]
++    log.info("new signup %s with password %s", email, password) ⟪logs-password⟫
++    if len(password) < 4: ⟪weak-minimum⟫
++        return jsonify(error="Password too short"), 400
++    digest = hashlib.md5(password.encode()).hexdigest() ⟪md5⟫
++    db = get_db()
++    db.execute("INSERT INTO users (email, password_hash) VALUES (?, ?)", (email, digest)) ⟪duplicate-email⟫
++    db.commit()
++    return jsonify(ok=True), 201

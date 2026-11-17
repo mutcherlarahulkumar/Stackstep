@@ -1,0 +1,26 @@
+@@ 1
+-import { useState } from "react";
++import { useEffect, useState } from "react";
+ import { searchProducts, type Product } from "../api";
+ 
+ export function SearchBox() {
+   const [query, setQuery] = useState("");
+   const [results, setResults] = useState<Product[]>([]);
+ 
++  useEffect(() => {
++    const timer = setTimeout(async () => { ⟪no-cleanup⟫
++      const found = await searchProducts(query); ⟪race⟫
++      setResults(found); ⟪race⟫
++    }, 300);
++  }, []); ⟪deps⟫
++
+   return (
+     <div>
+       <input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Search" />
+       <ul>
+-        {results.map((p) => <li key={p.id}>{p.name}</li>)}
++        {results.map((p, i) => <li key={i}>{p.name}</li>)} ⟪index-key⟫
+       </ul>
+     </div>
+   );
+ }

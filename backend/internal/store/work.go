@@ -112,6 +112,25 @@ func EnrichTasks(ctx context.Context, q Q, tasks []domain.Task) error {
 		return err
 	}
 
+	rows, err = q.Query(ctx, `SELECT task_id, count(*)::int, max(score), bool_or(passed)
+		FROM review_lab_attempts WHERE task_id = ANY($1) GROUP BY task_id`, ids)
+	if err != nil {
+		return fmt.Errorf("load lab attempts: %w", err)
+	}
+	for rows.Next() {
+		var id uuid.UUID
+		var st domain.LabStats
+		if err := rows.Scan(&id, &st.Attempts, &st.BestScore, &st.Passed); err != nil {
+			rows.Close()
+			return err
+		}
+		tasks[idx[id]].Lab = &st
+	}
+	rows.Close()
+	if err := rows.Err(); err != nil {
+		return err
+	}
+
 	rows, err = q.Query(ctx, `
 		SELECT task_id, count(*)::int, max(score), bool_or(passed),
 		       (array_agg(answers ORDER BY attempt DESC))[1]
