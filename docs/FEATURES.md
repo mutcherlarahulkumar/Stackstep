@@ -86,6 +86,19 @@ phone) and the mobile app (Chats and Tasks tabs).
 - **Notifications (web).** Account menu → Notifications. While the Stackstep tab is in the
   background, students get a browser notification for persona messages, approvals, change
   requests and new tasks. The tab title shows unread counts, e.g. "(2) Workspace".
+- **Team room.** One group chat with the whole team and **Stackbot**, an AI teammate, pinned
+  under the AI helper. `@Name` asks a teammate; otherwise Stackbot answers. Only the intern and
+  their team are in it. Approvals and new badges are celebrated there.
+  ([feature 29](features/29-team-room.md))
+- **Review lab.** Practice code review on pull requests with planted problems, on a review
+  screen built into Stackstep (Conversation, Commits, Files changed, line comments, **Review
+  changes**). Graded by where the comments point; every planted problem is explained after.
+  A code review task can be one of these. ([feature 27](features/27-review-lab.md))
+- **Streaks and badges.** A daily streak and nine badges (First PR merged, 5 reviews passed,
+  On time all week, Bug hunter and more) on the board, the profile, the certificate and the
+  portfolio. ([feature 30](features/30-streaks-badges.md))
+- **Public portfolio.** Off until the intern turns it on: `/p/<login>` shows their shipped
+  work, badges, certificates and passed reviews for recruiters. ([feature 28](features/28-portfolio.md))
 - **Status everywhere.** Every screen has loading, empty, error and offline states. A banner
   appears if the live connection drops, and messages catch up when it returns.
 
@@ -167,6 +180,9 @@ colleges and cohorts, and grant staff access.
   (with the reason), the student, program, dates and numbers.
 - **Certificate:** `/certificate/<code>`. A designed A4 internship certificate with a seal and a
   QR code to the verification page. Print it, save it as PDF, or download a PNG or SVG.
+- **Portfolio:** `/p/<login>` once the intern turns it on. Shipped work, badges, certificates
+  and passed review lab pull requests; nothing private.
+- Certificate pages also list the badges earned during the internship.
 - **Privacy** and **Terms** pages.
 
 ## 7. Web and app side by side
@@ -183,6 +199,10 @@ colleges and cohorts, and grant staff access.
 | Quiz answer key with "Your answer" | ✓ | ✓ |
 | Progress, certificate, "This week" | ✓ | ✓ |
 | DSA practice pad | runs code | shows examples, links to web |
+| Team room (speakers, @mentions, staff speak as) | ✓ | ✓ |
+| Review lab | full review screen | lists them, task card, opens the web |
+| Streak and badges | board strip, badges sheet | board strip, badges screen |
+| Portfolio settings | ✓ | ✓ |
 | Background notifications | browser, while a tab is open | in-app unread badges |
 | Admin: assign task, inbox | ✓ | ✓ |
 | Admin: everything else | desktop web | links to web |

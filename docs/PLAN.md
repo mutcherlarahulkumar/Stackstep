@@ -106,6 +106,10 @@ Each slice goes **backend → mobile app → web**, with E2E before it is called
 | — | Razorpay checkout (automatic payment matching) | coming soon — UPI screenshots are checked by hand until then |
 | — | Certificate artwork | ✅ built — designed A4 certificate (PNG, SVG, PDF) in `05-progress-certificates.md` |
 | — | DSA judge | later |
+| 12 | **Review lab** (practice pull requests with planted problems, graded line comments, code review tasks) | ✅ built — `docs/features/27-review-lab.md` |
+| 13 | **Public portfolio** | ✅ built — `docs/features/28-portfolio.md` |
+| 14 | **Team room** (one group chat per intern with every persona and Stackbot) | ✅ built — `docs/features/29-team-room.md` |
+| 15 | **Streaks and badges** | ✅ built — `docs/features/30-streaks-badges.md` |
 
 Setup and every environment variable: `docs/SETUP.md`.
 

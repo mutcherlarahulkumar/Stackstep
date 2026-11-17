@@ -49,6 +49,13 @@ func (w *Workspace) achievements(ctx context.Context, e domain.Enrollment, save 
 				return err
 			}
 			if created && now.Sub(*b.EarnedAt) <= celebrateWithin && e.Status == domain.EnrollmentActive {
+				student, err := store.GetUser(ctx, q, e.UserID)
+				if err != nil {
+					return err
+				}
+				if err := welcomeOnce(ctx, q, e, student.Name, now); err != nil {
+					return err
+				}
 				if _, _, err := store.InsertMessage(ctx, q, store.NewMessage{
 					EnrollmentID: e.ID, PersonaID: domain.TeamPersonaID, Author: domain.AuthorPersona,
 					Body: domain.BadgeCelebration(b.Def), DeliverAt: now,

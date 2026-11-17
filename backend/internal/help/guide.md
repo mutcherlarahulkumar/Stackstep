@@ -22,6 +22,22 @@ The workspace has your chats on the left, the open conversation in the middle an
 keywords: chat, message, persona, team lead, pm, teammate, reply, bot, automatic, real person, reactions, emoji, react
 Each persona is a member of your team, such as your team lead or PM. They post standups, assign tickets, nudge you and answer questions. Some replies are automatic and say so with a tag, and mentors read the chats and reply as the personas. You can react to any message with an emoji by hovering it on the web or long pressing it in the app. Messages arrive live while you are online.
 
+## Team room and Stackbot
+keywords: team room, group, group chat, everyone, stackbot, bot, mention, @, ask someone, whole team
+The team room is one group chat with your whole team and Stackbot, an AI teammate. Only you and your team are in it, never other interns. Start a message with @ and a name, like @Sam, to ask that person; otherwise Stackbot answers, and its replies are marked automatic. Some teammates are played by mentors, so Stackbot tells you they will answer soon. Approvals and new badges are celebrated there.
+
+## Review lab
+keywords: review lab, code review, practice, pull request, pr review, planted, bugs, diff, comment on line, review changes, approve, request changes
+The review lab has practice pull requests with a few problems planted in them. Open one, go to Files changed, click a line number to comment on a line that is wrong, then press Review changes and pick Comment, Approve or Request changes. You see your score, what you found and what you missed, with an explanation for each. A comment counts when it is on or right next to a planted problem. Comments that point at nothing cost 5 points each after two free ones, and approving a pull request with problems costs 10. The pass mark is 60 percent. Practice as often as you like. When a code review task is a review lab pull request, you get three tries and the best one counts. On the phone app, review lab pull requests open in the web app.
+
+## Streaks and badges
+keywords: streak, badge, badges, medal, achievement, flame, first pr, bug hunter, quiz ace, on time
+Your streak counts the days in a row you worked on your internship: moving a task, sending a message, taking a quiz or reviewing a pull request. Badges are earned by what you do, such as First PR merged, 5 reviews passed, On time all week, Bug hunter and Quiz ace. See them all, with your progress, from the strip on top of your board. Badges show on your certificate and portfolio.
+
+## Your portfolio
+keywords: portfolio, public page, profile, recruiter, share, resume, cv, link, headline
+Your portfolio is a public page for recruiters at /p/ followed by your GitHub username. It is off until you turn it on in Your portfolio in the account menu, where you can also add a one-line headline and copy the link. It shows your finished work with hand-in links, badges, certificates and the review lab pull requests you passed, never your chats, notes, reviews or email.
+
 ## Your task board
 keywords: board, task, ticket, todo, to do, in progress, review, done, kanban, status, due, deadline
 Tasks move across To do, In progress, Waiting for review and Done. Open a task to read the brief, the review criteria, any reading or lessons, and the deadline. Start it to move it to In progress. Tasks that need changes come back with the reviewer's notes. Finishing on time earns more points.

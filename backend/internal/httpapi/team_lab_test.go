@@ -160,8 +160,9 @@ func TestTeamKudos(t *testing.T) {
 			found = true
 		}
 	}
-	if !found {
-		t.Fatalf("no kudos in %+v", msgs)
+	// The welcome still comes first, even though the student never opened the room before.
+	if !found || len(msgs) < 2 || !strings.Contains(msgs[len(msgs)-1].Body, "Welcome to your team room") {
+		t.Fatalf("no kudos after the welcome in %+v", msgs)
 	}
 }
 

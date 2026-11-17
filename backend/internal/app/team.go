@@ -29,20 +29,26 @@ func (w *Workspace) ensureTeamRoom(ctx context.Context, e domain.Enrollment, stu
 		if err := store.LockEnrollmentChat(ctx, q, e.ID); err != nil {
 			return err
 		}
-		has, err := store.HasMessages(ctx, q, e.ID, domain.TeamPersonaID)
-		if err != nil || has {
-			return err
-		}
-		team, err := teamMembers(ctx, q)
-		if err != nil {
-			return err
-		}
-		_, _, err = store.InsertMessage(ctx, q, store.NewMessage{
-			EnrollmentID: e.ID, PersonaID: domain.TeamPersonaID, Author: domain.AuthorPersona,
-			Body: domain.TeamWelcome(studentName, team), DeliverAt: now,
-		}, now)
-		return err
+		return welcomeOnce(ctx, q, e, studentName, now)
 	})
+}
+
+// welcomeOnce posts the welcome if the room has no messages yet. Anything else posted in the
+// room (a shout-out, a badge) calls it first, so the welcome is always the first message.
+func welcomeOnce(ctx context.Context, q store.Q, e domain.Enrollment, studentName string, now time.Time) error {
+	has, err := store.HasMessages(ctx, q, e.ID, domain.TeamPersonaID)
+	if err != nil || has {
+		return err
+	}
+	team, err := teamMembers(ctx, q)
+	if err != nil {
+		return err
+	}
+	_, _, err = store.InsertMessage(ctx, q, store.NewMessage{
+		EnrollmentID: e.ID, PersonaID: domain.TeamPersonaID, Author: domain.AuthorPersona,
+		Body: domain.TeamWelcome(studentName, team), DeliverAt: now.Add(-time.Second),
+	}, now)
+	return err
 }
 
 // teamSpeaker picks who answers a student's team room message: the persona they @mention, or
@@ -158,6 +164,9 @@ func (w *Workspace) teamReply(ctx context.Context, e domain.Enrollment, u domain
 func teamKudos(ctx context.Context, q store.Q, e domain.Enrollment, t domain.Task, now time.Time) error {
 	student, err := store.GetUser(ctx, q, e.UserID)
 	if err != nil {
+		return err
+	}
+	if err := welcomeOnce(ctx, q, e, student.Name, now); err != nil {
 		return err
 	}
 	speaker := t.PersonaID

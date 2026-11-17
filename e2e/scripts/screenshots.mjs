@@ -130,4 +130,18 @@ await shoot("59-attendance-phone-dark", "asha-dev", "/attendance", { width: 390,
 await shoot("60-tour", "asha-dev", "/workspace", { before: async (p) => { await p.getByRole("button", { name: "Account menu" }).click(); await p.getByTestId("menu-tour").click(); await p.getByTestId("tour-next").click(); await p.waitForTimeout(600); } });
 await shoot("61-help", "asha-dev", "/workspace", { before: async (p) => { await p.getByTestId("help-open").click(); await p.getByTestId("help-suggestion").first().click(); await p.getByTestId("help-a").nth(1).waitFor(); } });
 await shoot("62-help-phone", null, "/", { width: 390, height: 844, before: async (p) => { await p.getByTestId("help-open").click(); await p.waitForTimeout(500); } });
+// Features 27 to 30: team room, review lab, badges and the portfolio.
+const openTeam = async (p) => { await p.getByRole("navigation", { name: "Chats" }).getByTestId("thread-Team room").click(); await p.waitForTimeout(800); };
+await shoot("63-team-room", "asha-dev", "/workspace", { before: openTeam });
+await shoot("64-team-room-dark", "asha-dev", "/workspace", { dark: true, before: async (p) => { await openTeam(p); await p.locator("#chat-input").fill("@"); await p.waitForTimeout(300); } });
+await shoot("65-team-room-phone", "asha-dev", "/workspace", { width: 390, height: 844, before: async (p) => { await p.getByTestId("thread-Team room").click(); await p.waitForTimeout(800); } });
+await shoot("66-review-lab", "asha-dev", "/review-lab");
+await shoot("67-review-lab-pr", "asha-dev", "/review-lab/users-pagination", { before: async (p) => { await p.getByTestId("comment-line-11").click(); await p.getByTestId("comment-form").locator("textarea").fill("Page 1 skips the first 20 users."); await p.getByTestId("add-comment").click(); await p.getByTestId("review-changes").click(); await p.waitForTimeout(300); } });
+await shoot("68-review-lab-result-dark", "asha-dev", "/review-lab/users-pagination", { dark: true, before: async (p) => { await p.getByTestId("comment-line-14").click(); await p.getByTestId("comment-form").locator("textarea").fill("SQL injection."); await p.getByTestId("add-comment").click(); await p.getByTestId("review-changes").click(); await p.getByTestId("submit-review").click(); await p.waitForTimeout(1200); } });
+await shoot("69-review-lab-phone", "asha-dev", "/review-lab/modal-a11y", { width: 390, height: 844 });
+await shoot("70-badges", "asha-dev", "/workspace", { before: async (p) => { await p.getByTestId("open-badges").click(); await p.waitForTimeout(500); } });
+await api("asha-dev", "PUT", "/v1/me/portfolio", { public: true, headline: "Frontend intern building accessible React apps" });
+await shoot("71-portfolio", null, "/p/asha-dev");
+await shoot("72-portfolio-phone-dark", null, "/p/asha-dev", { width: 390, height: 844, dark: true });
+await shoot("73-portfolio-settings", "asha-dev", "/portfolio");
 await browser.close();
