@@ -103,3 +103,56 @@ class FadeSwitch extends StatelessWidget {
     child: child,
   );
 }
+
+/// Animation durations that respect the system's reduce-motion setting.
+abstract final class Motion {
+  static Duration of(BuildContext context, Duration d) => MediaQuery.disableAnimationsOf(context) ? Duration.zero : d;
+}
+
+/// Fades and lifts its child in once, after an optional delay (for staggered lists).
+class Enter extends StatefulWidget {
+  const Enter({required this.child, super.key, this.delay = Duration.zero});
+
+  final Widget child;
+  final Duration delay;
+
+  @override
+  State<Enter> createState() => _EnterState();
+}
+
+class _EnterState extends State<Enter> with SingleTickerProviderStateMixin {
+  late final _c = AnimationController(vsync: this, duration: const Duration(milliseconds: 380));
+  late final _curve = CurvedAnimation(parent: _c, curve: Curves.easeOutCubic);
+  Timer? _timer;
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (_c.isAnimating || _c.isCompleted || _timer != null) return;
+    if (MediaQuery.disableAnimationsOf(context)) {
+      _c.value = 1;
+    } else if (widget.delay == Duration.zero) {
+      _c.forward();
+    } else {
+      _timer = Timer(widget.delay, () {
+        if (mounted) _c.forward();
+      });
+    }
+  }
+
+  @override
+  void dispose() {
+    _timer?.cancel();
+    _c.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) => FadeTransition(
+    opacity: _curve,
+    child: SlideTransition(
+      position: Tween(begin: const Offset(0, 0.06), end: Offset.zero).animate(_curve),
+      child: widget.child,
+    ),
+  );
+}

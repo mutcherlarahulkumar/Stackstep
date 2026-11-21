@@ -327,7 +327,7 @@ class _TaskSheetState extends ConsumerState<TaskSheet> {
               children: [
                 PersonaAvatar(persona, size: 20),
                 const SizedBox(width: 6),
-                Text('From ${persona.name} · ${persona.title}', style: t.textTheme.muted),
+                Expanded(child: Text('From ${persona.name} · ${persona.title}', style: t.textTheme.muted)),
               ],
             ),
             const SizedBox(height: Space.xs),
@@ -336,11 +336,13 @@ class _TaskSheetState extends ConsumerState<TaskSheet> {
             children: [
               Icon(LucideIcons.calendarClock, size: 14, color: t.colorScheme.mutedForeground),
               const SizedBox(width: 6),
-              Text(
-                task.status == TaskStatus.done || task.status == TaskStatus.cancelled
-                    ? taskTimeLabel(task, now)
-                    : '${dueLabel(task.dueAt, now)} · ${dateTimeLabel(task.dueAt)}',
-                style: t.textTheme.muted,
+              Expanded(
+                child: Text(
+                  task.status == TaskStatus.done || task.status == TaskStatus.cancelled
+                      ? taskTimeLabel(task, now)
+                      : '${dueLabel(task.dueAt, now)} · ${dateTimeLabel(task.dueAt)}',
+                  style: t.textTheme.muted,
+                ),
               ),
             ],
           ),

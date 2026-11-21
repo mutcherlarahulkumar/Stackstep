@@ -190,6 +190,7 @@ colleges and cohorts, and grant staff access.
 | Feature | Web | App |
 |---|---|---|
 | Sign-in, consent, first-run guide | ✓ | ✓ |
+| Today home (greeting, progress ring, streak, up next, next class, team room, shortcuts) | workspace | ✓ (first tab) |
 | Chat, board, hand-ins, quizzes | ✓ | ✓ |
 | Persona tags, AI privacy note | ✓ | ✓ |
 | AI helper | ✓ | ✓ |

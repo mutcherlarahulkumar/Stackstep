@@ -163,7 +163,10 @@ void main() {
       },
     );
     await pumpApp(tester, client);
-
+    // Students land on Today; their chats are one tap away.
+    expect(find.byKey(const Key('today')), findsOneWidget);
+    await tester.tap(find.widgetWithText(NavigationDestination, 'Chats'));
+    await tester.pumpAndSettle();
     expect(find.text('Chats'), findsWidgets);
     expect(find.text('Priya Sharma'), findsOneWidget);
     expect(find.text('Sam Rivera'), findsOneWidget);
