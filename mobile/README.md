@@ -18,3 +18,15 @@ flutter analyze && flutter test
 
 Layout: `lib/api` (typed models, client, realtime), `lib/core` (config, theme, session),
 `lib/features/*` (screens + controllers), `lib/ui` (shared components).
+
+## App icon and launch screen
+
+The launcher icons (Android and iOS) and launch images are drawn from the brand mark in
+`web/src/app/icon.svg`. To regenerate them after a logo change, run from `mobile/`:
+
+```sh
+python3 tool/brand_icons.py   # needs Pillow
+```
+
+The Android adaptive icon (with a themed, one-colour version for Android 13) is a vector in
+`android/app/src/main/res/drawable/ic_launcher_*.xml`. Launch screens follow light and dark mode.

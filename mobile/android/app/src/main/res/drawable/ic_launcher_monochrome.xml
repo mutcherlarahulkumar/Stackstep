@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Generated from the brand mark (web/src/app/icon.svg); the steps sit inside the 66dp safe zone. -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp" android:height="108dp" android:viewportWidth="108" android:viewportHeight="108">
+    <path android:fillColor="#FFFFFF" android:pathData="M35.30,59.50 H40.80 A2.20,2.20 0 0 1 43.00,61.70 V72.70 A2.20,2.20 0 0 1 40.80,74.90 H35.30 A2.20,2.20 0 0 1 33.10,72.70 V61.70 A2.20,2.20 0 0 1 35.30,59.50 Z"/>
+    <path android:fillColor="#FFFFFF" android:pathData="M51.25,47.40 H56.75 A2.20,2.20 0 0 1 58.95,49.60 V72.70 A2.20,2.20 0 0 1 56.75,74.90 H51.25 A2.20,2.20 0 0 1 49.05,72.70 V49.60 A2.20,2.20 0 0 1 51.25,47.40 Z"/>
+    <path android:fillColor="#FFFFFF" android:pathData="M67.20,33.10 H72.70 A2.20,2.20 0 0 1 74.90,35.30 V72.70 A2.20,2.20 0 0 1 72.70,74.90 H67.20 A2.20,2.20 0 0 1 65.00,72.70 V35.30 A2.20,2.20 0 0 1 67.20,33.10 Z"/>
+</vector>

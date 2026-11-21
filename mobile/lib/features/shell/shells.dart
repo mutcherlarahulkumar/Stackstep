@@ -16,12 +16,14 @@ import 'package:stackstep/features/growth/achievements.dart';
 import 'package:stackstep/features/growth/portfolio_screen.dart';
 import 'package:stackstep/features/growth/review_lab_screen.dart';
 import 'package:stackstep/features/help/help_screen.dart';
+import 'package:stackstep/features/home/today_screen.dart';
 import 'package:stackstep/features/mail/mail_screen.dart';
 import 'package:stackstep/features/progress/progress_screen.dart';
 import 'package:stackstep/features/tasks/board_screen.dart';
 import 'package:stackstep/features/tasks/task_work.dart';
 import 'package:stackstep/shared/brand_mark.dart';
 import 'package:stackstep/shared/format.dart';
+import 'package:stackstep/shared/motion.dart';
 
 class _AccountMenu extends ConsumerWidget {
   const _AccountMenu({required this.user});
@@ -110,6 +112,12 @@ class _StudentShellState extends ConsumerState<StudentShell> {
     maybeShowOnboarding(context, ref, onboarded: widget.me.account.onboarded);
   }
 
+  /// Opens a task on the board, from any tab.
+  void _openTask(String id) => setState(() {
+    _focusTask = id;
+    _tab = 2;
+  });
+
   @override
   Widget build(BuildContext context) {
     final e = widget.me.enrollment!;
@@ -128,9 +136,10 @@ class _StudentShellState extends ConsumerState<StudentShell> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(switch (_tab) {
-                    0 => 'Chats',
-                    1 => 'Your board',
-                    2 => 'Calendar',
+                    0 => 'Today',
+                    1 => 'Chats',
+                    2 => 'Your board',
+                    3 => 'Calendar',
                     _ => 'Mail',
                   }, style: t.textTheme.large),
                   Text(
@@ -147,38 +156,26 @@ class _StudentShellState extends ConsumerState<StudentShell> {
           ],
         ),
         actions: [
-          const ProgressPill(),
+          // Today already shows progress up top.
+          if (_tab != 0) const ProgressPill(),
           _AccountMenu(user: widget.me.user),
         ],
       ),
       body: IndexedStack(
         index: _tab,
         children: [
-          StudentInboxScreen(
-            onOpenTask: (id) => setState(() {
-              _focusTask = id;
-              _tab = 1;
-            }),
-          ),
+          TodayScreen(me: widget.me, onOpenTask: _openTask, onOpenTab: (i) => setState(() => _tab = i)),
+          StudentInboxScreen(onOpenTask: _openTask),
           BoardScreen(focusTaskId: _focusTask, onFocusHandled: () => _focusTask = null),
-          CalendarScreen(
-            onOpenTask: (id) => setState(() {
-              _focusTask = id;
-              _tab = 1;
-            }),
-          ),
-          MailScreen(
-            onOpenTask: (id) => setState(() {
-              _focusTask = id;
-              _tab = 1;
-            }),
-          ),
+          CalendarScreen(onOpenTask: _openTask),
+          MailScreen(onOpenTask: _openTask),
         ],
       ),
       bottomNavigationBar: NavigationBar(
         selectedIndex: _tab,
         onDestinationSelected: (i) => setState(() => _tab = i),
         destinations: [
+          const NavigationDestination(key: Key('nav-today'), icon: Icon(LucideIcons.house), label: 'Today'),
           NavigationDestination(
             icon: _Badged(count: unread, child: const Icon(LucideIcons.messageCircle)),
             label: 'Chats',
@@ -283,7 +280,17 @@ class SplashScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) => Scaffold(
     body: Center(
-      child: Semantics(label: 'Loading Stackstep', child: const BrandMark(size: 64)),
+      child: Semantics(
+        label: 'Loading Stackstep',
+        // The mark eases in from the launch screen's size, so the hand-over feels seamless.
+        child: TweenAnimationBuilder<double>(
+          tween: Tween(begin: 0.85, end: 1),
+          duration: Motion.of(context, const Duration(milliseconds: 600)),
+          curve: Curves.easeOutBack,
+          builder: (_, v, child) => Transform.scale(scale: v, child: child),
+          child: const BrandMark(size: 72),
+        ),
+      ),
     ),
   );
 }
